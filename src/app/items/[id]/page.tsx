@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-
-import { DayPicker } from "react-day-picker";
+import { DayPicker, type DateRange } from "react-day-picker";
 
 type Item = {
   id: number;
@@ -23,11 +22,9 @@ export default function ItemDetailPage() {
   const [item, setItem] = useState<Item | null>(null);
   const [status, setStatus] = useState("Loading...");
 
-  // reservations -> red/disabled ranges
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
-  const [range, setRange] = useState<{ from?: Date; to?: Date }>({});
+  const [range, setRange] = useState<DateRange | undefined>(undefined);
 
-  // keep existing string states so reserve() stays simple
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -42,64 +39,62 @@ export default function ItemDetailPage() {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
-  const run = async () => {
-    try {
-      await fetch("/api/maintenance/expire-pending", { method: "POST" });
-    } catch {}
+    const run = async () => {
+      try {
+        await fetch("/api/maintenance/expire-pending", { method: "POST" });
+      } catch {}
 
-    setStatus("Loading...");
+      setStatus("Loading...");
 
-    // 1) load item
-    const { data: itemData, error: itemErr } = await supabase
-      .from("items")
-      .select("id,title,description,price_per_day,city")
-      .eq("id", itemId)
-      .maybeSingle();
+      // 1) load item
+      const { data: itemData, error: itemErr } = await supabase
+        .from("items")
+        .select("id,title,description,price_per_day,city")
+        .eq("id", itemId)
+        .maybeSingle();
 
-    if (itemErr) {
-      setStatus("Error: " + itemErr.message);
-      return;
-    }
-    if (!itemData) {
-      setStatus("Not found");
-      return;
-    }
-    setItem(itemData as Item);
+      if (itemErr) {
+        setStatus("Error: " + itemErr.message);
+        return;
+      }
+      if (!itemData) {
+        setStatus("Not found");
+        return;
+      }
+      setItem(itemData as Item);
 
-    // 2) load reservations for calendar (include created_at)
-    const { data: reservations, error: rErr } = await supabase
-      .from("reservations")
-      .select("date_from,date_to,status,created_at")
-      .eq("item_id", itemId);
+      // 2) load reservations for calendar (include created_at)
+      const { data: reservations, error: rErr } = await supabase
+        .from("reservations")
+        .select("date_from,date_to,status,created_at")
+        .eq("item_id", itemId);
 
-    if (!rErr && reservations) {
-      const now = Date.now();
-      const ttlMs = 15 * 60 * 1000; // 15 min
+      if (!rErr && reservations) {
+        const now = Date.now();
+        const ttlMs = 15 * 60 * 1000; // 15 min
 
-      const ranges = (reservations as any[])
-        .filter((r) => {
-          if (r.status === "confirmed") return true;
-          if (r.status !== "pending") return false;
+        const ranges = (reservations as any[])
+          .filter((r) => {
+            if (r.status === "confirmed") return true;
+            if (r.status !== "pending") return false;
 
-          // pending blockuje len ak je "fresh"
-          const created = new Date(r.created_at).getTime();
-          return Number.isFinite(created) && now - created <= ttlMs;
-        })
-        .map((r) => ({
-          from: new Date(r.date_from),
-          to: new Date(r.date_to),
-        }));
+            const created = new Date(r.created_at).getTime();
+            return Number.isFinite(created) && now - created <= ttlMs;
+          })
+          .map((r) => ({
+            from: new Date(r.date_from),
+            to: new Date(r.date_to),
+          }));
 
-      setReservedRanges(ranges);
-    }
+        setReservedRanges(ranges);
+      }
 
-    setStatus("");
-  };
+      setStatus("");
+    };
 
-  if (!Number.isFinite(itemId)) return;
-  run();
-}, [itemId]);
-
+    if (!Number.isFinite(itemId)) return;
+    run();
+  }, [itemId]);
 
   const reserve = async () => {
     setStatus("Creating reservation...");
@@ -160,10 +155,9 @@ export default function ItemDetailPage() {
       .single();
 
     if (error) {
-      const msg =
-        error.message.includes("overlaps")
-          ? "This item is already reserved in that date range."
-          : error.message;
+      const msg = error.message.includes("overlaps")
+        ? "This item is already reserved in that date range."
+        : error.message;
 
       setStatus("Error: " + msg);
       return;
@@ -171,6 +165,9 @@ export default function ItemDetailPage() {
 
     router.push(`/payment?reservation_id=${reservation.id}`);
   };
+
+  const selectedFrom = range?.from ? range.from.toISOString().slice(0, 10) : "-";
+  const selectedTo = range?.to ? range.to.toISOString().slice(0, 10) : "-";
 
   return (
     <main className="p-8">
@@ -197,23 +194,16 @@ export default function ItemDetailPage() {
             <DayPicker
               mode="range"
               selected={range}
-              onSelect={(r) => setRange(r ?? {})}
-              disabled={[
-                ...reservedRanges,
-                { before: new Date() },
-              ]}
-              modifiers={{
-                reserved: reservedRanges,
-              }}
+              onSelect={setRange}
+              disabled={[...reservedRanges, { before: new Date() }]}
+              modifiers={{ reserved: reservedRanges }}
               modifiersStyles={{
                 reserved: { backgroundColor: "#7f1d1d", color: "white" },
               }}
             />
 
             <div className="opacity-80">
-              Selected:{" "}
-              {range.from ? range.from.toISOString().slice(0, 10) : "-"} →{" "}
-              {range.to ? range.to.toISOString().slice(0, 10) : "-"}
+              Selected: {selectedFrom} → {selectedTo}
             </div>
 
             <div className="opacity-80">
@@ -224,13 +214,13 @@ export default function ItemDetailPage() {
             <button
               className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
               onClick={() => {
-                const from = range.from ? range.from.toISOString().slice(0, 10) : "";
-                const to = range.to ? range.to.toISOString().slice(0, 10) : "";
+                const from = range?.from ? range.from.toISOString().slice(0, 10) : "";
+                const to = range?.to ? range.to.toISOString().slice(0, 10) : "";
                 setDateFrom(from);
                 setDateTo(to);
                 reserve();
               }}
-              disabled={!range.from || !range.to}
+              disabled={!range?.from || !range?.to}
               type="button"
             >
               Reserve (pay later)
