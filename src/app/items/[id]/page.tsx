@@ -23,7 +23,8 @@ export default function ItemDetailPage() {
   const [status, setStatus] = useState("Loading...");
 
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
-  const [range, setRange] = useState<DateRange | undefined>(undefined);
+  const [range, setRange] = useState<DateRange | undefined>();
+
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -192,15 +193,16 @@ export default function ItemDetailPage() {
             <h2 className="text-lg font-semibold">Reserve</h2>
 
             <DayPicker
-              mode="range"
-              selected={range}
-              onSelect={setRange}
-              disabled={[...reservedRanges, { before: new Date() }]}
-              modifiers={{ reserved: reservedRanges }}
-              modifiersStyles={{
-                reserved: { backgroundColor: "#7f1d1d", color: "white" },
-              }}
-            />
+  mode="range"
+  selected={range}
+  onSelect={(r) => setRange(r)}
+  disabled={[...reservedRanges, { before: new Date() }]}
+  modifiers={{ reserved: reservedRanges }}
+  modifiersStyles={{
+    reserved: { backgroundColor: "#7f1d1d", color: "white" },
+  }}
+/>
+
 
             <div className="opacity-80">
               Selected: {selectedFrom} → {selectedTo}
