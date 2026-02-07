@@ -66,6 +66,11 @@ export default function Home() {
           Items
         </Link>
 
+        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/profile">
+          Profile
+        </Link>
+
+
         <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/reservations">
           My reservations
         </Link>
