@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function PaymentPage() {
+function PaymentInner() {
   const sp = useSearchParams();
   const reservationId = sp.get("reservation_id");
   const [status, setStatus] = useState("Preparing payment...");
@@ -31,7 +31,7 @@ export default function PaymentPage() {
         const json = await res.json();
 
         if (json?.url) {
-          window.location.href = json.url; // neskôr Stripe checkout url
+          window.location.href = json.url;
           return;
         }
 
@@ -60,9 +60,21 @@ export default function PaymentPage() {
       </div>
 
       <div className="mt-6 flex gap-4">
-        <Link className="underline" href="/items">Back to items</Link>
-        <Link className="underline" href="/reservations">My reservations</Link>
+        <Link className="underline" href="/items">
+          Back to items
+        </Link>
+        <Link className="underline" href="/reservations">
+          My reservations
+        </Link>
       </div>
     </main>
+  );
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<main className="p-8">Loading payment...</main>}>
+      <PaymentInner />
+    </Suspense>
   );
 }
