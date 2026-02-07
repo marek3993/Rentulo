@@ -28,7 +28,7 @@ export default function RegisterPage() {
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <input
-          className="w-full rounded border px-3 py-2 text-black"
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -36,7 +36,7 @@ export default function RegisterPage() {
           required
         />
         <input
-          className="w-full rounded border px-3 py-2 text-black"
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
           placeholder="Password (min 6 chars)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
