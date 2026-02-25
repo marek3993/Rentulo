@@ -1,98 +1,78 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 
 export default function Home() {
-  const [status, setStatus] = useState("Connecting to Supabase...");
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const run = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) {
-        setStatus("Supabase error: " + error.message);
-        return;
-      }
-
-      const session = data.session;
-      setStatus("Supabase OK ✅ Session: " + (session ? "YES" : "NO"));
-
-      if (!session) {
-        setRole(null);
-        return;
-      }
-
-      const { data: prof, error: profErr } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .maybeSingle();
-
-      if (profErr) {
-        // nech to neotravuje, len schová admin link
-        setRole(null);
-        return;
-      }
-
-      setRole(prof?.role ?? null);
-    };
-
-    run();
-  }, []);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    setRole(null);
-    setStatus("Supabase OK ✅ Session: NO");
-  };
-
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold">Rentulo MVP</h1>
-      <p className="mt-4">{status}</p>
+    <div className="space-y-10">
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <div className="max-w-2xl space-y-4">
+          <h1 className="text-3xl font-semibold leading-tight">
+            Rent tools locally. Earn from gear you already own.
+          </h1>
+          <p className="text-white/80">
+            Marketplace for short-term rentals of tools and equipment. Built-in reservations, owner
+            workflow, admin oversight, reviews, and disputes.
+          </p>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/register">
-          Register
-        </Link>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link
+              href="/items"
+              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+            >
+              Browse items
+            </Link>
+            <Link
+              href="/items/new"
+              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+            >
+              List an item
+            </Link>
+          </div>
 
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/login">
-          Login
-        </Link>
+          <div className="text-sm text-white/60">
+            Demo: payments disabled · focus on reservations flow
+          </div>
+        </div>
+      </section>
 
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/items">
-          Items
-        </Link>
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="text-lg font-semibold">Reservations</div>
+          <p className="mt-2 text-white/80">
+            Date-range booking with overlap protection. Owner confirms/cancels.
+          </p>
+        </div>
 
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/profile">
-          Profile
-        </Link>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="text-lg font-semibold">Trust layer</div>
+          <p className="mt-2 text-white/80">
+            Item + owner ratings. Reviews allowed only after confirmed rental.
+          </p>
+        </div>
 
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="text-lg font-semibold">Disputes</div>
+          <p className="mt-2 text-white/80">
+            Basic dispute workflow for confirmed reservations with owner/admin visibility.
+          </p>
+        </div>
+      </section>
 
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/reservations">
-          My reservations
-        </Link>
-
-        <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/owner/reservations">
-          Owner reservations
-        </Link>
-
-        {role === "admin" ? (
-          <Link className="rounded border px-3 py-1 hover:bg-white/10" href="/admin/items">
-            Admin items
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-xl font-semibold">Ready to show the demo?</div>
+            <div className="mt-1 text-white/80">
+              Open Items → choose an item → reserve → manage as owner/admin.
+            </div>
+          </div>
+          <Link
+            href="/items"
+            className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+          >
+            Go to Items
           </Link>
-        ) : null}
-
-        <button
-          className="rounded border px-3 py-1 hover:bg-white/10"
-          onClick={logout}
-          type="button"
-        >
-          Logout
-        </button>
-      </div>
-    </main>
+        </div>
+      </section>
+    </div>
   );
 }
