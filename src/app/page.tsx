@@ -6,11 +6,11 @@ export default function Home() {
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="max-w-2xl space-y-4">
           <h1 className="text-3xl font-semibold leading-tight">
-            Rent tools locally. Earn from gear you already own.
+            Požičajte si náradie lokálne. Zarábajte na vybavení, ktoré už máte.
           </h1>
           <p className="text-white/80">
-            Marketplace for short-term rentals of tools and equipment. Built-in reservations, owner
-            workflow, admin oversight, reviews, and disputes.
+            Trhovisko pre krátkodobý prenájom náradia a techniky. Rezervácie, workflow prenajímateľa,
+            admin dohľad, hodnotenia a reklamácie.
           </p>
 
           <div className="flex flex-wrap gap-3 pt-2">
@@ -18,41 +18,39 @@ export default function Home() {
               href="/items"
               className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
             >
-              Browse items
+              Zobraziť ponuky
             </Link>
             <Link
               href="/items/new"
               className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
             >
-              List an item
+              Pridať ponuku
             </Link>
           </div>
 
-          <div className="text-sm text-white/60">
-            Demo: payments disabled · focus on reservations flow
-          </div>
+          <div className="text-sm text-white/60">Demo: platby zatiaľ vypnuté · fokus na rezervácie</div>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="text-lg font-semibold">Reservations</div>
+          <div className="text-lg font-semibold">Rezervácie</div>
           <p className="mt-2 text-white/80">
-            Date-range booking with overlap protection. Owner confirms/cancels.
+            Výber rozsahu dátumov s kontrolou prekryvov. Prenajímateľ potvrdí/zruší.
           </p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="text-lg font-semibold">Trust layer</div>
+          <div className="text-lg font-semibold">Dôvera</div>
           <p className="mt-2 text-white/80">
-            Item + owner ratings. Reviews allowed only after confirmed rental.
+            Hodnotenia položky aj prenajímateľa. Recenzia až po potvrdenej rezervácii.
           </p>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="text-lg font-semibold">Disputes</div>
+          <div className="text-lg font-semibold">Reklamácie</div>
           <p className="mt-2 text-white/80">
-            Basic dispute workflow for confirmed reservations with owner/admin visibility.
+            Základný proces reklamácie pre potvrdené rezervácie s prehľadom pre prenajímateľa/admina.
           </p>
         </div>
       </section>
@@ -60,16 +58,16 @@ export default function Home() {
       <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xl font-semibold">Ready to show the demo?</div>
+            <div className="text-xl font-semibold">Chcete vidieť demo?</div>
             <div className="mt-1 text-white/80">
-              Open Items → choose an item → reserve → manage as owner/admin.
+              Otvorte Ponuky → detail položky → rezervácia → správa ako prenajímateľ/admin.
             </div>
           </div>
           <Link
             href="/items"
             className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
           >
-            Go to Items
+            Ísť na ponuky
           </Link>
         </div>
       </section>

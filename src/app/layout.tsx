@@ -16,19 +16,28 @@ function Nav() {
 
         <nav className="flex flex-wrap items-center gap-2">
           <Link className="rounded border border-white/15 px-3 py-1 hover:bg-white/10" href="/items">
-            Items
+            Ponuky
           </Link>
-          <Link className="rounded border border-white/15 px-3 py-1 hover:bg-white/10" href="/reservations">
-            Reservations
+          <Link
+            className="rounded border border-white/15 px-3 py-1 hover:bg-white/10"
+            href="/reservations"
+          >
+            Rezervácie
           </Link>
-          <Link className="rounded border border-white/15 px-3 py-1 hover:bg-white/10" href="/owner/reservations">
-            Owner
+          <Link
+            className="rounded border border-white/15 px-3 py-1 hover:bg-white/10"
+            href="/owner/reservations"
+          >
+            Prenajímateľ
           </Link>
-          <Link className="rounded border border-white/15 px-3 py-1 hover:bg-white/10" href="/admin/items">
-            Admin
+          <Link
+            className="rounded border border-white/15 px-3 py-1 hover:bg-white/10"
+            href="/admin/items"
+          >
+            Administrácia
           </Link>
           <Link className="rounded border border-white/15 px-3 py-1 hover:bg-white/10" href="/profile">
-            Profile
+            Profil
           </Link>
         </nav>
       </div>
@@ -38,7 +47,7 @@ function Nav() {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="sk">
       <body className="min-h-screen bg-neutral-950 text-white">
         <Nav />
         <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
