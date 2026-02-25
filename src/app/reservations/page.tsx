@@ -78,6 +78,7 @@ export default function ReservationsPage() {
         {items.map((r) => {
           const canPay = r.status === "pending" && r.payment_status === "unpaid";
           const canCancel = r.status !== "cancelled";
+          const canDispute = r.status === "confirmed";
 
           return (
             <li key={r.id} className="rounded border p-4">
@@ -104,6 +105,15 @@ export default function ReservationsPage() {
                     Pay
                   </Link>
                 ) : null}
+
+                {canDispute ? (
+                  <Link
+                  className="rounded border px-4 py-2 hover:bg-white/10"
+                  href={`/disputes/new?reservation_id=${r.id}`}
+                         >
+                  Dispute
+  </Link>
+) : null}
 
                 {canCancel ? (
                   <button
