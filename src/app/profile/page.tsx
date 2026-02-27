@@ -9,6 +9,7 @@ export default function ProfilePage() {
 
   const [fullName, setFullName] = useState("");
   const [city, setCity] = useState("");
+  const [bio, setBio] = useState("");
 
   const [instagramUrl, setInstagramUrl] = useState("");
   const [facebookUrl, setFacebookUrl] = useState("");
@@ -33,7 +34,9 @@ export default function ProfilePage() {
 
       const { data: prof, error } = await supabase
         .from("profiles")
-        .select("full_name,city,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
+        .select(
+          "full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url"
+        )
         .eq("id", userId)
         .maybeSingle();
 
@@ -45,6 +48,7 @@ export default function ProfilePage() {
       if (prof) {
         setFullName(prof.full_name ?? "");
         setCity(prof.city ?? "");
+        setBio(prof.bio ?? "");
 
         setInstagramUrl(prof.instagram_url ?? "");
         setFacebookUrl(prof.facebook_url ?? "");
@@ -119,6 +123,7 @@ export default function ProfilePage() {
       .update({
         full_name: fullName || null,
         city: city || null,
+        bio: bio || null,
         instagram_url: instagramUrl || null,
         facebook_url: facebookUrl || null,
         linkedin_url: linkedinUrl || null,
@@ -135,76 +140,104 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="max-w-md">
+    <main className="max-w-2xl">
       <h1 className="text-2xl font-semibold">Profil</h1>
       {status ? <p className="mt-4">{status}</p> : null}
 
-      <div className="mt-6 space-y-4 rounded border border-white/10 bg-white/5 p-4">
-        <div className="font-semibold">Profilová fotka</div>
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+          <div className="font-semibold">Profilová fotka</div>
 
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="avatar" className="h-24 w-24 rounded-full object-cover border border-white/10" />
-        ) : (
-          <div className="h-24 w-24 rounded-full border border-white/10 bg-white/5" />
-        )}
+          <div className="flex items-center gap-3">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="avatar"
+                className="h-20 w-20 rounded-full object-cover border border-white/10"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-full border border-white/10 bg-white/5" />
+            )}
 
-        <input
-          type="file"
-          accept="image/*"
-          disabled={uploading}
-          onChange={(e) => uploadAvatar(e.target.files?.[0] ?? null)}
-        />
-      </div>
-
-      <div className="mt-6 space-y-4">
-        <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-          placeholder="Meno a priezvisko"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-
-        <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-          placeholder="Mesto"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-        />
-
-        <div className="rounded border border-white/10 bg-white/5 p-4 space-y-3">
-          <div className="font-semibold">Sociálne siete</div>
+            <div className="text-sm text-white/70">
+              Nahraj fotku pre dôveryhodnosť profilu.
+            </div>
+          </div>
 
           <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-            placeholder="Instagram URL"
-            value={instagramUrl}
-            onChange={(e) => setInstagramUrl(e.target.value)}
-          />
-
-          <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-            placeholder="Facebook URL"
-            value={facebookUrl}
-            onChange={(e) => setFacebookUrl(e.target.value)}
-          />
-
-          <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-            placeholder="LinkedIn URL"
-            value={linkedinUrl}
-            onChange={(e) => setLinkedinUrl(e.target.value)}
-          />
-
-          <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black placeholder-black/60"
-            placeholder="Webstránka"
-            value={websiteUrl}
-            onChange={(e) => setWebsiteUrl(e.target.value)}
+            type="file"
+            accept="image/*"
+            disabled={uploading}
+            onChange={(e) => uploadAvatar(e.target.files?.[0] ?? null)}
           />
         </div>
 
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+          <div className="font-semibold">Základné údaje</div>
+
+          <label className="block">
+            <div className="mb-1 text-white/80">Meno a priezvisko</div>
+            <input
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="napr. Marek Benda"
+            />
+          </label>
+
+          <label className="block">
+            <div className="mb-1 text-white/80">Mesto</div>
+            <input
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="napr. Bratislava"
+            />
+          </label>
+
+          <label className="block">
+            <div className="mb-1 text-white/80">Popis (bio)</div>
+            <textarea
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              rows={4}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Krátko o sebe, čo prenajímaš, pravidlá, spoľahlivosť..."
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
+        <div className="font-semibold">Sociálne siete</div>
+
+        <input
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          placeholder="Instagram URL"
+          value={instagramUrl}
+          onChange={(e) => setInstagramUrl(e.target.value)}
+        />
+        <input
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          placeholder="Facebook URL"
+          value={facebookUrl}
+          onChange={(e) => setFacebookUrl(e.target.value)}
+        />
+        <input
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          placeholder="LinkedIn URL"
+          value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)}
+        />
+        <input
+          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          placeholder="Webstránka"
+          value={websiteUrl}
+          onChange={(e) => setWebsiteUrl(e.target.value)}
+        />
+
         <button
-          className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+          className="mt-2 rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
           onClick={save}
           type="button"
         >
