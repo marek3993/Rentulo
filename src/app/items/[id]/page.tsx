@@ -19,6 +19,7 @@ type OwnerProfile = {
   id: string;
   full_name: string | null;
   city: string | null;
+  bio: string | null;
   avatar_path: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
@@ -26,7 +27,13 @@ type OwnerProfile = {
   website_url: string | null;
 };
 
-type ReviewRow = { id: number; rating: number; comment: string | null; created_at: string };
+type ReviewRow = {
+  id: number;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  reviewee_type: string;
+};
 
 export default function ItemDetailPage() {
   const params = useParams<{ id: string }>();
@@ -39,12 +46,16 @@ export default function ItemDetailPage() {
   const [owner, setOwner] = useState<OwnerProfile | null>(null);
 
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   // kalendár
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
   const [range, setRange] = useState<DateRange | undefined>();
 
-  // hodnotenia
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  // ratingy + recenzie
   const [itemReviewAvg, setItemReviewAvg] = useState<number | null>(null);
   const [itemReviewCount, setItemReviewCount] = useState(0);
 
@@ -52,12 +63,6 @@ export default function ItemDetailPage() {
   const [ownerReviewCount, setOwnerReviewCount] = useState(0);
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [myRating, setMyRating] = useState(5);
-  const [myComment, setMyComment] = useState("");
-
-  // dátumy (pre insert do DB)
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   const selectedFrom = range?.from ? range.from.toISOString().slice(0, 10) : "";
   const selectedTo = range?.to ? range.to.toISOString().slice(0, 10) : "";
@@ -71,6 +76,16 @@ export default function ItemDetailPage() {
     const diff = Math.floor((d2 - d1) / msPerDay) + 1;
     return Math.max(diff, 0);
   }, [dateFrom, dateTo]);
+
+  const estimatedTotal = useMemo(() => {
+    if (!item || days <= 0) return null;
+    return (days * item.price_per_day).toFixed(2);
+  }, [days, item]);
+
+  const ownerAvatarUrl = useMemo(() => {
+    if (!owner?.avatar_path) return null;
+    return supabase.storage.from("avatars").getPublicUrl(owner.avatar_path).data.publicUrl;
+  }, [owner?.avatar_path]);
 
   useEffect(() => {
     const run = async () => {
@@ -91,11 +106,10 @@ export default function ItemDetailPage() {
         setStatus("Nenájdené");
         return;
       }
-
       const typedItem = itemData as Item;
       setItem(typedItem);
 
-      // 2) fotky itemu
+      // 2) fotky
       const { data: imgs, error: imgErr } = await supabase
         .from("item_images")
         .select("path")
@@ -107,24 +121,23 @@ export default function ItemDetailPage() {
           (x) => supabase.storage.from("item-images").getPublicUrl(x.path).data.publicUrl
         );
         setImageUrls(urls);
+        setActiveImage(urls[0] ?? null);
       } else {
         setImageUrls([]);
+        setActiveImage(null);
       }
 
-      // 3) prenajímateľ profil
+      // 3) profil prenajímateľa
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,full_name,city,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
+        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
         .eq("id", typedItem.owner_id)
         .maybeSingle();
 
-      if (!profErr && prof) {
-        setOwner(prof as any);
-      } else {
-        setOwner(null);
-      }
+      if (!profErr && prof) setOwner(prof as any);
+      else setOwner(null);
 
-      // 4) rezervácie pre kalendár (pending len “fresh” 15 min + confirmed)
+      // 4) rezervácie pre kalendár
       const { data: reservations, error: rErr } = await supabase
         .from("reservations")
         .select("date_from,date_to,status,created_at")
@@ -148,7 +161,7 @@ export default function ItemDetailPage() {
         setReservedRanges([]);
       }
 
-      // 5) item rating aggregate
+      // 5) rating agregácie + recenzie (read-only)
       const { data: itemAgg } = await supabase
         .from("reviews")
         .select("rating")
@@ -159,9 +172,11 @@ export default function ItemDetailPage() {
         const ratings = itemAgg.map((x: any) => Number(x.rating)).filter((n) => Number.isFinite(n));
         setItemReviewCount(ratings.length);
         setItemReviewAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+      } else {
+        setItemReviewCount(0);
+        setItemReviewAvg(null);
       }
 
-      // 6) owner rating aggregate
       const { data: ownerAgg } = await supabase
         .from("reviews")
         .select("rating")
@@ -172,12 +187,14 @@ export default function ItemDetailPage() {
         const ratings = ownerAgg.map((x: any) => Number(x.rating)).filter((n) => Number.isFinite(n));
         setOwnerReviewCount(ratings.length);
         setOwnerReviewAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+      } else {
+        setOwnerReviewCount(0);
+        setOwnerReviewAvg(null);
       }
 
-      // 7) list reviews (item)
       const { data: list } = await supabase
         .from("reviews")
-        .select("id,rating,comment,created_at")
+        .select("id,rating,comment,created_at,reviewee_type")
         .eq("reviewee_type", "item")
         .eq("item_id", itemId)
         .order("id", { ascending: false });
@@ -190,16 +207,6 @@ export default function ItemDetailPage() {
     if (!Number.isFinite(itemId)) return;
     run();
   }, [itemId]);
-
-  const ownerAvatarUrl = useMemo(() => {
-    if (!owner?.avatar_path) return null;
-    return supabase.storage.from("avatars").getPublicUrl(owner.avatar_path).data.publicUrl;
-  }, [owner?.avatar_path]);
-
-  const estimatedTotal = useMemo(() => {
-    if (!item || days <= 0) return null;
-    return (days * item.price_per_day).toFixed(2);
-  }, [days, item]);
 
   const reserve = async () => {
     setStatus("Vytváram rezerváciu...");
@@ -267,71 +274,6 @@ export default function ItemDetailPage() {
     router.push(`/payment?reservation_id=${reservation.id}`);
   };
 
-  const submitReview = async () => {
-    setStatus("Odosielam hodnotenie...");
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
-    if (!userId) {
-      router.push("/login");
-      return;
-    }
-
-    if (!item) {
-      setStatus("Položka nie je načítaná.");
-      return;
-    }
-
-    if (myRating < 1 || myRating > 5) {
-      setStatus("Hodnotenie musí byť 1–5.");
-      return;
-    }
-
-    // latest confirmed reservation by this user for this item
-    const { data: resv, error: resvErr } = await supabase
-      .from("reservations")
-      .select("id")
-      .eq("item_id", itemId)
-      .eq("renter_id", userId)
-      .eq("status", "confirmed")
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (resvErr || !resv) {
-      setStatus("Hodnotiť môžete až po potvrdenej rezervácii.");
-      return;
-    }
-
-    const { error } = await supabase.from("reviews").insert({
-      reservation_id: resv.id,
-      item_id: itemId,
-      reviewer_id: userId,
-      rating: myRating,
-      comment: myComment.trim() ? myComment.trim() : null,
-      reviewee_type: "item",
-      reviewee_id: item.owner_id,
-    });
-
-    if (error) {
-      setStatus("Chyba: " + error.message);
-      return;
-    }
-
-    setMyComment("");
-    setStatus("Hodnotenie pridané ✅");
-
-    // refresh list quickly
-    const { data: list } = await supabase
-      .from("reviews")
-      .select("id,rating,comment,created_at")
-      .eq("reviewee_type", "item")
-      .eq("item_id", itemId)
-      .order("id", { ascending: false });
-
-    setReviews(((list ?? []) as any) as ReviewRow[]);
-  };
-
   if (status === "Nenájdené") {
     return (
       <main>
@@ -353,25 +295,37 @@ export default function ItemDetailPage() {
 
       {item ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* Ľavý stĺpec: fotky + info */}
+          {/* Ľavo: galéria + info + recenzie */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Galéria */}
+            {/* GALÉRIA: veľký obrázok + mini náhľady */}
             {imageUrls.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                {imageUrls.map((u) => (
-                  <img
-                    key={u}
-                    src={u}
-                    alt="fotka"
-                    className="h-40 w-full rounded-xl border border-white/10 object-cover"
-                  />
-                ))}
+              <div className="space-y-3">
+                <img
+                  src={activeImage ?? imageUrls[0]}
+                  alt="hlavná fotka"
+                  className="h-[420px] w-full rounded-2xl border border-white/10 object-cover"
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  {imageUrls.map((u) => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setActiveImage(u)}
+                      className={`rounded-xl border p-0.5 ${
+                        (activeImage ?? imageUrls[0]) === u ? "border-white" : "border-white/10"
+                      }`}
+                    >
+                      <img src={u} alt="náhľad" className="h-20 w-28 rounded-lg object-cover" />
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
-              <div className="h-56 w-full rounded-xl border border-white/10 bg-white/5" />
+              <div className="h-56 w-full rounded-2xl border border-white/10 bg-white/5" />
             )}
 
-            {/* Nadpis + meta */}
+            {/* INFO */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <h1 className="text-2xl font-semibold">{item.title}</h1>
               <div className="mt-2 text-white/80">
@@ -386,19 +340,22 @@ export default function ItemDetailPage() {
               )}
             </div>
 
-            {/* Hodnotenia */}
+            {/* HODNOTENIA (len info, bez formulára) */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
-              <div className="flex flex-wrap gap-6">
+              <div className="flex flex-wrap gap-8">
                 <div>
-                  <div className="font-semibold">Hodnotenie položky</div>
-                  <div className="text-white/80">
-                    {itemReviewAvg !== null ? itemReviewAvg.toFixed(2) : "-"} ⭐ ({itemReviewCount})
+                  <div className="text-white/70 text-sm">Hodnotenie položky</div>
+                  <div className="text-white/90 font-semibold">
+                    {itemReviewAvg !== null ? itemReviewAvg.toFixed(2) : "-"} ⭐{" "}
+                    <span className="text-white/60 font-normal">({itemReviewCount})</span>
                   </div>
                 </div>
+
                 <div>
-                  <div className="font-semibold">Hodnotenie prenajímateľa</div>
-                  <div className="text-white/80">
-                    {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐ ({ownerReviewCount})
+                  <div className="text-white/70 text-sm">Hodnotenie prenajímateľa</div>
+                  <div className="text-white/90 font-semibold">
+                    {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐{" "}
+                    <span className="text-white/60 font-normal">({ownerReviewCount})</span>
                   </div>
                 </div>
               </div>
@@ -424,49 +381,15 @@ export default function ItemDetailPage() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-white/10 p-4">
-                <div className="font-semibold">Pridať hodnotenie</div>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-white/70">Hodnotenie:</span>
-                  <select
-                    className="rounded border border-white/20 bg-white px-2 py-1 text-black"
-                    value={myRating}
-                    onChange={(e) => setMyRating(Number(e.target.value))}
-                  >
-                    {[5, 4, 3, 2, 1].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <textarea
-                  className="mt-3 w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  rows={3}
-                  placeholder="Komentár (voliteľné)"
-                  value={myComment}
-                  onChange={(e) => setMyComment(e.target.value)}
-                />
-
-                <button
-                  className="mt-3 rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                  onClick={submitReview}
-                  type="button"
-                >
-                  Odoslať hodnotenie
-                </button>
-
-                <div className="mt-2 text-sm text-white/60">
-                  Hodnotenie je povolené až po potvrdenej rezervácii.
-                </div>
+              <div className="text-sm text-white/60">
+                Hodnotenie sa bude pridávať až po potvrdení odovzdania/vyzdvihnutia (neskôr).
               </div>
             </div>
           </div>
 
           {/* Pravý stĺpec: prenajímateľ + rezervácia */}
           <div className="space-y-4">
-            {/* Prenajímateľ karta */}
+            {/* Prenajímateľ */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <div className="font-semibold">Prenajímateľ</div>
 
@@ -487,13 +410,19 @@ export default function ItemDetailPage() {
                 </div>
               </div>
 
+              {owner?.bio ? (
+                <div className="mt-3 whitespace-pre-wrap text-sm text-white/80">{owner.bio}</div>
+              ) : (
+                <div className="mt-3 text-sm text-white/60">Bez popisu profilu.</div>
+              )}
+
               {(owner?.website_url ||
                 owner?.instagram_url ||
                 owner?.facebook_url ||
                 owner?.linkedin_url) ? (
                 <div className="mt-4 space-y-2 text-sm">
                   {owner.website_url ? (
-                    <a className="underline text-white/80" href={owner.website_url} target="_blank" rel="noreferrer">
+                    <a className="underline text-white/80 block" href={owner.website_url} target="_blank" rel="noreferrer">
                       Web
                     </a>
                   ) : null}
@@ -513,12 +442,10 @@ export default function ItemDetailPage() {
                     </a>
                   ) : null}
                 </div>
-              ) : (
-                <div className="mt-4 text-sm text-white/60">Bez sociálnych sietí.</div>
-              )}
+              ) : null}
             </div>
 
-            {/* Rezervácia karta */}
+            {/* Rezervácia */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
               <div className="font-semibold">Rezervácia</div>
 
