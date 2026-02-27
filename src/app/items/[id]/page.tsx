@@ -297,6 +297,22 @@ export default function ItemDetailPage() {
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {/* Ľavo: galéria + info + recenzie */}
           <div className="lg:col-span-2 space-y-4">
+
+            {/* INFO */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+              <h1 className="text-2xl font-semibold">{item.title}</h1>
+              <div className="mt-2 text-white/80">
+                <strong>{item.price_per_day} €</strong> <span className="text-white/60">/ deň</span>
+                {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+              </div>
+
+              {item.description ? (
+                <p className="mt-4 text-white/80 whitespace-pre-wrap">{item.description}</p>
+              ) : (
+                <p className="mt-4 text-white/60">Bez popisu.</p>
+              )}
+            </div>
+            
             {/* GALÉRIA: veľký obrázok + mini náhľady */}
             {imageUrls.length > 0 ? (
               <div className="space-y-3">
@@ -325,20 +341,7 @@ export default function ItemDetailPage() {
               <div className="h-56 w-full rounded-2xl border border-white/10 bg-white/5" />
             )}
 
-            {/* INFO */}
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h1 className="text-2xl font-semibold">{item.title}</h1>
-              <div className="mt-2 text-white/80">
-                <strong>{item.price_per_day} €</strong> <span className="text-white/60">/ deň</span>
-                {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
-              </div>
-
-              {item.description ? (
-                <p className="mt-4 text-white/80 whitespace-pre-wrap">{item.description}</p>
-              ) : (
-                <p className="mt-4 text-white/60">Bez popisu.</p>
-              )}
-            </div>
+            
 
             {/* HODNOTENIA (len info, bez formulára) */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
