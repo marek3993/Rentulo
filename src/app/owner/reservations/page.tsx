@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { KpiCard, Notice, Pagination, Section, SelectField, TextField } from "@/components/owner/OwnerUI";
@@ -19,10 +19,9 @@ const PAGE_SIZE = 10;
 
 export default function OwnerReservationsPage() {
   const router = useRouter();
-  const sp = useSearchParams();
 
-  const presetReservationId = sp.get("reservation_id") ?? "";
-  const presetItemId = sp.get("item_id") ?? "";
+  const [presetReservationId, setPresetReservationId] = useState("");
+  const [presetItemId, setPresetItemId] = useState("");
 
   const [status, setStatus] = useState("Načítavam…");
 
@@ -199,12 +198,17 @@ export default function OwnerReservationsPage() {
     setStatus("");
   };
 
-  useEffect(() => {
-    // initial presets
-    if (presetReservationId) setQ(presetReservationId);
-    if (presetItemId) setItemFilter(presetItemId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const reservationId = params.get("reservation_id") ?? "";
+  const itemId = params.get("item_id") ?? "";
+
+  setPresetReservationId(reservationId);
+  setPresetItemId(itemId);
+
+  if (reservationId) setQ(reservationId);
+  if (itemId) setItemFilter(itemId);
+}, []);
 
   useEffect(() => {
     const run = async () => {
@@ -411,3 +415,4 @@ export default function OwnerReservationsPage() {
     </main>
   );
 }
+
