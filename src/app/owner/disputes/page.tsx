@@ -1,118 +1,230 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { Badge, KpiCard, Notice, Pagination, Section, SelectField, TextField } from "@/components/owner/OwnerUI";
 
-type Row = {
+type DisputeRow = {
   id: number;
-  reservation_id: number;
-  item_id: number;
-  renter_id: string;
-  reason: string;
-  details: string | null;
-  status: "open" | "in_review" | "resolved" | "rejected";
-  created_at: string;
+  reservation_id: number | null;
+  status?: string | null;
+  created_at?: string | null;
+  reason?: string | null;
+  message?: string | null;
+  details?: string | null;
 };
+
+const PAGE_SIZE = 12;
 
 export default function OwnerDisputesPage() {
   const router = useRouter();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [status, setStatus] = useState("Loading...");
+
+  const [status, setStatus] = useState("Načítavam…");
+  const [rows, setRows] = useState<DisputeRow[]>([]);
+  const [total, setTotal] = useState(0);
+
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("newest");
+
+  const derivedStatuses = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      const s = (r.status ?? "").trim();
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "sk"));
+  }, [rows]);
+
+  const statusOptions = useMemo(() => {
+    return [{ value: "all", label: "Všetky" }, ...derivedStatuses.map((s) => ({ value: s, label: s }))];
+  }, [derivedStatuses]);
+
+  const openCount = useMemo(() => rows.filter((r) => (r.status ?? "").toLowerCase() === "open").length, [rows]);
+  const closedCount = useMemo(() => rows.filter((r) => ["closed", "resolved"].includes((r.status ?? "").toLowerCase())).length, [rows]);
 
   const load = async () => {
     const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) {
+    const userId = sess.session?.user.id;
+
+    if (!userId) {
       router.push("/login");
       return;
     }
 
-    const { data, error } = await supabase
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    // IMPORTANT:
+    // Ideálne nech je RLS nastavené tak, aby owner videl len disputes na svojich itemoch.
+    // Ak RLS ešte nie je, doplň ho v SQL sekcii nižšie.
+    let req = supabase
       .from("disputes")
-      .select("id,reservation_id,item_id,renter_id,reason,details,status,created_at")
-      .order("id", { ascending: false });
+      .select("*", { count: "exact" })
+      .order(sort === "oldest" ? "id" : "id", { ascending: sort === "oldest" });
+
+    const queryText = q.trim();
+    if (queryText) {
+      if (/^\d+$/.test(queryText)) {
+        // allow quick jump by dispute id
+        req = req.eq("id", Number(queryText));
+      }
+      // else: keep as global text only client-side (schema unknown)
+    }
+
+    const { data, error, count } = await req.range(from, to);
 
     if (error) {
-      setStatus("Error: " + error.message);
+      setStatus("Chyba: " + error.message);
       return;
     }
 
-    setRows((data ?? []) as any);
+    let list = (data ?? []) as any as DisputeRow[];
+
+    // client-side status filter (safe even if column differs)
+    if (statusFilter !== "all") {
+      list = list.filter((r) => (r.status ?? "").toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    setRows(list);
+    setTotal(count ?? 0);
     setStatus("");
   };
 
   useEffect(() => {
-    load();
+    load().catch((e: any) => setStatus("Chyba: " + (e?.message ?? "neznáma chyba")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const updateStatus = async (id: number, next: Row["status"]) => {
-    setStatus("Updating...");
-    const { error } = await supabase.from("disputes").update({ status: next }).eq("id", id);
-    if (error) {
-      setStatus("Error: " + error.message);
-      return;
-    }
-    await load();
-  };
+  }, [page, q, statusFilter, sort]);
 
   return (
-    <main className="p-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Owner: disputes</h1>
-        <Link className="underline" href="/items">
-          Items
-        </Link>
+    <main className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold">Reklamácie</h2>
+        <p className="mt-1 text-white/60">
+          Prehľad reklamácií (disputes). Z tejto stránky sa preklikneš na súvisiacu rezerváciu.
+        </p>
       </div>
 
-      {status ? <p className="mt-4">{status}</p> : null}
+      {status ? <Notice text={status} /> : null}
 
-      <ul className="mt-6 space-y-3">
-        {rows.map((d) => (
-          <li key={d.id} className="rounded border p-4">
-            <div className="flex flex-wrap gap-2">
-              <strong>#{d.id}</strong>
-              <span className="opacity-80">Reservation: {d.reservation_id}</span>
-              <span className="opacity-80">Item: {d.item_id}</span>
-              <span className="opacity-80">Renter: {d.renter_id}</span>
-            </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <KpiCard title="Zobrazené" value={rows.length} hint="Počet v aktuálnom zozname" />
+        <KpiCard title="Otvorené (orientačne)" value={openCount} hint='Počíta len status="open" v načítanej strane' />
+        <KpiCard title="Uzavreté (orientačne)" value={closedCount} hint='Počíta len status="closed/resolved" v načítanej strane' />
+      </div>
 
-            <div className="mt-2">
-              Status: <strong>{d.status}</strong>
-            </div>
+      <Section title="Vyhľadávanie a filtre" subtitle="Schéma disputes sa môže líšiť – preto je filter konzervatívny a bezpečný.">
+        <div className="grid gap-3 md:grid-cols-3">
+          <TextField
+            id="q"
+            label="Hľadať"
+            value={q}
+            onChange={(v) => {
+              setQ(v);
+              setPage(1);
+            }}
+            placeholder="Číslo reklamácie (ID)"
+          />
 
-            <div className="mt-2 opacity-80">
-              <div className="font-medium">{d.reason}</div>
-              {d.details ? <div className="mt-1">{d.details}</div> : null}
-            </div>
+          <SelectField
+            id="st"
+            label="Stav"
+            value={statusFilter}
+            onChange={(v) => {
+              setStatusFilter(v);
+              setPage(1);
+            }}
+            options={statusOptions}
+          />
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                className="rounded border px-3 py-1 hover:bg-white/10"
-                onClick={() => updateStatus(d.id, "in_review")}
-                type="button"
-              >
-                In review
-              </button>
-              <button
-                className="rounded border px-3 py-1 hover:bg-white/10"
-                onClick={() => updateStatus(d.id, "resolved")}
-                type="button"
-              >
-                Resolved
-              </button>
-              <button
-                className="rounded border px-3 py-1 hover:bg-white/10"
-                onClick={() => updateStatus(d.id, "rejected")}
-                type="button"
-              >
-                Rejected
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+          <SelectField
+            id="sort"
+            label="Triedenie"
+            value={sort}
+            onChange={(v) => {
+              setSort(v);
+              setPage(1);
+            }}
+            options={[
+              { value: "newest", label: "Najnovšie" },
+              { value: "oldest", label: "Najstaršie" },
+            ]}
+          />
+        </div>
+      </Section>
+
+      <Section title="Zoznam reklamácií" subtitle={`Zobrazené: ${rows.length} z ${total}`}>
+        {rows.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
+            Žiadne reklamácie podľa zvolených filtrov.
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {rows.map((d) => {
+              const st = (d.status ?? "unknown").toString();
+              const badgeTone =
+                st.toLowerCase() === "open"
+                  ? "warning"
+                  : ["closed", "resolved"].includes(st.toLowerCase())
+                  ? "success"
+                  : "neutral";
+
+              return (
+                <li key={d.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm text-white/60">
+                        Reklamácia <strong className="text-white">#{d.id}</strong>
+                      </div>
+                      <div className="mt-1 text-white/80">
+                        Rezervácia:{" "}
+                        <strong className="text-white">
+                          {d.reservation_id ?? "—"}
+                        </strong>
+                      </div>
+                      {d.created_at ? (
+                        <div className="mt-1 text-sm text-white/60">
+                          Vytvorené: {new Date(d.created_at).toLocaleDateString("sk-SK")}
+                        </div>
+                      ) : null}
+
+                      {d.reason ? <div className="mt-2 text-sm text-white/70">Dôvod: {d.reason}</div> : null}
+                    </div>
+
+                    <Badge tone={badgeTone as any}>{st}</Badge>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {d.reservation_id ? (
+                      <Link
+                        className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
+                        href={`/owner/reservations?reservation_id=${d.reservation_id}`}
+                      >
+                        Otvoriť rezerváciu
+                      </Link>
+                    ) : null}
+
+                    <button
+                      type="button"
+                      className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => navigator.clipboard.writeText(String(d.id))}
+                    >
+                      Skopírovať ID
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <div className="mt-4">
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </div>
+      </Section>
     </main>
   );
 }
