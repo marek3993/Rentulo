@@ -10,72 +10,200 @@ type Item = {
   description: string | null;
   price_per_day: number;
   city: string | null;
+  postal_code?: string | null;
   is_active?: boolean;
+  distance_km?: number | null;
+};
+
+type GeoapifyFeature = {
+  properties?: {
+    formatted?: string;
+    city?: string;
+    postcode?: string;
+    lat?: number;
+    lon?: number;
+  };
 };
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string>>({});
   const [status, setStatus] = useState("Načítavam...");
-  const [cityFilter, setCityFilter] = useState("");
 
-  const filtered = useMemo(() => {
-    const q = cityFilter.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => (i.city ?? "").toLowerCase().includes(q));
-  }, [items, cityFilter]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [radiusKm, setRadiusKm] = useState("20");
+
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
+
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [selectedLabel, setSelectedLabel] = useState("");
+
+  const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
+
+  const titleOnlyFiltered = useMemo(() => {
+    return items;
+  }, [items]);
+
+  const loadImages = async (rows: Item[]) => {
+    const ids = rows.map((x) => x.id);
+    if (ids.length === 0) {
+      setImageMap({});
+      return;
+    }
+
+    const { data: imgs, error: imgErr } = await supabase
+      .from("item_images")
+      .select("item_id,path")
+      .in("item_id", ids)
+      .order("id", { ascending: true });
+
+    if (imgErr) {
+      setImageMap({});
+      return;
+    }
+
+    const map: Record<number, string> = {};
+    for (const im of (imgs ?? []) as any[]) {
+      if (!map[im.item_id]) {
+        const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
+        map[im.item_id] = pub.publicUrl;
+      }
+    }
+
+    setImageMap(map);
+  };
+
+  const loadDefaultItems = async () => {
+    setStatus("Načítavam...");
+
+    const { data, error } = await supabase
+      .from("items")
+      .select("id,title,description,price_per_day,city,postal_code,is_active")
+      .eq("is_active", true)
+      .order("id", { ascending: false });
+
+    if (error) {
+      setStatus("Chyba: " + error.message);
+      return;
+    }
+
+    const rows = ((data ?? []) as Item[]).map((x) => ({ ...x, distance_km: null }));
+    setItems(rows);
+    await loadImages(rows);
+    setStatus("");
+  };
+
+  const loadNearbyItems = async (lat: number, lng: number, label: string) => {
+    setStatus("Hľadám ponuky v okolí...");
+
+    const { data, error } = await supabase.rpc("search_items_near", {
+      search_lat: lat,
+      search_lng: lng,
+      radius_km: Number(radiusKm),
+    });
+
+    if (error) {
+      setStatus("Chyba: " + error.message);
+      return;
+    }
+
+    const rows = (data ?? []) as Item[];
+    setItems(rows);
+    await loadImages(rows);
+    setSelectedLat(lat);
+    setSelectedLng(lng);
+    setSelectedLabel(label);
+    setStatus("");
+  };
 
   useEffect(() => {
-    const run = async () => {
-      setStatus("Načítavam...");
-
-      const { data, error } = await supabase
-        .from("items")
-        .select("id,title,description,price_per_day,city,is_active")
-        .eq("is_active", true)
-        .order("id", { ascending: false });
-
-      if (error) {
-        setStatus("Chyba: " + error.message);
-        return;
-      }
-
-      const rows = (data ?? []) as Item[];
-      setItems(rows);
-
-      const ids = rows.map((x) => x.id);
-      if (ids.length === 0) {
-        setImageMap({});
-        setStatus("");
-        return;
-      }
-
-      const { data: imgs, error: imgErr } = await supabase
-        .from("item_images")
-        .select("item_id,path")
-        .in("item_id", ids)
-        .order("id", { ascending: true });
-
-      if (imgErr) {
-        setImageMap({});
-        setStatus("");
-        return;
-      }
-
-      const map: Record<number, string> = {};
-      for (const im of (imgs ?? []) as any[]) {
-        if (!map[im.item_id]) {
-          const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
-          map[im.item_id] = pub.publicUrl;
-        }
-      }
-
-      setImageMap(map);
-      setStatus("");
-    };
-
-    run();
+    loadDefaultItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+
+    if (!geoKey || q.length < 2) {
+      setLocationResults([]);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setSearchingLocation(true);
+
+        const url =
+          `https://api.geoapify.com/v1/geocode/autocomplete` +
+          `?text=${encodeURIComponent(q)}` +
+          `&lang=sk` +
+          `&limit=5` +
+          `&filter=countrycode:sk` +
+          `&apiKey=${geoKey}`;
+
+        const res = await fetch(url);
+        const json = await res.json();
+        setLocationResults(json?.features ?? []);
+      } catch {
+        setLocationResults([]);
+      } finally {
+        setSearchingLocation(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(t);
+  }, [searchQuery, geoKey]);
+
+  const selectLocation = async (feature: GeoapifyFeature) => {
+    const p = feature.properties ?? {};
+    const lat = typeof p.lat === "number" ? p.lat : null;
+    const lng = typeof p.lon === "number" ? p.lon : null;
+    const label = p.formatted ?? [p.city, p.postcode].filter(Boolean).join(", ");
+
+    if (lat === null || lng === null) {
+      setStatus("Chyba: lokalita nemá súradnice.");
+      return;
+    }
+
+    setSearchQuery(label);
+    setLocationResults([]);
+    await loadNearbyItems(lat, lng, label);
+  };
+
+  const useMyLocation = async () => {
+    if (!navigator.geolocation) {
+      setStatus("Tento prehliadač nepodporuje geolokáciu.");
+      return;
+    }
+
+    setStatus("Zisťujem tvoju polohu...");
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        await loadNearbyItems(lat, lng, "Moja poloha");
+      },
+      () => {
+        setStatus("Nepodarilo sa získať tvoju polohu.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    );
+  };
+
+  const resetSearch = async () => {
+    setSearchQuery("");
+    setLocationResults([]);
+    setSelectedLat(null);
+    setSelectedLng(null);
+    setSelectedLabel("");
+    await loadDefaultItems();
+  };
 
   return (
     <main className="space-y-6">
@@ -84,7 +212,7 @@ export default function ItemsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Ponuky</h1>
             <p className="mt-1 text-white/60">
-              Prezrite si dostupné veci na prenájom vo vašom okolí.
+              Vyhľadávaj podľa mesta, PSČ alebo podľa svojej aktuálnej polohy.
             </p>
           </div>
 
@@ -97,29 +225,95 @@ export default function ItemsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm text-white/70">Filtrovanie podľa mesta</div>
-          <input
-            className="mt-2 w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-            placeholder="napr. Trnava"
-            value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
-          />
-        </div>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <h2 className="text-lg font-semibold">Vyhľadávanie v okolí</h2>
+        <p className="mt-1 text-sm text-white/60">
+          Zadaj mesto alebo PSČ, vyber lokalitu a nastav okruh.
+        </p>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm text-white/70">Tip</div>
-          <div className="mt-2 text-white/80">
-            Klikni na ponuku a otvorí sa detail s fotkami, prenajímateľom a rezerváciou.
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="md:col-span-2">
+            <div className="mb-1 text-sm text-white/70">Mesto alebo PSČ</div>
+            <input
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              placeholder="napr. Trnava alebo 91701"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+
+            {searchingLocation ? (
+              <div className="mt-2 text-sm text-white/60">Hľadám lokality...</div>
+            ) : null}
+
+            {locationResults.length > 0 ? (
+              <div className="mt-2 rounded-xl border border-white/10 overflow-hidden">
+                {locationResults.map((f, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectLocation(f)}
+                    className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10"
+                  >
+                    {f.properties?.formatted ?? "Neznáma lokalita"}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div>
+            <div className="mb-1 text-sm text-white/70">Okruh</div>
+            <select
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(e.target.value)}
+            >
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="15">15 km</option>
+              <option value="20">20 km</option>
+              <option value="50">50 km</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="mb-1 text-sm text-white/70">Akcie</div>
+            <button
+              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+              type="button"
+              onClick={useMyLocation}
+            >
+              V mojej blízkosti
+            </button>
+
+            <button
+              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+              type="button"
+              onClick={resetSearch}
+            >
+              Zrušiť filter
+            </button>
           </div>
         </div>
+
+        {selectedLabel ? (
+          <div className="mt-4 text-sm text-white/70">
+            Aktuálne hľadanie: <strong className="text-white">{selectedLabel}</strong> v okruhu{" "}
+            <strong className="text-white">{radiusKm} km</strong>
+          </div>
+        ) : null}
       </div>
 
       {status ? <p>{status}</p> : null}
 
+      {titleOnlyFiltered.length === 0 && !status ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
+          Nenašli sa žiadne ponuky.
+        </div>
+      ) : null}
+
       <ul className="grid gap-4 md:grid-cols-2">
-        {filtered.map((item) => (
+        {titleOnlyFiltered.map((item) => (
           <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <Link href={`/items/${item.id}`} className="block">
               {imageMap[item.id] ? (
@@ -137,7 +331,12 @@ export default function ItemsPage() {
               <div className="mt-1 text-white/80">
                 {item.price_per_day} € <span className="text-white/60">/ deň</span>
                 {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+                {item.postal_code ? <span className="text-white/60"> · {item.postal_code}</span> : null}
               </div>
+
+              {item.distance_km !== null && item.distance_km !== undefined ? (
+                <div className="mt-1 text-sm text-white/60">Vzdialenosť: {item.distance_km} km</div>
+              ) : null}
 
               {item.description ? (
                 <div className="mt-2 line-clamp-2 text-white/70">{item.description}</div>
