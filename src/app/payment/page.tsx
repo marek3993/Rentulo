@@ -114,12 +114,41 @@ function PaymentInner() {
               </button>
 
               <button
-                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                onClick={() => setStatus("Platba zlyhala (demo).")}
-                type="button"
-              >
-                Simulovať zlyhanie
-              </button>
+  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+  onClick={async () => {
+    if (!Number.isFinite(reservationId)) return;
+
+    setStatus("Simulujem zlyhanie platby...");
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
+
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("reservations")
+      .update({
+        payment_provider: "demo",
+        payment_status: "failed",
+      })
+      .eq("id", reservationId)
+      .eq("renter_id", userId);
+
+    if (error) {
+      setStatus("Chyba: " + error.message);
+      return;
+    }
+
+    setStatus("Platba zlyhala (demo)");
+    router.push("/reservations");
+  }}
+  type="button"
+>
+  Simulovať zlyhanie
+</button>
             </div>
           </div>
         ) : null}
