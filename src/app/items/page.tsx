@@ -230,11 +230,11 @@ export default function ItemsPage() {
           Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
         </p>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
-          <div className="lg:col-span-2">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr_1fr] items-start">
+          <div>
             <div className="mb-1 text-sm text-white/70">Mesto alebo PSČ</div>
             <input
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
               placeholder="napr. Trnava alebo 91701"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -263,7 +263,7 @@ export default function ItemsPage() {
           <div>
             <div className="mb-1 text-sm text-white/70">Okruh</div>
             <select
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
               value={radiusKm}
               onChange={(e) => setRadiusKm(e.target.value)}
             >
@@ -275,32 +275,33 @@ export default function ItemsPage() {
             </select>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div>
             <div className="mb-1 text-sm text-white/70">Akcie</div>
+            <div className="grid gap-2">
+              <button
+                className="h-12 rounded-xl bg-white px-4 font-medium text-black hover:bg-white/90"
+                type="button"
+                onClick={searchByTypedLocation}
+              >
+                Hľadať podľa lokality
+              </button>
 
-            <button
-              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
-              type="button"
-              onClick={searchByTypedLocation}
-            >
-              Hľadať podľa lokality
-            </button>
+              <button
+                className="h-12 rounded-xl border border-white/15 px-4 hover:bg-white/10"
+                type="button"
+                onClick={useMyLocation}
+              >
+                V mojej blízkosti
+              </button>
 
-            <button
-              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-              type="button"
-              onClick={useMyLocation}
-            >
-              V mojej blízkosti
-            </button>
-
-            <button
-              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-              type="button"
-              onClick={resetSearch}
-            >
-              Zrušiť filter
-            </button>
+              <button
+                className="h-12 rounded-xl border border-white/15 px-4 hover:bg-white/10"
+                type="button"
+                onClick={resetSearch}
+              >
+                Zrušiť filter
+              </button>
+            </div>
           </div>
         </div>
 
