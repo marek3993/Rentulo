@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = {
@@ -36,15 +36,8 @@ export default function ItemsPage() {
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
 
-  const [selectedLat, setSelectedLat] = useState<number | null>(null);
-  const [selectedLng, setSelectedLng] = useState<number | null>(null);
   const [selectedLabel, setSelectedLabel] = useState("");
-
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
-
-  const titleOnlyFiltered = useMemo(() => {
-    return items;
-  }, [items]);
 
   const loadImages = async (rows: Item[]) => {
     const ids = rows.map((x) => x.id);
@@ -92,6 +85,7 @@ export default function ItemsPage() {
     const rows = ((data ?? []) as Item[]).map((x) => ({ ...x, distance_km: null }));
     setItems(rows);
     await loadImages(rows);
+    setSelectedLabel("");
     setStatus("");
   };
 
@@ -112,8 +106,6 @@ export default function ItemsPage() {
     const rows = (data ?? []) as Item[];
     setItems(rows);
     await loadImages(rows);
-    setSelectedLat(lat);
-    setSelectedLng(lng);
     setSelectedLabel(label);
     setStatus("");
   };
@@ -156,7 +148,7 @@ export default function ItemsPage() {
     return () => clearTimeout(t);
   }, [searchQuery, geoKey]);
 
-  const selectLocation = async (feature: GeoapifyFeature) => {
+  const runSearchFromFeature = async (feature: GeoapifyFeature) => {
     const p = feature.properties ?? {};
     const lat = typeof p.lat === "number" ? p.lat : null;
     const lng = typeof p.lon === "number" ? p.lon : null;
@@ -172,6 +164,15 @@ export default function ItemsPage() {
     await loadNearbyItems(lat, lng, label);
   };
 
+  const searchByTypedLocation = async () => {
+    if (locationResults.length === 0) {
+      setStatus("Najprv vyber lokalitu zo zoznamu návrhov.");
+      return;
+    }
+
+    await runSearchFromFeature(locationResults[0]);
+  };
+
   const useMyLocation = async () => {
     if (!navigator.geolocation) {
       setStatus("Tento prehliadač nepodporuje geolokáciu.");
@@ -184,7 +185,8 @@ export default function ItemsPage() {
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        await loadNearbyItems(lat, lng, "Moja poloha");
+        setLocationResults([]);
+        await loadNearbyItems(lat, lng, "moja poloha");
       },
       () => {
         setStatus("Nepodarilo sa získať tvoju polohu.");
@@ -199,9 +201,6 @@ export default function ItemsPage() {
   const resetSearch = async () => {
     setSearchQuery("");
     setLocationResults([]);
-    setSelectedLat(null);
-    setSelectedLng(null);
-    setSelectedLabel("");
     await loadDefaultItems();
   };
 
@@ -212,7 +211,7 @@ export default function ItemsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Ponuky</h1>
             <p className="mt-1 text-white/60">
-              Vyhľadávaj podľa mesta, PSČ alebo podľa svojej aktuálnej polohy.
+              Hľadaj podľa mesta, PSČ alebo podľa svojej aktuálnej polohy.
             </p>
           </div>
 
@@ -226,13 +225,13 @@ export default function ItemsPage() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <h2 className="text-lg font-semibold">Vyhľadávanie v okolí</h2>
+        <h2 className="text-lg font-semibold">Vyhľadávanie podľa lokality</h2>
         <p className="mt-1 text-sm text-white/60">
-          Zadaj mesto alebo PSČ, vyber lokalitu a nastav okruh.
+          Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
         </p>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <div className="md:col-span-2">
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+          <div className="lg:col-span-2">
             <div className="mb-1 text-sm text-white/70">Mesto alebo PSČ</div>
             <input
               className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
@@ -251,7 +250,7 @@ export default function ItemsPage() {
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => selectLocation(f)}
+                    onClick={() => runSearchFromFeature(f)}
                     className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10"
                   >
                     {f.properties?.formatted ?? "Neznáma lokalita"}
@@ -278,8 +277,17 @@ export default function ItemsPage() {
 
           <div className="flex flex-col gap-2">
             <div className="mb-1 text-sm text-white/70">Akcie</div>
+
             <button
               className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+              type="button"
+              onClick={searchByTypedLocation}
+            >
+              Hľadať podľa lokality
+            </button>
+
+            <button
+              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
               type="button"
               onClick={useMyLocation}
             >
@@ -306,14 +314,14 @@ export default function ItemsPage() {
 
       {status ? <p>{status}</p> : null}
 
-      {titleOnlyFiltered.length === 0 && !status ? (
+      {items.length === 0 && !status ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
           Nenašli sa žiadne ponuky.
         </div>
       ) : null}
 
       <ul className="grid gap-4 md:grid-cols-2">
-        {titleOnlyFiltered.map((item) => (
+        {items.map((item) => (
           <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <Link href={`/items/${item.id}`} className="block">
               {imageMap[item.id] ? (
