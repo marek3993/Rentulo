@@ -18,12 +18,24 @@ type GeoapifyFeature = {
   };
 };
 
+const CATEGORIES = [
+  "Náradie",
+  "Záhrada",
+  "Stavebné stroje",
+  "Auto-moto",
+  "Elektronika",
+  "Dom a dielňa",
+  "Šport a voľný čas",
+  "Ostatné",
+];
+
 export default function NewItemPage() {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [pricePerDay, setPricePerDay] = useState("10");
+  const [category, setCategory] = useState("Náradie");
 
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -131,7 +143,6 @@ export default function NewItemPage() {
 
   const selectAddress = (feature: GeoapifyFeature) => {
     const p = feature.properties ?? {};
-
     const street = [p.street, p.housenumber].filter(Boolean).join(" ").trim();
 
     setAddressQuery(p.formatted ?? "");
@@ -204,6 +215,13 @@ export default function NewItemPage() {
       const itemId = Number(data);
       if (!Number.isFinite(itemId)) throw new Error("Nepodarilo sa vytvoriť ponuku.");
 
+      const { error: categoryErr } = await supabase
+        .from("items")
+        .update({ category })
+        .eq("id", itemId);
+
+      if (categoryErr) throw new Error(categoryErr.message);
+
       if (images.length > 0) {
         await uploadImagesForItem(userId, itemId);
       }
@@ -247,6 +265,22 @@ export default function NewItemPage() {
                 disabled={saving}
                 placeholder="napr. Vrtačka DeWalt 18V"
               />
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Kategória *</div>
+              <select
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={saving}
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="block">
@@ -407,6 +441,7 @@ export default function NewItemPage() {
 
             <div className="text-sm text-white/70">
               <div>Názov: <strong className="text-white">{title || "-"}</strong></div>
+              <div>Kategória: <strong className="text-white">{category || "-"}</strong></div>
               <div>Mesto: <strong className="text-white">{city || "-"}</strong></div>
               <div>PSČ: <strong className="text-white">{postalCode || "-"}</strong></div>
               <div>Cena: <strong className="text-white">{pricePerDay || "0"} € / deň</strong></div>

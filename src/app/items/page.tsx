@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = {
@@ -11,6 +11,7 @@ type Item = {
   price_per_day: number;
   city: string | null;
   postal_code?: string | null;
+  category?: string | null;
   is_active?: boolean;
   distance_km?: number | null;
 };
@@ -25,6 +26,18 @@ type GeoapifyFeature = {
   };
 };
 
+const CATEGORIES = [
+  "Všetky kategórie",
+  "Náradie",
+  "Záhrada",
+  "Stavebné stroje",
+  "Auto-moto",
+  "Elektronika",
+  "Dom a dielňa",
+  "Šport a voľný čas",
+  "Ostatné",
+];
+
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string>>({});
@@ -32,12 +45,18 @@ export default function ItemsPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [radiusKm, setRadiusKm] = useState("20");
+  const [categoryFilter, setCategoryFilter] = useState("Všetky kategórie");
 
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
 
   const [selectedLabel, setSelectedLabel] = useState("");
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
+
+  const filteredItems = useMemo(() => {
+    if (categoryFilter === "Všetky kategórie") return items;
+    return items.filter((item) => item.category === categoryFilter);
+  }, [items, categoryFilter]);
 
   const loadImages = async (rows: Item[]) => {
     const ids = rows.map((x) => x.id);
@@ -73,7 +92,7 @@ export default function ItemsPage() {
 
     const { data, error } = await supabase
       .from("items")
-      .select("id,title,description,price_per_day,city,postal_code,is_active")
+      .select("id,title,description,price_per_day,city,postal_code,category,is_active")
       .eq("is_active", true)
       .order("id", { ascending: false });
 
@@ -201,6 +220,7 @@ export default function ItemsPage() {
   const resetSearch = async () => {
     setSearchQuery("");
     setLocationResults([]);
+    setCategoryFilter("Všetky kategórie");
     await loadDefaultItems();
   };
 
@@ -211,7 +231,7 @@ export default function ItemsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Ponuky</h1>
             <p className="mt-1 text-white/60">
-              Hľadaj podľa mesta, PSČ alebo podľa svojej aktuálnej polohy.
+              Hľadaj podľa mesta, PSČ, kategórie alebo podľa svojej aktuálnej polohy.
             </p>
           </div>
 
@@ -230,7 +250,7 @@ export default function ItemsPage() {
           Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
         </p>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr_1fr] items-start">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr] items-start">
           <div>
             <div className="mb-1 text-sm text-white/70">Mesto alebo PSČ</div>
             <input
@@ -276,6 +296,21 @@ export default function ItemsPage() {
           </div>
 
           <div>
+            <div className="mb-1 text-sm text-white/70">Kategória</div>
+            <select
+              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <div className="mb-1 text-sm text-white/70">Akcie</div>
             <div className="grid gap-2">
               <button
@@ -309,20 +344,25 @@ export default function ItemsPage() {
           <div className="mt-4 text-sm text-white/70">
             Aktuálne hľadanie: <strong className="text-white">{selectedLabel}</strong> v okruhu{" "}
             <strong className="text-white">{radiusKm} km</strong>
+            {categoryFilter !== "Všetky kategórie" ? (
+              <>
+                {" "}· kategória <strong className="text-white">{categoryFilter}</strong>
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
 
       {status ? <p>{status}</p> : null}
 
-      {items.length === 0 && !status ? (
+      {filteredItems.length === 0 && !status ? (
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
           Nenašli sa žiadne ponuky.
         </div>
       ) : null}
 
       <ul className="grid gap-4 md:grid-cols-2">
-        {items.map((item) => (
+        {filteredItems.map((item) => (
           <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <Link href={`/items/${item.id}`} className="block">
               {imageMap[item.id] ? (
@@ -334,6 +374,12 @@ export default function ItemsPage() {
               ) : (
                 <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
               )}
+
+              {item.category ? (
+                <div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
+                  {item.category}
+                </div>
+              ) : null}
 
               <div className="text-lg font-semibold">{item.title}</div>
 
