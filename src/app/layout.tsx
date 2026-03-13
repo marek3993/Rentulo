@@ -1,5 +1,6 @@
 import "./globals.css";
 import Link from "next/link";
+import NotificationBell from "@/components/NotificationBell";
 
 export const metadata = {
   title: "Rentulo",
@@ -61,13 +62,14 @@ function Nav() {
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:flex-1 lg:pl-6">
-          <nav className="flex flex-wrap items-center gap-2">
-            <NavLink href="/items">Ponuky</NavLink>
-            <NavLink href="/reservations">Moje rezervácie</NavLink>
-            <NavLink href="/owner/items">Prenajímam</NavLink>
-            <NavLink href="/profile">Profil</NavLink>
-            <NavLink href="/admin/items">Administrácia</NavLink>
-          </nav>
+         <nav className="flex flex-wrap items-center gap-2">
+  <NavLink href="/items">Ponuky</NavLink>
+  <NavLink href="/reservations">Moje rezervácie</NavLink>
+  <NavLink href="/owner/items">Prenajímam</NavLink>
+  <NavLink href="/profile">Profil</NavLink>
+  <NavLink href="/admin/items">Administrácia</NavLink>
+  <NotificationBell />
+  </nav>
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <SecondaryNavLink href="/login">Prihlásiť</SecondaryNavLink>
