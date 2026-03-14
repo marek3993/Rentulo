@@ -1,5 +1,7 @@
 import "./globals.css";
 import ClientNav from "@/components/ClientNav";
+import NotificationToaster from "@/components/NotificationToaster";
+
 
 export const metadata = {
   title: "Rentulo",
