@@ -53,7 +53,39 @@ export default function NotificationsPage() {
   };
 
   useEffect(() => {
-    load();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setup = async () => {
+      await load();
+
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+      if (!userId) return;
+
+      channel = supabase
+        .channel(`notifications-page-${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${userId}`,
+          },
+          async () => {
+            await load();
+          }
+        )
+        .subscribe();
+    };
+
+    setup();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
