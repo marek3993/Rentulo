@@ -23,7 +23,6 @@ function formatDate(dateStr: string) {
 
 export default function NotificationsPage() {
   const router = useRouter();
-
   const [rows, setRows] = useState<NotificationRow[]>([]);
   const [status, setStatus] = useState("Načítavam...");
 
@@ -65,9 +64,7 @@ export default function NotificationsPage() {
       .eq("id", id);
 
     if (!error) {
-      setRows((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
+      setRows((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
     }
   };
 
@@ -145,9 +142,7 @@ export default function NotificationsPage() {
           <li
             key={n.id}
             className={`rounded-2xl border p-5 ${
-              n.is_read
-                ? "border-white/10 bg-white/5"
-                : "border-white/20 bg-white/10"
+              n.is_read ? "border-white/10 bg-white/5" : "border-white/20 bg-white/10"
             }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -163,9 +158,7 @@ export default function NotificationsPage() {
 
                 {n.body ? <div className="text-white/80">{n.body}</div> : null}
 
-                <div className="text-sm text-white/50">
-                  {formatDate(n.created_at)}
-                </div>
+                <div className="text-sm text-white/50">{formatDate(n.created_at)}</div>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -184,9 +177,7 @@ export default function NotificationsPage() {
                     href={n.link}
                     className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
                     onClick={() => {
-                      if (!n.is_read) {
-                        markOneRead(n.id);
-                      }
+                      if (!n.is_read) markOneRead(n.id);
                     }}
                   >
                     Otvoriť

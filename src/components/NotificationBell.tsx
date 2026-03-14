@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function NotificationBell() {
   const [count, setCount] = useState(0);
-  const [ready, setReady] = useState(false);
 
   const loadUnreadCount = async () => {
     const { data: sess } = await supabase.auth.getSession();
@@ -14,7 +13,6 @@ export default function NotificationBell() {
 
     if (!userId) {
       setCount(0);
-      setReady(true);
       return;
     }
 
@@ -27,13 +25,10 @@ export default function NotificationBell() {
     if (!error) {
       setCount(count ?? 0);
     }
-
-    setReady(true);
   };
 
   useEffect(() => {
     loadUnreadCount();
-
     const interval = setInterval(loadUnreadCount, 15000);
     return () => clearInterval(interval);
   }, []);
@@ -50,7 +45,7 @@ export default function NotificationBell() {
         <span>Upozornenia</span>
       </span>
 
-      {ready && count > 0 ? (
+      {count > 0 ? (
         <span className="absolute -right-2 -top-2 min-w-[22px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-xs font-semibold text-white">
           {count > 99 ? "99+" : count}
         </span>
