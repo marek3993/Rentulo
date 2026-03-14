@@ -1,418 +1,475 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { KpiCard, Notice, Pagination, Section, SelectField, TextField } from "@/components/owner/OwnerUI";
-import { OwnerReservationCard, type OwnerItemMeta, type OwnerReservationRow } from "@/components/owner/OwnerReservationCard";
+
+type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "in_rental"
+  | "return_pending_confirmation"
+  | "completed"
+  | "cancelled"
+  | "disputed"
+  | string;
+
+type PaymentStatus = "unpaid" | "paid" | "failed" | string;
+
+type Row = {
+  id: number;
+  item_id: number;
+  date_from: string;
+  date_to: string;
+  status: ReservationStatus;
+  payment_status: PaymentStatus;
+  payment_provider: string;
+  renter_id: string;
+};
 
 type ItemRow = {
   id: number;
   title: string;
-  city: string | null;
-  price_per_day: number;
-  is_active: boolean;
+  owner_id: string;
 };
 
-const PAGE_SIZE = 10;
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("sk-SK");
+}
+
+function daysUntil(dateStr: string) {
+  const now = new Date();
+  const target = new Date(dateStr);
+
+  now.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diff = target.getTime() - now.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function shortId(id: string) {
+  if (!id) return "-";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+}
+
+function reservationBadge(status: ReservationStatus) {
+  if (status === "pending") return "bg-yellow-400 text-black";
+  if (status === "confirmed") return "bg-green-600/90 text-white";
+  if (status === "in_rental") return "bg-blue-600/90 text-white";
+  if (status === "return_pending_confirmation") return "bg-orange-500 text-white";
+  if (status === "completed") return "bg-emerald-700 text-white";
+  if (status === "cancelled") return "bg-red-600/90 text-white";
+  if (status === "disputed") return "bg-purple-600/90 text-white";
+  return "bg-white/10 text-white";
+}
+
+function paymentBadge(status: PaymentStatus) {
+  if (status === "paid") return "bg-green-600/90 text-white";
+  if (status === "failed") return "bg-red-600/90 text-white";
+  return "bg-yellow-400 text-black";
+}
+
+function reservationStatusLabel(status: ReservationStatus) {
+  if (status === "pending") return "Čaká na potvrdenie";
+  if (status === "confirmed") return "Potvrdená";
+  if (status === "in_rental") return "Prebieha prenájom";
+  if (status === "return_pending_confirmation") return "Čaká na potvrdenie vrátenia";
+  if (status === "completed") return "Dokončená";
+  if (status === "cancelled") return "Zrušená";
+  if (status === "disputed") return "V spore";
+  return status;
+}
+
+function paymentStatusLabel(status: PaymentStatus) {
+  if (status === "paid") return "Zaplatené";
+  if (status === "failed") return "Platba zlyhala";
+  return "Nezaplatené";
+}
 
 export default function OwnerReservationsPage() {
   const router = useRouter();
 
-  const [presetReservationId, setPresetReservationId] = useState("");
-  const [presetItemId, setPresetItemId] = useState("");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [status, setStatus] = useState("Načítavam...");
+  const [itemTitleMap, setItemTitleMap] = useState<Record<number, string>>({});
 
-  const [status, setStatus] = useState("Načítavam…");
+  const load = async () => {
+    setStatus("Načítavam...");
 
-  const [itemsMap, setItemsMap] = useState<Record<number, OwnerItemMeta>>({});
-  const [ownerItemIds, setOwnerItemIds] = useState<number[]>([]);
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
 
-  const [rows, setRows] = useState<OwnerReservationRow[]>([]);
-  const [total, setTotal] = useState(0);
-
-  const [pendingCount, setPendingCount] = useState(0);
-  const [confirmedCount, setConfirmedCount] = useState(0);
-  const [cancelledCount, setCancelledCount] = useState(0);
-
-  const [page, setPage] = useState(1);
-
-  const [q, setQ] = useState("");
-  const [itemFilter, setItemFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [paymentFilter, setPaymentFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("newest");
-
-  const itemOptions = useMemo(() => {
-    const opts = Object.entries(itemsMap)
-      .map(([id, meta]) => ({ id: Number(id), label: meta.title ?? `Ponuka #${id}` }))
-      .sort((a, b) => a.label.localeCompare(b.label, "sk"));
-    return [{ value: "all", label: "Všetky ponuky" }, ...opts.map((o) => ({ value: String(o.id), label: o.label }))];
-  }, [itemsMap]);
-
-  const clearFilters = () => {
-    setQ("");
-    setItemFilter("all");
-    setStatusFilter("all");
-    setPaymentFilter("all");
-    setSort("newest");
-    setPage(1);
-  };
-
-  const loadOwnerItems = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("items")
-      .select("id,title,city,price_per_day,is_active")
-      .eq("owner_id", userId)
-      .order("id", { ascending: false });
-
-    if (error) throw new Error(error.message);
-
-    const items = (data ?? []) as ItemRow[];
-    const ids = items.map((i) => i.id);
-    setOwnerItemIds(ids);
-
-    const metaMap: Record<number, OwnerItemMeta> = {};
-    for (const it of items) {
-      metaMap[it.id] = {
-        title: it.title,
-        city: it.city,
-        price_per_day: it.price_per_day,
-        imageUrl: null,
-      };
-    }
-
-    if (ids.length > 0) {
-      const { data: imgs } = await supabase
-        .from("item_images")
-        .select("item_id,path")
-        .in("item_id", ids)
-        .order("id", { ascending: true });
-
-      const firstImage: Record<number, string> = {};
-      for (const im of (imgs ?? []) as any[]) {
-        if (!firstImage[im.item_id]) {
-          firstImage[im.item_id] =
-            supabase.storage.from("item-images").getPublicUrl(im.path).data.publicUrl;
-        }
-      }
-
-      for (const id of ids) {
-        if (firstImage[id]) metaMap[id].imageUrl = firstImage[id];
-      }
-    }
-
-    setItemsMap(metaMap);
-  };
-
-  const loadCounts = async (itemIds: number[]) => {
-    if (itemIds.length === 0) {
-      setPendingCount(0);
-      setConfirmedCount(0);
-      setCancelledCount(0);
+    if (!userId) {
+      router.push("/login");
       return;
     }
 
-    const countFor = async (st: string) => {
-      const { count, error } = await supabase
-        .from("reservations")
-        .select("id", { count: "exact", head: true })
-        .in("item_id", itemIds)
-        .eq("status", st);
+    const { data: ownedItems, error: itemErr } = await supabase
+      .from("items")
+      .select("id,title,owner_id")
+      .eq("owner_id", userId)
+      .order("id", { ascending: false });
 
-      if (error) throw new Error(error.message);
-      return count ?? 0;
-    };
-
-    const [p, c, x] = await Promise.all([countFor("pending"), countFor("confirmed"), countFor("cancelled")]);
-    setPendingCount(p);
-    setConfirmedCount(c);
-    setCancelledCount(x);
-  };
-
-  const loadReservations = async () => {
-    // scope by owner items (security + correctness)
-    let scopedItemIds = ownerItemIds;
-
-    if (itemFilter !== "all") {
-      const id = Number(itemFilter);
-      scopedItemIds = Number.isFinite(id) ? [id] : [];
+    if (itemErr) {
+      setStatus("Chyba: " + itemErr.message);
+      return;
     }
 
-    const queryText = q.trim();
-    const isNumeric = /^\d+$/.test(queryText);
+    const itemRows = (ownedItems ?? []) as ItemRow[];
 
-    // Search by item title/city (client-side → convert to itemId scope)
-    if (queryText && !isNumeric && scopedItemIds.length > 0) {
-      const needle = queryText.toLowerCase();
-      const matched = scopedItemIds.filter((id) => {
-        const meta = itemsMap[id];
-        const title = (meta?.title ?? "").toLowerCase();
-        const city = (meta?.city ?? "").toLowerCase();
-        return title.includes(needle) || city.includes(needle);
-      });
-
-      // If it matches no item title/city, we still allow searching by renter_id substring:
-      // (keeps UX flexible). If you prefer strict search, return empty here.
-      if (matched.length > 0) scopedItemIds = matched;
+    const titleMap: Record<number, string> = {};
+    for (const item of itemRows) {
+      titleMap[item.id] = item.title;
     }
+    setItemTitleMap(titleMap);
 
-    if (scopedItemIds.length === 0) {
+    const itemIds = itemRows.map((i) => i.id);
+    if (itemIds.length === 0) {
       setRows([]);
-      setTotal(0);
       setStatus("");
       return;
     }
 
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-
-    let req = supabase
+    const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,renter_id,date_from,date_to,status,payment_status,payment_provider", {
-        count: "exact",
-      })
-      .in("item_id", scopedItemIds);
-
-    if (statusFilter !== "all") req = req.eq("status", statusFilter);
-    if (paymentFilter !== "all") req = req.eq("payment_status", paymentFilter);
-
-    if (queryText) {
-      if (isNumeric) req = req.eq("id", Number(queryText));
-      else req = req.ilike("renter_id", `%${queryText}%`);
-    }
-
-    if (sort === "newest") req = req.order("id", { ascending: false });
-    if (sort === "oldest") req = req.order("id", { ascending: true });
-    if (sort === "start_soon") req = req.order("date_from", { ascending: true });
-
-    const { data, error, count } = await req.range(from, to);
+      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider,renter_id")
+      .in("item_id", itemIds)
+      .order("id", { ascending: false });
 
     if (error) {
       setStatus("Chyba: " + error.message);
       return;
     }
 
-    setRows((data ?? []) as OwnerReservationRow[]);
-    setTotal(count ?? 0);
+    setRows((data ?? []) as Row[]);
     setStatus("");
   };
 
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  const reservationId = params.get("reservation_id") ?? "";
-  const itemId = params.get("item_id") ?? "";
-
-  setPresetReservationId(reservationId);
-  setPresetItemId(itemId);
-
-  if (reservationId) setQ(reservationId);
-  if (itemId) setItemFilter(itemId);
-}, []);
-
   useEffect(() => {
-    const run = async () => {
-      try {
-        setStatus("Načítavam…");
-        const { data: sess } = await supabase.auth.getSession();
-        const userId = sess.session?.user.id;
-
-        if (!userId) {
-          router.push("/login");
-          return;
-        }
-
-        await loadOwnerItems(userId);
-        setStatus("");
-      } catch (e: any) {
-        setStatus("Chyba: " + (e?.message ?? "neznáma chyba"));
-      }
-    };
-
-    run();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, []);
 
-  useEffect(() => {
-    // counts depend on owner items
-    loadCounts(ownerItemIds).catch((e: any) => setStatus("Chyba: " + (e?.message ?? "neznáma chyba")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerItemIds]);
+  const updateReservationStatus = async (
+    id: number,
+    nextStatus:
+      | "confirmed"
+      | "in_rental"
+      | "return_pending_confirmation"
+      | "completed"
+      | "cancelled"
+      | "disputed"
+  ) => {
+    setStatus("Ukladám zmenu...");
 
-  useEffect(() => {
-    // data depends on filters/page + owner scope
-    loadReservations().catch((e: any) => setStatus("Chyba: " + (e?.message ?? "neznáma chyba")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerItemIds, itemsMap, page, q, itemFilter, statusFilter, paymentFilter, sort]);
+    const { error } = await supabase
+      .from("reservations")
+      .update({ status: nextStatus })
+      .eq("id", id);
 
-  const confirm = async (id: number) => {
-    setStatus("Ukladám potvrdenie…");
-    const { error } = await supabase.from("reservations").update({ status: "confirmed" }).eq("id", id);
     if (error) {
       setStatus("Chyba: " + error.message);
       return;
     }
-    await loadCounts(ownerItemIds);
-    await loadReservations();
+
+    await load();
   };
 
-  const cancel = async (id: number) => {
-    setStatus("Ukladám zrušenie…");
-    const { error } = await supabase.from("reservations").update({ status: "cancelled" }).eq("id", id);
-    if (error) {
-      setStatus("Chyba: " + error.message);
-      return;
-    }
-    await loadCounts(ownerItemIds);
-    await loadReservations();
-  };
+  const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
+  const confirmed = useMemo(() => rows.filter((r) => r.status === "confirmed"), [rows]);
+  const inRental = useMemo(() => rows.filter((r) => r.status === "in_rental"), [rows]);
+  const returnPending = useMemo(
+    () => rows.filter((r) => r.status === "return_pending_confirmation"),
+    [rows]
+  );
+  const completed = useMemo(() => rows.filter((r) => r.status === "completed"), [rows]);
+  const disputed = useMemo(() => rows.filter((r) => r.status === "disputed"), [rows]);
+  const cancelled = useMemo(() => rows.filter((r) => r.status === "cancelled"), [rows]);
+
+  const SummaryCard = ({
+    title,
+    value,
+    subtitle,
+  }: {
+    title: string;
+    value: number;
+    subtitle: string;
+  }) => (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="text-sm text-white/60">{title}</div>
+      <div className="mt-2 text-3xl font-semibold">{value}</div>
+      <div className="mt-1 text-sm text-white/50">{subtitle}</div>
+    </div>
+  );
+
+  const Section = ({
+    title,
+    subtitle,
+    rows,
+  }: {
+    title: string;
+    subtitle: string;
+    rows: Row[];
+  }) => (
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
+          V tejto sekcii zatiaľ nič nie je.
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {rows.map((r) => {
+            const startIn = daysUntil(r.date_from);
+
+            const canConfirm = r.status === "pending" && r.payment_status === "paid";
+            const canMarkHandedOver = r.status === "confirmed";
+            const canConfirmReturn = r.status === "return_pending_confirmation";
+            const canCancel =
+              r.status !== "cancelled" &&
+              r.status !== "completed" &&
+              r.status !== "in_rental";
+            const canMarkDisputed =
+              r.status === "confirmed" ||
+              r.status === "in_rental" ||
+              r.status === "return_pending_confirmation";
+
+            return (
+              <li key={r.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-white/50">Rezervácia</span>
+                      <strong className="text-base">#{r.id}</strong>
+                    </div>
+
+                    <div className="text-white/85">
+                      <span className="text-white/50">Položka:</span>{" "}
+                      <strong>{itemTitleMap[r.item_id] ?? `#${r.item_id}`}</strong>
+                    </div>
+
+                    <div className="text-white/80">
+                      <span className="text-white/50">Zákazník:</span> {shortId(r.renter_id)}
+                    </div>
+
+                    <div className="text-white/80">
+                      <span className="text-white/50">Termín:</span> {formatDate(r.date_from)} →{" "}
+                      {formatDate(r.date_to)}
+                    </div>
+
+                    <div className="text-sm text-white/60">
+                      {r.status === "cancelled"
+                        ? "Rezervácia je zrušená."
+                        : r.status === "completed"
+                        ? "Prenájom je ukončený."
+                        : startIn > 0
+                        ? `Začiatok prenájmu o ${startIn} ${startIn === 1 ? "deň" : startIn < 5 ? "dni" : "dní"}.`
+                        : startIn === 0
+                        ? "Prenájom začína dnes."
+                        : "Termín už začal alebo prebieha."}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${reservationBadge(
+                        r.status
+                      )}`}
+                    >
+                      {reservationStatusLabel(r.status)}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${paymentBadge(
+                        r.payment_status
+                      )}`}
+                    >
+                      {paymentStatusLabel(r.payment_status)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-sm text-white/50">
+                  Poskytovateľ platby: {r.payment_provider}
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {canConfirm ? (
+                    <button
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      onClick={() => updateReservationStatus(r.id, "confirmed")}
+                      type="button"
+                    >
+                      Potvrdiť rezerváciu
+                    </button>
+                  ) : null}
+
+                  {canMarkHandedOver ? (
+                    <button
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      onClick={() => updateReservationStatus(r.id, "in_rental")}
+                      type="button"
+                    >
+                      Označiť ako odovzdané
+                    </button>
+                  ) : null}
+
+                  {canConfirmReturn ? (
+                    <button
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      onClick={() => updateReservationStatus(r.id, "completed")}
+                      type="button"
+                    >
+                      Potvrdiť vrátenie
+                    </button>
+                  ) : null}
+
+                  {canMarkDisputed ? (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => updateReservationStatus(r.id, "disputed")}
+                      type="button"
+                    >
+                      Označiť spor
+                    </button>
+                  ) : null}
+
+                  {canCancel ? (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => updateReservationStatus(r.id, "cancelled")}
+                      type="button"
+                    >
+                      Zrušiť
+                    </button>
+                  ) : null}
+
+                  <Link
+                    href={`/items/${r.item_id}`}
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                  >
+                    Detail ponuky
+                  </Link>
+                </div>
+
+                {r.payment_status !== "paid" && r.status === "pending" ? (
+                  <div className="mt-3 text-sm text-white/60">
+                    Potvrdenie je dostupné až po úspešnej platbe.
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 
   return (
     <main className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">Rezervácie mojich ponúk</h2>
-          <p className="mt-1 text-white/60">
-            Potvrdzuj rezervácie, kontroluj platby a rýchlo sa preklikni na detail ponuky.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Link className="rounded-xl border border-white/15 px-3 py-2 hover:bg-white/10" href="/owner/items">
-            Moje ponuky
-          </Link>
-        </div>
-      </div>
-
-      {status ? <Notice text={status} /> : null}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <KpiCard title="Čakajúce" value={pendingCount} hint="Rezervácie čakajúce na tvoje potvrdenie" />
-        <KpiCard title="Potvrdené" value={confirmedCount} hint="Pripravené alebo prebiehajúce prenájmy" />
-        <KpiCard title="Zrušené" value={cancelledCount} hint="História zrušených rezervácií" />
-      </div>
-
-      <Section
-        title="Vyhľadávanie a filtre"
-        subtitle="Zúž zoznam podľa ponuky, stavu, platby alebo vyhľadaj konkrétne číslo rezervácie."
-      >
-        <div className="grid gap-3 md:grid-cols-5">
-          <TextField
-            id="q"
-            label="Hľadať"
-            value={q}
-            onChange={(v) => {
-              setQ(v);
-              setPage(1);
-            }}
-            placeholder="Číslo rezervácie, alebo časť ID zákazníka"
-          />
-
-          <SelectField
-            id="item"
-            label="Ponuka"
-            value={itemFilter}
-            onChange={(v) => {
-              setItemFilter(v);
-              setPage(1);
-            }}
-            options={itemOptions}
-          />
-
-          <SelectField
-            id="st"
-            label="Stav"
-            value={statusFilter}
-            onChange={(v) => {
-              setStatusFilter(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "Všetky" },
-              { value: "pending", label: "Čakajúce" },
-              { value: "confirmed", label: "Potvrdené" },
-              { value: "cancelled", label: "Zrušené" },
-            ]}
-          />
-
-          <SelectField
-            id="pay"
-            label="Platba"
-            value={paymentFilter}
-            onChange={(v) => {
-              setPaymentFilter(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "Všetky" },
-              { value: "paid", label: "Zaplatené" },
-              { value: "unpaid", label: "Nezaplatené" },
-              { value: "failed", label: "Zlyhané" },
-            ]}
-          />
-
-          <SelectField
-            id="sort"
-            label="Triedenie"
-            value={sort}
-            onChange={(v) => {
-              setSort(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "newest", label: "Najnovšie" },
-              { value: "start_soon", label: "Najbližší začiatok" },
-              { value: "oldest", label: "Najstaršie" },
-            ]}
-          />
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
-            onClick={clearFilters}
-          >
-            Vymazať filtre
-          </button>
-
-          <button
-            type="button"
-            className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
-            onClick={() => loadReservations()}
-          >
-            Obnoviť
-          </button>
-        </div>
-      </Section>
-
-      <Section
-        title="Zoznam rezervácií"
-        subtitle={ownerItemIds.length === 0 ? "Najprv si vytvor ponuku, aby si videl rezervácie." : `Zobrazené: ${rows.length} z ${total}`}
-      >
-        {rows.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
-            Žiadne rezervácie podľa zvolených filtrov.
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Rezervácie mojich ponúk</h1>
+            <p className="mt-1 text-white/60">
+              Prehľad objednávok zákazníkov a ich posúvanie cez celý prenájom.
+            </p>
           </div>
-        ) : (
-          <ul className="space-y-3">
-            {rows.map((r) => (
-              <OwnerReservationCard
-                key={r.id}
-                r={r}
-                item={itemsMap[r.item_id]}
-                onConfirm={() => confirm(r.id)}
-                onCancel={() => cancel(r.id)}
-              />
-            ))}
-          </ul>
-        )}
 
-        <div className="mt-4">
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/owner/items"
+              className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+            >
+              Moje ponuky
+            </Link>
+            <Link
+              href="/owner/disputes"
+              className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+            >
+              Reklamácie
+            </Link>
+          </div>
         </div>
-      </Section>
+      </div>
+
+      {status ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <SummaryCard
+          title="Čakajúce"
+          value={pending.length}
+          subtitle="Čakajú na schválenie"
+        />
+        <SummaryCard
+          title="Potvrdené"
+          value={confirmed.length}
+          subtitle="Pripravené na odovzdanie"
+        />
+        <SummaryCard
+          title="Prebieha prenájom"
+          value={inRental.length}
+          subtitle="Nástroj je u zákazníka"
+        />
+        <SummaryCard
+          title="Čaká na vrátenie"
+          value={returnPending.length}
+          subtitle="Zákazník označil vrátenie"
+        />
+      </div>
+
+      <Section
+        title="Čakajúce rezervácie"
+        subtitle="Nové rezervácie, ktoré ešte neboli potvrdené."
+        rows={pending}
+      />
+
+      <Section
+        title="Potvrdené rezervácie"
+        subtitle="Rezervácie schválené a pripravené na odovzdanie."
+        rows={confirmed}
+      />
+
+      <Section
+        title="Prebiehajúce prenájmy"
+        subtitle="Tieto rezervácie sú už odovzdané zákazníkovi."
+        rows={inRental}
+      />
+
+      <Section
+        title="Čaká na potvrdenie vrátenia"
+        subtitle="Zákazník tvrdí, že vrátil, prenajímateľ má potvrdiť ukončenie."
+        rows={returnPending}
+      />
+
+      <Section
+        title="Dokončené rezervácie"
+        subtitle="Prenájom bol úspešne ukončený."
+        rows={completed}
+      />
+
+      <Section
+        title="Sporné rezervácie"
+        subtitle="Rezervácie označené ako spor."
+        rows={disputed}
+      />
+
+      <Section
+        title="Zrušené rezervácie"
+        subtitle="História zrušených rezervácií."
+        rows={cancelled}
+      />
     </main>
   );
 }
-
