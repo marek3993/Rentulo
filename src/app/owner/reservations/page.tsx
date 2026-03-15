@@ -225,6 +225,28 @@ export default function OwnerReservationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const ensureProfileExists = async (userId: string) => {
+  const { data: existingProfile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileErr) {
+    throw new Error(profileErr.message);
+  }
+
+  if (!existingProfile) {
+    const { error: insertProfileErr } = await supabase
+      .from("profiles")
+      .insert({ id: userId, role: "user" });
+
+    if (insertProfileErr) {
+      throw new Error(insertProfileErr.message);
+    }
+  }
+};
+
   const updateReservationStatus = async (
     id: number,
     nextStatus:
@@ -256,58 +278,74 @@ export default function OwnerReservationsPage() {
   };
 
   const uploadConditionPhotos = async (reservation: Row, phase: "handover" | "return") => {
-    if (uploadFiles.length === 0) {
-      setStatus("Najprv vyber aspoň jednu fotku.");
+  if (uploadFiles.length === 0) {
+    setStatus("Najprv vyber aspoň jednu fotku.");
+    return;
+  }
+
+  setUploading(true);
+  setStatus("Pripravujem upload...");
+
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
+
+    if (!userId) {
+      router.push("/login");
       return;
     }
 
-    setUploading(true);
-    setStatus("Nahrávam fotky...");
+    await ensureProfileExists(userId);
 
-    try {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-      if (!userId) {
-        router.push("/login");
-        return;
-      }
+    for (let i = 0; i < uploadFiles.length; i++) {
+      const file = uploadFiles[i];
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+      const path = `${reservation.id}/${phase}/owner/${crypto.randomUUID()}.${safeExt}`;
 
-      for (let i = 0; i < uploadFiles.length; i++) {
-        const file = uploadFiles[i];
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-        const path = `${reservation.id}/${phase}/owner/${crypto.randomUUID()}.${safeExt}`;
+      setStatus(`Nahrávam fotku ${i + 1}/${uploadFiles.length}...`);
 
-        const { error: upErr } = await supabase.storage
-          .from("rental-condition-photos")
-          .upload(path, file, { upsert: false });
-
-        if (upErr) throw new Error(upErr.message);
-
-        const { error: dbErr } = await supabase.from("rental_condition_photos").insert({
-          reservation_id: reservation.id,
-          item_id: reservation.item_id,
-          uploaded_by: userId,
-          phase,
-          actor: "owner",
-          path,
-          note: uploadNote.trim() ? uploadNote.trim() : null,
+      const { error: upErr } = await supabase.storage
+        .from("rental-condition-photos")
+        .upload(path, file, {
+          upsert: false,
+          contentType: file.type || undefined,
+          cacheControl: "3600",
         });
 
-        if (dbErr) throw new Error(dbErr.message);
+      if (upErr) {
+        throw new Error(`Storage upload zlyhal: ${upErr.message}`);
       }
 
-      setStatus("Fotky nahraté ✅");
-      setUploading(false);
-      setOpenUploadKey(null);
-      setUploadFiles([]);
-      setUploadNote("");
-      await load();
-    } catch (err: any) {
-      setUploading(false);
-      setStatus("Chyba: " + (err?.message ?? "upload failed"));
+      const { error: dbErr } = await supabase.from("rental_condition_photos").insert({
+        reservation_id: reservation.id,
+        item_id: reservation.item_id,
+        uploaded_by: userId,
+        phase,
+        actor: "owner",
+        path,
+        note: uploadNote.trim() ? uploadNote.trim() : null,
+      });
+
+      if (dbErr) {
+        throw new Error(`Zápis do DB zlyhal: ${dbErr.message}`);
+      }
     }
-  };
+
+    setStatus("Fotky nahraté ✅");
+    setOpenUploadKey(null);
+    setUploadFiles([]);
+    setUploadNote("");
+    await load();
+  } catch (err: any) {
+    console.error("Owner condition upload failed:", err);
+    const message = err?.message ?? "upload failed";
+    setStatus("Chyba pri nahrávaní: " + message);
+    alert("Chyba pri nahrávaní: " + message);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
   const confirmed = useMemo(() => rows.filter((r) => r.status === "confirmed"), [rows]);
