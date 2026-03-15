@@ -225,25 +225,25 @@ export default function OwnerReservationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ensureProfileExists = async (userId: string) => {
-  const { data: existingProfile, error: profileErr } = await supabase
+const ensureProfileExists = async (userId: string) => {
+  const { data: existingProfile, error: selectError } = await supabase
     .from("profiles")
     .select("id")
     .eq("id", userId)
     .maybeSingle();
 
-  if (profileErr) {
-    throw new Error(profileErr.message);
+  if (selectError) {
+    throw new Error(`Kontrola profilu zlyhala: ${selectError.message}`);
   }
 
-  if (!existingProfile) {
-    const { error: insertProfileErr } = await supabase
-      .from("profiles")
-      .insert({ id: userId, role: "user" });
+  if (existingProfile) return;
 
-    if (insertProfileErr) {
-      throw new Error(insertProfileErr.message);
-    }
+  const { error: insertError } = await supabase.from("profiles").insert({
+    id: userId,
+  });
+
+  if (insertError) {
+    throw new Error(`Vytvorenie profilu zlyhalo: ${insertError.message}`);
   }
 };
 
@@ -277,8 +277,9 @@ export default function OwnerReservationsPage() {
     setUploadNote("");
   };
 
-  const uploadConditionPhotos = async (reservation: Row, phase: "handover" | "return") => {
+const uploadConditionPhotos = async (reservation: Row, phase: "handover" | "return") => {
   if (uploadFiles.length === 0) {
+    alert("Vyber aspoň jednu fotku.");
     setStatus("Najprv vyber aspoň jednu fotku.");
     return;
   }
@@ -291,6 +292,7 @@ export default function OwnerReservationsPage() {
     const userId = sess.session?.user.id;
 
     if (!userId) {
+      alert("Musíš byť prihlásený.");
       router.push("/login");
       return;
     }
@@ -305,43 +307,48 @@ export default function OwnerReservationsPage() {
 
       setStatus(`Nahrávam fotku ${i + 1}/${uploadFiles.length}...`);
 
-      const { error: upErr } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("rental-condition-photos")
         .upload(path, file, {
           upsert: false,
-          contentType: file.type || undefined,
+          contentType: file.type || "image/jpeg",
           cacheControl: "3600",
         });
 
-      if (upErr) {
-        throw new Error(`Storage upload zlyhal: ${upErr.message}`);
+      if (uploadError) {
+        throw new Error(`Storage upload zlyhal: ${uploadError.message}`);
       }
 
-      const { error: dbErr } = await supabase.from("rental_condition_photos").insert({
-        reservation_id: reservation.id,
-        item_id: reservation.item_id,
-        uploaded_by: userId,
-        phase,
-        actor: "owner",
-        path,
-        note: uploadNote.trim() ? uploadNote.trim() : null,
-      });
+      const { error: insertError } = await supabase
+        .from("rental_condition_photos")
+        .insert({
+          reservation_id: reservation.id,
+          item_id: reservation.item_id,
+          uploaded_by: userId,
+          phase,
+          actor: "owner",
+          path,
+          note: uploadNote.trim() ? uploadNote.trim() : null,
+        });
 
-      if (dbErr) {
-        throw new Error(`Zápis do DB zlyhal: ${dbErr.message}`);
+      if (insertError) {
+        throw new Error(`Zápis do DB zlyhal: ${insertError.message}`);
       }
     }
 
     setStatus("Fotky nahraté ✅");
+    alert("Fotky stavu boli úspešne nahrané.");
     setOpenUploadKey(null);
     setUploadFiles([]);
     setUploadNote("");
     await load();
-  } catch (err: any) {
+  } catch (err) {
     console.error("Owner condition upload failed:", err);
-    const message = err?.message ?? "upload failed";
+    const message =
+      err instanceof Error ? err.message : "Neznáma chyba pri nahrávaní fotiek.";
+
     setStatus("Chyba pri nahrávaní: " + message);
-    alert("Chyba pri nahrávaní: " + message);
+    alert(message);
   } finally {
     setUploading(false);
   }
