@@ -37,6 +37,18 @@ type ReviewFlags = {
   owner: boolean;
 };
 
+type ConditionPhoto = {
+  id: number;
+  reservation_id: number;
+  item_id: number;
+  phase: "handover" | "return";
+  actor: "owner" | "renter";
+  path: string;
+  note: string | null;
+  created_at: string;
+  signed_url: string | null;
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -95,11 +107,17 @@ export default function ReservationsPage() {
 
   const [itemMetaMap, setItemMetaMap] = useState<Record<number, ItemMeta>>({});
   const [reviewMap, setReviewMap] = useState<Record<number, ReviewFlags>>({});
+  const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
 
   const [openReviewKey, setOpenReviewKey] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const [openReturnUploadForReservation, setOpenReturnUploadForReservation] = useState<number | null>(null);
+  const [returnFiles, setReturnFiles] = useState<File[]>([]);
+  const [returnNote, setReturnNote] = useState("");
+  const [returnUploading, setReturnUploading] = useState(false);
 
   const load = async () => {
     setStatus("Načítavam...");
@@ -175,6 +193,49 @@ export default function ReservationsPage() {
       setReviewMap({});
     }
 
+    if (reservationIds.length > 0) {
+      const { data: photosData, error: photosErr } = await supabase
+        .from("rental_condition_photos")
+        .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
+        .in("reservation_id", reservationIds)
+        .order("created_at", { ascending: false });
+
+      if (!photosErr) {
+        const map: Record<number, ConditionPhoto[]> = {};
+
+        for (const raw of (photosData ?? []) as any[]) {
+          let signedUrl: string | null = null;
+
+          const { data: signed } = await supabase.storage
+            .from("rental-condition-photos")
+            .createSignedUrl(raw.path, 60 * 60);
+
+          signedUrl = signed?.signedUrl ?? null;
+
+          const photo: ConditionPhoto = {
+            id: raw.id,
+            reservation_id: raw.reservation_id,
+            item_id: raw.item_id,
+            phase: raw.phase,
+            actor: raw.actor,
+            path: raw.path,
+            note: raw.note,
+            created_at: raw.created_at,
+            signed_url: signedUrl,
+          };
+
+          if (!map[photo.reservation_id]) {
+            map[photo.reservation_id] = [];
+          }
+          map[photo.reservation_id].push(photo);
+        }
+
+        setPhotoMap(map);
+      }
+    } else {
+      setPhotoMap({});
+    }
+
     setStatus("");
   };
 
@@ -200,6 +261,60 @@ export default function ReservationsPage() {
     }
 
     await load();
+  };
+
+  const uploadReturnPhotos = async (reservation: Reservation) => {
+    if (returnFiles.length === 0) {
+      setStatus("Najprv vyber aspoň jednu fotku.");
+      return;
+    }
+
+    setReturnUploading(true);
+    setStatus("Nahrávam fotky po vrátení...");
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+      if (!userId) {
+        router.push("/login");
+        return;
+      }
+
+      for (let i = 0; i < returnFiles.length; i++) {
+        const file = returnFiles[i];
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+        const path = `${reservation.id}/return/renter/${crypto.randomUUID()}.${safeExt}`;
+
+        const { error: upErr } = await supabase.storage
+          .from("rental-condition-photos")
+          .upload(path, file, { upsert: false });
+
+        if (upErr) throw new Error(upErr.message);
+
+        const { error: dbErr } = await supabase.from("rental_condition_photos").insert({
+          reservation_id: reservation.id,
+          item_id: reservation.item_id,
+          uploaded_by: userId,
+          phase: "return",
+          actor: "renter",
+          path,
+          note: returnNote.trim() ? returnNote.trim() : null,
+        });
+
+        if (dbErr) throw new Error(dbErr.message);
+      }
+
+      setStatus("Fotky po vrátení nahraté ✅");
+      setReturnUploading(false);
+      setOpenReturnUploadForReservation(null);
+      setReturnFiles([]);
+      setReturnNote("");
+      await load();
+    } catch (err: any) {
+      setReturnUploading(false);
+      setStatus("Chyba: " + (err?.message ?? "upload failed"));
+    }
   };
 
   const submitReview = async (
@@ -275,7 +390,51 @@ export default function ReservationsPage() {
     </section>
   );
 
+  const renderPhotoGrid = (
+    reservationId: number,
+    phase: "handover" | "return",
+    actor?: "owner" | "renter"
+  ) => {
+    const photos = (photoMap[reservationId] ?? []).filter((p) => {
+      if (actor) return p.phase === phase && p.actor === actor;
+      return p.phase === phase;
+    });
+
+    if (photos.length === 0) {
+      return <div className="text-sm text-white/50">Zatiaľ bez fotiek.</div>;
+    }
+
+    return (
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {photos.map((p) => (
+          <div key={p.id} className="rounded-xl border border-white/10 bg-white/5 p-2">
+            {p.signed_url ? (
+              <img
+                src={p.signed_url}
+                alt="condition photo"
+                className="h-28 w-full rounded-lg object-cover border border-white/10"
+              />
+            ) : (
+              <div className="flex h-28 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-white/50">
+                Bez náhľadu
+              </div>
+            )}
+
+            <div className="mt-2 text-xs text-white/50">
+              {p.actor === "owner" ? "Prenajímateľ" : "Zákazník"} · {formatDate(p.created_at)}
+            </div>
+
+            {p.note ? <div className="mt-1 text-sm text-white/70">{p.note}</div> : null}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const Card = ({ r }: { r: Reservation }) => {
+    const itemMeta = itemMetaMap[r.item_id];
+    const photos = photoMap[r.id] ?? [];
+
     const canPay = r.status === "pending" && r.payment_status === "unpaid";
     const canCancel =
       r.status !== "cancelled" &&
@@ -288,12 +447,19 @@ export default function ReservationsPage() {
       r.status === "in_rental" ||
       r.status === "return_pending_confirmation";
 
-    const canMarkReturned = r.status === "in_rental";
+    const renterReturnCount = photos.filter(
+      (p) => p.phase === "return" && p.actor === "renter"
+    ).length;
+
+    const ownerHandoverCount = photos.filter(
+      (p) => p.phase === "handover" && p.actor === "owner"
+    ).length;
+
+    const canMarkReturned = r.status === "in_rental" && renterReturnCount > 0;
 
     const canReviewItem = r.status === "completed" && !reviewMap[r.id]?.item;
     const canReviewOwner = r.status === "completed" && !reviewMap[r.id]?.owner;
 
-    const itemMeta = itemMetaMap[r.item_id];
     const reviewItemKey = `item-${r.id}`;
     const reviewOwnerKey = `owner-${r.id}`;
 
@@ -321,8 +487,7 @@ export default function ReservationsPage() {
             </div>
 
             <div className="text-white/80">
-              <span className="text-white/50">Položka:</span>{" "}
-              {itemMeta?.title ?? r.item_id}
+              <span className="text-white/50">Položka:</span> {itemMeta?.title ?? r.item_id}
             </div>
 
             <div className="text-white/80">
@@ -356,6 +521,76 @@ export default function ReservationsPage() {
           Poskytovateľ platby: {r.payment_provider}
         </div>
 
+        {r.status === "confirmed" || r.status === "in_rental" || r.status === "return_pending_confirmation" ? (
+          <div className="mt-4 space-y-4">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="font-semibold">Fotky pri odovzdaní od prenajímateľa</div>
+              <div className="mt-1 text-sm text-white/60">
+                Tieto fotky ukazujú stav veci pri odovzdaní. Nahraté prenajímateľom: <strong>{ownerHandoverCount}</strong>
+              </div>
+              <div className="mt-3">{renderPhotoGrid(r.id, "handover", "owner")}</div>
+            </div>
+          </div>
+        ) : null}
+
+        {r.status === "in_rental" ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="font-semibold">Krok: vrátenie veci</div>
+            <div className="mt-1 text-sm text-white/60">
+              Najprv nahraj svoje fotky po vrátení. Až potom klikni <strong>Vrátil som</strong>.
+            </div>
+
+            <div className="mt-3 text-sm text-white/70">
+              Tvoje nahraté fotky po vrátení: <strong>{renterReturnCount}</strong>
+            </div>
+
+            <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                onClick={() => {
+                  setOpenReturnUploadForReservation(r.id);
+                  setReturnFiles([]);
+                  setReturnNote("");
+                }}
+              >
+                Nahrať fotky po vrátení
+              </button>
+
+              <button
+                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                onClick={() => updateReservationStatus(r.id, "return_pending_confirmation")}
+                disabled={!canMarkReturned}
+                type="button"
+              >
+                Vrátil som
+              </button>
+            </div>
+
+            {renterReturnCount === 0 ? (
+              <div className="mt-3 text-sm text-white/60">
+                Bez fotiek po vrátení nejde pokračovať.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {r.status === "return_pending_confirmation" ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="font-semibold">Čaká sa na potvrdenie prenajímateľa</div>
+            <div className="mt-1 text-sm text-white/60">
+              Nahral si fotky po vrátení a označil si rezerváciu ako vrátenú. Teraz čakáš, kým prenajímateľ skontroluje stav a potvrdí ukončenie.
+            </div>
+
+            <div className="mt-4">
+              <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
+              <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="mt-5 flex flex-wrap gap-2">
           {canPay ? (
             <Link
@@ -364,16 +599,6 @@ export default function ReservationsPage() {
             >
               Dokončiť platbu
             </Link>
-          ) : null}
-
-          {canMarkReturned ? (
-            <button
-              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
-              onClick={() => updateReservationStatus(r.id, "return_pending_confirmation")}
-              type="button"
-            >
-              Vrátil som
-            </button>
           ) : null}
 
           {canDispute ? (
@@ -403,6 +628,61 @@ export default function ReservationsPage() {
             Detail ponuky
           </Link>
         </div>
+
+        {openReturnUploadForReservation === r.id ? (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+            <div className="font-medium">Upload fotiek po vrátení</div>
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={returnUploading}
+              onChange={(e) => setReturnFiles(Array.from(e.target.files ?? []))}
+            />
+
+            <textarea
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              rows={3}
+              placeholder="Poznámka k stavu po vrátení (voliteľné)"
+              value={returnNote}
+              onChange={(e) => setReturnNote(e.target.value)}
+              disabled={returnUploading}
+            />
+
+            {returnFiles.length > 0 ? (
+              <div className="text-sm text-white/60">
+                Vybrané fotky: {returnFiles.map((f) => f.name).join(", ")}
+              </div>
+            ) : (
+              <div className="text-sm text-white/50">Zatiaľ nie sú vybrané žiadne fotky.</div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                disabled={returnUploading}
+                onClick={() => uploadReturnPhotos(r)}
+              >
+                {returnUploading ? "Nahrávam..." : "Nahrať fotky"}
+              </button>
+
+              <button
+                type="button"
+                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                disabled={returnUploading}
+                onClick={() => {
+                  setOpenReturnUploadForReservation(null);
+                  setReturnFiles([]);
+                  setReturnNote("");
+                }}
+              >
+                Zrušiť
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {r.status === "completed" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
@@ -554,7 +834,7 @@ export default function ReservationsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Moje rezervácie</h1>
             <p className="mt-1 text-white/60">
-              Prehľad všetkých rezervácií podľa stavu a fázy prenájmu.
+              Jasný postup od prevzatia až po vrátenie a hodnotenie.
             </p>
           </div>
 
@@ -603,7 +883,7 @@ export default function ReservationsPage() {
 
       <SectionCard
         title="Prebieha prenájom"
-        subtitle="Tieto rezervácie sú už odovzdané a nástroj je u teba."
+        subtitle="Vec je u teba. Pred vrátením nahraj fotky a potom potvrď vrátenie."
       >
         {inRental.length === 0 ? (
           <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
@@ -618,7 +898,7 @@ export default function ReservationsPage() {
 
       <SectionCard
         title="Čaká na potvrdenie vrátenia"
-        subtitle="Označil si, že si vrátil. Čaká sa na potvrdenie prenajímateľa."
+        subtitle="Prenajímateľ ešte kontroluje stav po vrátení."
       >
         {returnPending.length === 0 ? (
           <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>

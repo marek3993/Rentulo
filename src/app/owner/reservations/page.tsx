@@ -230,7 +230,6 @@ export default function OwnerReservationsPage() {
     nextStatus:
       | "confirmed"
       | "in_rental"
-      | "return_pending_confirmation"
       | "completed"
       | "cancelled"
       | "disputed"
@@ -418,7 +417,9 @@ export default function OwnerReservationsPage() {
             const canConfirm = r.status === "pending" && r.payment_status === "paid";
             const canMarkHandedOver = r.status === "confirmed" && handoverOwnerCount > 0;
             const canConfirmReturn =
-              r.status === "return_pending_confirmation" && returnOwnerCount > 0;
+              r.status === "return_pending_confirmation" &&
+              returnOwnerCount > 0 &&
+              returnRenterCount > 0;
 
             const canCancel =
               r.status !== "cancelled" &&
@@ -492,17 +493,22 @@ export default function OwnerReservationsPage() {
                   Poskytovateľ platby: {r.payment_provider}
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="font-medium">Fotky pri odovzdaní</div>
-                    <div className="mt-1 text-sm text-white/60">
-                      Prenajímateľ nahraté: {handoverOwnerCount}
-                    </div>
+                <div className="mt-4 space-y-4">
+                  {r.status === "confirmed" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="font-semibold">Krok 1: odovzdanie zákazníkovi</div>
+                      <div className="mt-1 text-sm text-white/60">
+                        Najprv nahraj fotky stavu veci pri odovzdaní. Až potom označ rezerváciu ako odovzdanú.
+                      </div>
 
-                    <div className="mt-3">{renderPhotoGrid(r.id, "handover")}</div>
-
-                    {r.status === "confirmed" ? (
                       <div className="mt-3">
+                        <div className="text-sm text-white/70">
+                          Nahraté fotky pri odovzdaní: <strong>{handoverOwnerCount}</strong>
+                        </div>
+                        <div className="mt-3">{renderPhotoGrid(r.id, "handover", "owner")}</div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
@@ -510,20 +516,51 @@ export default function OwnerReservationsPage() {
                         >
                           Nahrať fotky pri odovzdaní
                         </button>
+
+                        <button
+                          className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                          onClick={() => updateReservationStatus(r.id, "in_rental")}
+                          disabled={!canMarkHandedOver}
+                          type="button"
+                        >
+                          Potvrdiť odovzdanie
+                        </button>
                       </div>
-                    ) : null}
-                  </div>
 
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="font-medium">Fotky po vrátení</div>
-                    <div className="mt-1 text-sm text-white/60">
-                      Prenajímateľ nahraté: {returnOwnerCount} · Zákazník nahraté: {returnRenterCount}
+                      {handoverOwnerCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Bez fotiek pri odovzdaní nejde pokračovať.
+                        </div>
+                      ) : null}
                     </div>
+                  ) : null}
 
-                    <div className="mt-3">{renderPhotoGrid(r.id, "return")}</div>
+                  {r.status === "return_pending_confirmation" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="font-semibold">Krok 2: vrátenie od zákazníka</div>
+                      <div className="mt-1 text-sm text-white/60">
+                        Najprv si pozri fotky od zákazníka. Potom nahraj svoje fotky po vrátení a až nakoniec potvrď ukončenie prenájmu.
+                      </div>
 
-                    {r.status === "return_pending_confirmation" ? (
-                      <div className="mt-3">
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <div className="text-sm font-medium text-white/80">Fotky od zákazníka po vrátení</div>
+                          <div className="mt-1 text-sm text-white/60">
+                            Nahraté zákazníkom: <strong>{returnRenterCount}</strong>
+                          </div>
+                          <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
+                          <div className="mt-1 text-sm text-white/60">
+                            Nahraté prenajímateľom: <strong>{returnOwnerCount}</strong>
+                          </div>
+                          <div className="mt-3">{renderPhotoGrid(r.id, "return", "owner")}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
@@ -531,9 +568,36 @@ export default function OwnerReservationsPage() {
                         >
                           Nahrať fotky po vrátení
                         </button>
+
+                        <button
+                          className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                          onClick={() => updateReservationStatus(r.id, "completed")}
+                          disabled={!canConfirmReturn}
+                          type="button"
+                        >
+                          Potvrdiť vrátenie
+                        </button>
                       </div>
-                    ) : null}
-                  </div>
+
+                      {returnRenterCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Zákazník ešte nenahral svoje fotky po vrátení.
+                        </div>
+                      ) : null}
+
+                      {returnOwnerCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Pred potvrdením vrátenia najprv nahraj svoje fotky po vrátení.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {r.status === "in_rental" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                      Vec je označená ako odovzdaná. Teraz čakáš, kým zákazník nahrá fotky po vrátení a klikne <strong>Vrátil som</strong>.
+                    </div>
+                  ) : null}
                 </div>
 
                 {handoverUploadOpen || returnUploadOpen ? (
@@ -609,28 +673,6 @@ export default function OwnerReservationsPage() {
                     </button>
                   ) : null}
 
-                  {r.status === "confirmed" ? (
-                    <button
-                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                      onClick={() => updateReservationStatus(r.id, "in_rental")}
-                      disabled={!canMarkHandedOver}
-                      type="button"
-                    >
-                      Označiť ako odovzdané
-                    </button>
-                  ) : null}
-
-                  {r.status === "return_pending_confirmation" ? (
-                    <button
-                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                      onClick={() => updateReservationStatus(r.id, "completed")}
-                      disabled={!canConfirmReturn}
-                      type="button"
-                    >
-                      Potvrdiť vrátenie
-                    </button>
-                  ) : null}
-
                   {canMarkDisputed ? (
                     <button
                       className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
@@ -664,18 +706,6 @@ export default function OwnerReservationsPage() {
                     Potvrdenie je dostupné až po úspešnej platbe.
                   </div>
                 ) : null}
-
-                {r.status === "confirmed" && handoverOwnerCount === 0 ? (
-                  <div className="mt-3 text-sm text-white/60">
-                    Pred odovzdaním najprv nahraj fotky stavu nástroja.
-                  </div>
-                ) : null}
-
-                {r.status === "return_pending_confirmation" && returnOwnerCount === 0 ? (
-                  <div className="mt-3 text-sm text-white/60">
-                    Pred potvrdením vrátenia najprv nahraj fotky po vrátení.
-                  </div>
-                ) : null}
               </li>
             );
           })}
@@ -691,7 +721,7 @@ export default function OwnerReservationsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Rezervácie mojich ponúk</h1>
             <p className="mt-1 text-white/60">
-              Prehľad objednávok zákazníkov a ich posúvanie cez celý prenájom.
+              Prehľad objednávok zákazníkov a jasné kroky od odovzdania až po vrátenie.
             </p>
           </div>
 
@@ -730,7 +760,7 @@ export default function OwnerReservationsPage() {
         <SummaryCard
           title="Prebieha prenájom"
           value={inRental.length}
-          subtitle="Nástroj je u zákazníka"
+          subtitle="Vec je u zákazníka"
         />
         <SummaryCard
           title="Čaká na vrátenie"
@@ -759,7 +789,7 @@ export default function OwnerReservationsPage() {
 
       <Section
         title="Čaká na potvrdenie vrátenia"
-        subtitle="Zákazník tvrdí, že vrátil, prenajímateľ má potvrdiť ukončenie."
+        subtitle="Zákazník tvrdí, že vrátil. Treba skontrolovať fotky a potvrdiť ukončenie."
         rows={returnPending}
       />
 
