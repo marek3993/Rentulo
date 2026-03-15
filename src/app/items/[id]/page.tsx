@@ -41,6 +41,7 @@ export default function ItemDetailPage() {
   const itemId = Number(params.id);
 
   const [status, setStatus] = useState("Načítavam...");
+  const [contactingOwner, setContactingOwner] = useState(false);
 
   const [item, setItem] = useState<Item | null>(null);
   const [owner, setOwner] = useState<OwnerProfile | null>(null);
@@ -220,6 +221,70 @@ export default function ItemDetailPage() {
 
     if (insertError) {
       throw new Error(`Vytvorenie profilu zlyhalo: ${insertError.message}`);
+    }
+  };
+
+  const startConversationWithOwner = async () => {
+    if (!item) return;
+
+    setContactingOwner(true);
+    setStatus("Pripravujem konverzáciu...");
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!userId) {
+        router.push("/login");
+        return;
+      }
+
+      if (userId === item.owner_id) {
+        setStatus("Nemôžeš písať sám sebe.");
+        return;
+      }
+
+      await ensureProfileExists(userId);
+
+      const { data: existingConversation, error: existingError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("item_id", item.id)
+        .eq("owner_id", item.owner_id)
+        .eq("renter_id", userId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new Error(existingError.message);
+      }
+
+      if (existingConversation) {
+        router.push(`/messages/${existingConversation.id}`);
+        return;
+      }
+
+      const { data: createdConversation, error: createError } = await supabase
+        .from("conversations")
+        .insert({
+          item_id: item.id,
+          owner_id: item.owner_id,
+          renter_id: userId,
+        })
+        .select("id")
+        .single();
+
+      if (createError) {
+        throw new Error(createError.message);
+      }
+
+      router.push(`/messages/${createdConversation.id}`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Neznáma chyba pri otváraní konverzácie.";
+      setStatus("Chyba: " + message);
+      alert(message);
+    } finally {
+      setContactingOwner(false);
     }
   };
 
@@ -441,6 +506,15 @@ export default function ItemDetailPage() {
                   ) : null}
                 </div>
               ) : null}
+
+              <button
+                type="button"
+                className="mt-4 w-full rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+                onClick={startConversationWithOwner}
+                disabled={contactingOwner}
+              >
+                {contactingOwner ? "Otváram chat..." : "Napísať prenajímateľovi"}
+              </button>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
