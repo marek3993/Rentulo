@@ -599,12 +599,23 @@ const renderSection = (title: string, subtitle: string, sectionRows: Row[]) => (
                   </div>
 
                   <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    disabled={uploading}
-                    onChange={(e) => setUploadFiles(Array.from(e.target.files ?? []))}
-                  />
+  id={`owner-upload-${r.id}-${handoverUploadOpen ? "handover" : "return"}`}
+  type="file"
+  accept="image/*"
+  multiple
+  className="hidden"
+  disabled={uploading}
+  onChange={(e) => setUploadFiles(Array.from(e.target.files ?? []))}
+/>
+
+<label
+  htmlFor={`owner-upload-${r.id}-${handoverUploadOpen ? "handover" : "return"}`}
+  className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
+    uploading ? "pointer-events-none opacity-50" : ""
+  }`}
+>
+  Vybrať súbory
+</label>
 
                   <textarea
                     className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
@@ -616,12 +627,15 @@ const renderSection = (title: string, subtitle: string, sectionRows: Row[]) => (
                   />
 
                   {uploadFiles.length > 0 ? (
-                    <div className="text-sm text-white/60">
-                      Vybrané fotky: {uploadFiles.map((f) => f.name).join(", ")}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-white/50">Zatiaľ nie sú vybrané žiadne fotky.</div>
-                  )}
+  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+    <div className="font-medium text-white">Vybrané súbory:</div>
+    <div className="mt-1">{uploadFiles.map((f) => f.name).join(", ")}</div>
+  </div>
+) : (
+  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/50">
+    Zatiaľ nie sú vybrané žiadne súbory.
+  </div>
+)}
 
                   <div className="flex flex-wrap gap-2">
                     <button
