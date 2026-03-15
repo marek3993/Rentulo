@@ -34,6 +34,18 @@ type ItemRow = {
   owner_id: string;
 };
 
+type ConditionPhoto = {
+  id: number;
+  reservation_id: number;
+  item_id: number;
+  phase: "handover" | "return";
+  actor: "owner" | "renter";
+  path: string;
+  note: string | null;
+  created_at: string;
+  signed_url: string | null;
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -97,6 +109,12 @@ export default function OwnerReservationsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [status, setStatus] = useState("Načítavam...");
   const [itemTitleMap, setItemTitleMap] = useState<Record<number, string>>({});
+  const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
+
+  const [openUploadKey, setOpenUploadKey] = useState<string | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     setStatus("Načítavam...");
@@ -131,6 +149,7 @@ export default function OwnerReservationsPage() {
     const itemIds = itemRows.map((i) => i.id);
     if (itemIds.length === 0) {
       setRows([]);
+      setPhotoMap({});
       setStatus("");
       return;
     }
@@ -146,7 +165,58 @@ export default function OwnerReservationsPage() {
       return;
     }
 
-    setRows((data ?? []) as Row[]);
+    const reservationRows = (data ?? []) as Row[];
+    setRows(reservationRows);
+
+    const reservationIds = reservationRows.map((r) => r.id);
+    if (reservationIds.length === 0) {
+      setPhotoMap({});
+      setStatus("");
+      return;
+    }
+
+    const { data: photosData, error: photosErr } = await supabase
+      .from("rental_condition_photos")
+      .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
+      .in("reservation_id", reservationIds)
+      .order("created_at", { ascending: false });
+
+    if (photosErr) {
+      setPhotoMap({});
+      setStatus("");
+      return;
+    }
+
+    const map: Record<number, ConditionPhoto[]> = {};
+
+    for (const raw of (photosData ?? []) as any[]) {
+      let signedUrl: string | null = null;
+
+      const { data: signed } = await supabase.storage
+        .from("rental-condition-photos")
+        .createSignedUrl(raw.path, 60 * 60);
+
+      signedUrl = signed?.signedUrl ?? null;
+
+      const photo: ConditionPhoto = {
+        id: raw.id,
+        reservation_id: raw.reservation_id,
+        item_id: raw.item_id,
+        phase: raw.phase,
+        actor: raw.actor,
+        path: raw.path,
+        note: raw.note,
+        created_at: raw.created_at,
+        signed_url: signedUrl,
+      };
+
+      if (!map[photo.reservation_id]) {
+        map[photo.reservation_id] = [];
+      }
+      map[photo.reservation_id].push(photo);
+    }
+
+    setPhotoMap(map);
     setStatus("");
   };
 
@@ -180,6 +250,66 @@ export default function OwnerReservationsPage() {
     await load();
   };
 
+  const startUpload = (reservationId: number, phase: "handover" | "return") => {
+    setOpenUploadKey(`${reservationId}-${phase}`);
+    setUploadFiles([]);
+    setUploadNote("");
+  };
+
+  const uploadConditionPhotos = async (reservation: Row, phase: "handover" | "return") => {
+    if (uploadFiles.length === 0) {
+      setStatus("Najprv vyber aspoň jednu fotku.");
+      return;
+    }
+
+    setUploading(true);
+    setStatus("Nahrávam fotky...");
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+      if (!userId) {
+        router.push("/login");
+        return;
+      }
+
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+        const path = `${reservation.id}/${phase}/owner/${crypto.randomUUID()}.${safeExt}`;
+
+        const { error: upErr } = await supabase.storage
+          .from("rental-condition-photos")
+          .upload(path, file, { upsert: false });
+
+        if (upErr) throw new Error(upErr.message);
+
+        const { error: dbErr } = await supabase.from("rental_condition_photos").insert({
+          reservation_id: reservation.id,
+          item_id: reservation.item_id,
+          uploaded_by: userId,
+          phase,
+          actor: "owner",
+          path,
+          note: uploadNote.trim() ? uploadNote.trim() : null,
+        });
+
+        if (dbErr) throw new Error(dbErr.message);
+      }
+
+      setStatus("Fotky nahraté ✅");
+      setUploading(false);
+      setOpenUploadKey(null);
+      setUploadFiles([]);
+      setUploadNote("");
+      await load();
+    } catch (err: any) {
+      setUploading(false);
+      setStatus("Chyba: " + (err?.message ?? "upload failed"));
+    }
+  };
+
   const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
   const confirmed = useMemo(() => rows.filter((r) => r.status === "confirmed"), [rows]);
   const inRental = useMemo(() => rows.filter((r) => r.status === "in_rental"), [rows]);
@@ -207,6 +337,47 @@ export default function OwnerReservationsPage() {
     </div>
   );
 
+  const renderPhotoGrid = (
+    reservationId: number,
+    phase: "handover" | "return",
+    actor?: "owner" | "renter"
+  ) => {
+    const photos = (photoMap[reservationId] ?? []).filter((p) => {
+      if (actor) return p.phase === phase && p.actor === actor;
+      return p.phase === phase;
+    });
+
+    if (photos.length === 0) {
+      return <div className="text-sm text-white/50">Zatiaľ bez fotiek.</div>;
+    }
+
+    return (
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {photos.map((p) => (
+          <div key={p.id} className="rounded-xl border border-white/10 bg-white/5 p-2">
+            {p.signed_url ? (
+              <img
+                src={p.signed_url}
+                alt="condition photo"
+                className="h-28 w-full rounded-lg object-cover border border-white/10"
+              />
+            ) : (
+              <div className="flex h-28 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-white/50">
+                Bez náhľadu
+              </div>
+            )}
+
+            <div className="mt-2 text-xs text-white/50">
+              {p.actor === "owner" ? "Prenajímateľ" : "Zákazník"} · {formatDate(p.created_at)}
+            </div>
+
+            {p.note ? <div className="mt-1 text-sm text-white/70">{p.note}</div> : null}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const Section = ({
     title,
     subtitle,
@@ -230,18 +401,37 @@ export default function OwnerReservationsPage() {
         <ul className="mt-4 space-y-3">
           {rows.map((r) => {
             const startIn = daysUntil(r.date_from);
+            const photos = photoMap[r.id] ?? [];
+
+            const handoverOwnerCount = photos.filter(
+              (p) => p.phase === "handover" && p.actor === "owner"
+            ).length;
+
+            const returnOwnerCount = photos.filter(
+              (p) => p.phase === "return" && p.actor === "owner"
+            ).length;
+
+            const returnRenterCount = photos.filter(
+              (p) => p.phase === "return" && p.actor === "renter"
+            ).length;
 
             const canConfirm = r.status === "pending" && r.payment_status === "paid";
-            const canMarkHandedOver = r.status === "confirmed";
-            const canConfirmReturn = r.status === "return_pending_confirmation";
+            const canMarkHandedOver = r.status === "confirmed" && handoverOwnerCount > 0;
+            const canConfirmReturn =
+              r.status === "return_pending_confirmation" && returnOwnerCount > 0;
+
             const canCancel =
               r.status !== "cancelled" &&
               r.status !== "completed" &&
               r.status !== "in_rental";
+
             const canMarkDisputed =
               r.status === "confirmed" ||
               r.status === "in_rental" ||
               r.status === "return_pending_confirmation";
+
+            const handoverUploadOpen = openUploadKey === `${r.id}-handover`;
+            const returnUploadOpen = openUploadKey === `${r.id}-return`;
 
             return (
               <li key={r.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
@@ -302,6 +492,112 @@ export default function OwnerReservationsPage() {
                   Poskytovateľ platby: {r.payment_provider}
                 </div>
 
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="font-medium">Fotky pri odovzdaní</div>
+                    <div className="mt-1 text-sm text-white/60">
+                      Prenajímateľ nahraté: {handoverOwnerCount}
+                    </div>
+
+                    <div className="mt-3">{renderPhotoGrid(r.id, "handover")}</div>
+
+                    {r.status === "confirmed" ? (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                          onClick={() => startUpload(r.id, "handover")}
+                        >
+                          Nahrať fotky pri odovzdaní
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="font-medium">Fotky po vrátení</div>
+                    <div className="mt-1 text-sm text-white/60">
+                      Prenajímateľ nahraté: {returnOwnerCount} · Zákazník nahraté: {returnRenterCount}
+                    </div>
+
+                    <div className="mt-3">{renderPhotoGrid(r.id, "return")}</div>
+
+                    {r.status === "return_pending_confirmation" ? (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                          onClick={() => startUpload(r.id, "return")}
+                        >
+                          Nahrať fotky po vrátení
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                {handoverUploadOpen || returnUploadOpen ? (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div className="font-medium">
+                      {handoverUploadOpen ? "Upload fotiek pri odovzdaní" : "Upload fotiek po vrátení"}
+                    </div>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={uploading}
+                      onChange={(e) => setUploadFiles(Array.from(e.target.files ?? []))}
+                    />
+
+                    <textarea
+                      className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                      rows={3}
+                      placeholder="Poznámka k stavu (voliteľné)"
+                      value={uploadNote}
+                      onChange={(e) => setUploadNote(e.target.value)}
+                      disabled={uploading}
+                    />
+
+                    {uploadFiles.length > 0 ? (
+                      <div className="text-sm text-white/60">
+                        Vybrané fotky: {uploadFiles.map((f) => f.name).join(", ")}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-white/50">Zatiaľ nie sú vybrané žiadne fotky.</div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                        disabled={uploading}
+                        onClick={() =>
+                          uploadConditionPhotos(
+                            r,
+                            handoverUploadOpen ? "handover" : "return"
+                          )
+                        }
+                      >
+                        {uploading ? "Nahrávam..." : "Nahrať fotky"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                        disabled={uploading}
+                        onClick={() => {
+                          setOpenUploadKey(null);
+                          setUploadFiles([]);
+                          setUploadNote("");
+                        }}
+                      >
+                        Zrušiť
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="mt-5 flex flex-wrap gap-2">
                   {canConfirm ? (
                     <button
@@ -313,20 +609,22 @@ export default function OwnerReservationsPage() {
                     </button>
                   ) : null}
 
-                  {canMarkHandedOver ? (
+                  {r.status === "confirmed" ? (
                     <button
-                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
                       onClick={() => updateReservationStatus(r.id, "in_rental")}
+                      disabled={!canMarkHandedOver}
                       type="button"
                     >
                       Označiť ako odovzdané
                     </button>
                   ) : null}
 
-                  {canConfirmReturn ? (
+                  {r.status === "return_pending_confirmation" ? (
                     <button
-                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
                       onClick={() => updateReservationStatus(r.id, "completed")}
+                      disabled={!canConfirmReturn}
                       type="button"
                     >
                       Potvrdiť vrátenie
@@ -364,6 +662,18 @@ export default function OwnerReservationsPage() {
                 {r.payment_status !== "paid" && r.status === "pending" ? (
                   <div className="mt-3 text-sm text-white/60">
                     Potvrdenie je dostupné až po úspešnej platbe.
+                  </div>
+                ) : null}
+
+                {r.status === "confirmed" && handoverOwnerCount === 0 ? (
+                  <div className="mt-3 text-sm text-white/60">
+                    Pred odovzdaním najprv nahraj fotky stavu nástroja.
+                  </div>
+                ) : null}
+
+                {r.status === "return_pending_confirmation" && returnOwnerCount === 0 ? (
+                  <div className="mt-3 text-sm text-white/60">
+                    Pred potvrdením vrátenia najprv nahraj fotky po vrátení.
                   </div>
                 ) : null}
               </li>
