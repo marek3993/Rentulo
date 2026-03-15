@@ -25,6 +25,7 @@ type OwnerProfile = {
   facebook_url: string | null;
   linkedin_url: string | null;
   website_url: string | null;
+  verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
 };
 
 type ReviewRow = {
@@ -34,6 +35,20 @@ type ReviewRow = {
   created_at: string;
   reviewee_type: string;
 };
+
+function verificationBadgeClass(status: string) {
+  if (status === "verified") return "bg-emerald-600/90 text-white";
+  if (status === "pending") return "bg-yellow-400 text-black";
+  if (status === "rejected") return "bg-red-600/90 text-white";
+  return "bg-white/10 text-white";
+}
+
+function verificationLabel(status: string) {
+  if (status === "verified") return "Overený profil";
+  if (status === "pending") return "Čaká na overenie";
+  if (status === "rejected") return "Overenie zamietnuté";
+  return "Neoverený profil";
+}
 
 export default function ItemDetailPage() {
   const params = useParams<{ id: string }>();
@@ -126,11 +141,11 @@ export default function ItemDetailPage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
+        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status")
         .eq("id", typedItem.owner_id)
         .maybeSingle();
 
-      if (!profErr && prof) setOwner(prof as any);
+      if (!profErr && prof) setOwner(prof as OwnerProfile);
       else setOwner(null);
 
       const { data: reservations, error: rErr } = await supabase
@@ -463,7 +478,18 @@ export default function ItemDetailPage() {
                   )}
 
                   <div>
-                    <div className="font-medium">{owner?.full_name ?? "Bez mena"}</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="font-medium">{owner?.full_name ?? "Bez mena"}</div>
+                      {owner?.verification_status ? (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                            owner.verification_status
+                          )}`}
+                        >
+                          {verificationLabel(owner.verification_status)}
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="text-sm text-white/60">{owner?.city ?? "Bez mesta"}</div>
                   </div>
                 </div>
