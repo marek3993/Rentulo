@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-type ProfileRow = {
+type PublicProfile = {
   id: string;
   full_name: string | null;
   city: string | null;
@@ -15,29 +15,31 @@ type ProfileRow = {
   facebook_url: string | null;
   linkedin_url: string | null;
   website_url: string | null;
+  verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
 };
 
 type ItemRow = {
   id: number;
   title: string;
-  description: string | null;
   price_per_day: number;
   city: string | null;
-  postal_code?: string | null;
-  category?: string | null;
+  postal_code: string | null;
+  category: string | null;
+  is_active: boolean;
 };
 
-type ReviewRow = {
-  id: number;
-  rating: number;
-  comment: string | null;
-  created_at: string;
-};
+function verificationBadgeClass(status: string) {
+  if (status === "verified") return "bg-emerald-600/90 text-white";
+  if (status === "pending") return "bg-yellow-400 text-black";
+  if (status === "rejected") return "bg-red-600/90 text-white";
+  return "bg-white/10 text-white";
+}
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("sk-SK");
+function verificationLabel(status: string) {
+  if (status === "verified") return "Overený profil";
+  if (status === "pending") return "Čaká na overenie";
+  if (status === "rejected") return "Overenie zamietnuté";
+  return "Neoverený profil";
 }
 
 export default function PublicProfilePage() {
@@ -45,12 +47,9 @@ export default function PublicProfilePage() {
   const profileId = params.id;
 
   const [status, setStatus] = useState("Načítavam...");
-  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string>>({});
-  const [ownerReviewAvg, setOwnerReviewAvg] = useState<number | null>(null);
-  const [ownerReviewCount, setOwnerReviewCount] = useState(0);
-  const [ownerReviews, setOwnerReviews] = useState<ReviewRow[]>([]);
 
   const avatarUrl = useMemo(() => {
     if (!profile?.avatar_path) return null;
@@ -58,100 +57,95 @@ export default function PublicProfilePage() {
   }, [profile?.avatar_path]);
 
   useEffect(() => {
+    const loadImages = async (rows: ItemRow[]) => {
+      const ids = rows.map((x) => x.id);
+      if (ids.length === 0) {
+        setImageMap({});
+        return;
+      }
+
+      const { data: imgs, error: imgErr } = await supabase
+        .from("item_images")
+        .select("item_id,path")
+        .in("item_id", ids)
+        .order("id", { ascending: true });
+
+      if (imgErr) {
+        setImageMap({});
+        return;
+      }
+
+      const map: Record<number, string> = {};
+      for (const im of (imgs ?? []) as any[]) {
+        if (!map[im.item_id]) {
+          const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
+          map[im.item_id] = pub.publicUrl;
+        }
+      }
+
+      setImageMap(map);
+    };
+
     const run = async () => {
       setStatus("Načítavam...");
 
-      const { data: profileData, error: profileErr } = await supabase
+      if (!profileId) {
+        setStatus("Profil neexistuje.");
+        return;
+      }
+
+      const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
+        .select(
+          "id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status"
+        )
         .eq("id", profileId)
         .maybeSingle();
 
-      if (profileErr) {
-        setStatus("Chyba: " + profileErr.message);
+      if (profErr) {
+        setStatus("Chyba: " + profErr.message);
         return;
       }
 
-      if (!profileData) {
-        setStatus("Nenájdené");
+      if (!prof) {
+        setStatus("Profil neexistuje.");
         return;
       }
 
-      setProfile(profileData as ProfileRow);
+      setProfile(prof as PublicProfile);
 
       const { data: itemsData, error: itemsErr } = await supabase
         .from("items")
-        .select("id,title,description,price_per_day,city,postal_code,category")
+        .select("id,title,price_per_day,city,postal_code,category,is_active")
         .eq("owner_id", profileId)
         .eq("is_active", true)
         .order("id", { ascending: false });
 
-      if (!itemsErr) {
-        const itemRows = (itemsData ?? []) as ItemRow[];
-        setItems(itemRows);
-
-        const itemIds = itemRows.map((x) => x.id);
-        if (itemIds.length > 0) {
-          const { data: imgs } = await supabase
-            .from("item_images")
-            .select("item_id,path")
-            .in("item_id", itemIds)
-            .order("id", { ascending: true });
-
-          const map: Record<number, string> = {};
-          for (const im of (imgs ?? []) as any[]) {
-            if (!map[im.item_id]) {
-              const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
-              map[im.item_id] = pub.publicUrl;
-            }
-          }
-          setImageMap(map);
-        } else {
-          setImageMap({});
-        }
-      } else {
-        setItems([]);
-        setImageMap({});
+      if (itemsErr) {
+        setStatus("Chyba: " + itemsErr.message);
+        return;
       }
 
-      const { data: ownerAgg } = await supabase
-        .from("reviews")
-        .select("rating")
-        .eq("reviewee_type", "owner")
-        .eq("reviewee_id", profileId);
-
-      if (ownerAgg) {
-        const ratings = ownerAgg.map((x: any) => Number(x.rating)).filter((n) => Number.isFinite(n));
-        setOwnerReviewCount(ratings.length);
-        setOwnerReviewAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
-      } else {
-        setOwnerReviewCount(0);
-        setOwnerReviewAvg(null);
-      }
-
-      const { data: reviewList } = await supabase
-        .from("reviews")
-        .select("id,rating,comment,created_at")
-        .eq("reviewee_type", "owner")
-        .eq("reviewee_id", profileId)
-        .order("id", { ascending: false })
-        .limit(10);
-
-      setOwnerReviews((reviewList ?? []) as ReviewRow[]);
+      const itemRows = (itemsData ?? []) as ItemRow[];
+      setItems(itemRows);
+      await loadImages(itemRows);
 
       setStatus("");
     };
 
-    if (!profileId) return;
     run();
   }, [profileId]);
 
-  if (status === "Nenájdené") {
+  if (status === "Profil neexistuje.") {
     return (
       <main className="space-y-6">
-        <Link className="rounded border border-white/15 px-3 py-2 hover:bg-white/10 inline-flex" href="/items">
+        <Link
+          href="/items"
+          className="inline-flex rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+        >
           Späť na ponuky
         </Link>
+
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
           Profil neexistuje.
         </div>
@@ -161,7 +155,10 @@ export default function PublicProfilePage() {
 
   return (
     <main className="space-y-6">
-      <Link className="rounded border border-white/15 px-3 py-2 hover:bg-white/10 inline-flex" href="/items">
+      <Link
+        href="/items"
+        className="inline-flex rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+      >
         Späť na ponuky
       </Link>
 
@@ -173,7 +170,7 @@ export default function PublicProfilePage() {
         <>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
-              <div>
+              <div className="shrink-0">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
@@ -185,23 +182,23 @@ export default function PublicProfilePage() {
                 )}
               </div>
 
-              <div className="flex-1">
-                <h1 className="text-2xl font-semibold">{profile.full_name ?? "Bez mena"}</h1>
-                <div className="mt-1 text-white/60">{profile.city ?? "Bez mesta"}</div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl font-semibold">
+                    {profile.full_name?.trim() || "Používateľ"}
+                  </h1>
 
-                <div className="mt-4 flex flex-wrap gap-8">
-                  <div>
-                    <div className="text-sm text-white/60">Hodnotenie prenajímateľa</div>
-                    <div className="font-semibold text-white">
-                      {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐{" "}
-                      <span className="font-normal text-white/60">({ownerReviewCount})</span>
-                    </div>
-                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${verificationBadgeClass(
+                      profile.verification_status
+                    )}`}
+                  >
+                    {verificationLabel(profile.verification_status)}
+                  </span>
+                </div>
 
-                  <div>
-                    <div className="text-sm text-white/60">Aktívne ponuky</div>
-                    <div className="font-semibold text-white">{items.length}</div>
-                  </div>
+                <div className="mt-2 text-white/60">
+                  {profile.city?.trim() || "Bez uvedeného mesta"}
                 </div>
 
                 {profile.bio ? (
@@ -214,13 +211,13 @@ export default function PublicProfilePage() {
                   profile.instagram_url ||
                   profile.facebook_url ||
                   profile.linkedin_url) ? (
-                  <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {profile.website_url ? (
                       <a
-                        className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
                         href={profile.website_url}
                         target="_blank"
                         rel="noreferrer"
+                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
                       >
                         Web
                       </a>
@@ -228,10 +225,10 @@ export default function PublicProfilePage() {
 
                     {profile.instagram_url ? (
                       <a
-                        className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
                         href={profile.instagram_url}
                         target="_blank"
                         rel="noreferrer"
+                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
                       >
                         Instagram
                       </a>
@@ -239,10 +236,10 @@ export default function PublicProfilePage() {
 
                     {profile.facebook_url ? (
                       <a
-                        className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
                         href={profile.facebook_url}
                         target="_blank"
                         rel="noreferrer"
+                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
                       >
                         Facebook
                       </a>
@@ -250,10 +247,10 @@ export default function PublicProfilePage() {
 
                     {profile.linkedin_url ? (
                       <a
-                        className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
                         href={profile.linkedin_url}
                         target="_blank"
                         rel="noreferrer"
+                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
                       >
                         LinkedIn
                       </a>
@@ -264,18 +261,31 @@ export default function PublicProfilePage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Ponuky prenajímateľa</h2>
-              <div className="text-sm text-white/60">{items.length} aktívnych ponúk</div>
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Aktívne ponuky používateľa</h2>
+                <p className="mt-1 text-sm text-white/60">
+                  Verejne dostupné ponuky tohto profilu.
+                </p>
+              </div>
+
+              <div className="text-sm text-white/60">
+                Počet ponúk: <strong className="text-white">{items.length}</strong>
+              </div>
             </div>
 
             {items.length === 0 ? (
-              <div className="text-white/60">Tento prenajímateľ zatiaľ nemá žiadne aktívne ponuky.</div>
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
+                Tento používateľ momentálne nemá žiadne aktívne ponuky.
+              </div>
             ) : (
-              <ul className="grid gap-4 md:grid-cols-2">
+              <ul className="mt-4 grid gap-4 md:grid-cols-2">
                 {items.map((item) => (
-                  <li key={item.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <li
+                    key={item.id}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                  >
                     <Link href={`/items/${item.id}`} className="block">
                       {imageMap[item.id] ? (
                         <img
@@ -298,45 +308,16 @@ export default function PublicProfilePage() {
                       <div className="mt-1 text-white/80">
                         {item.price_per_day} € <span className="text-white/60">/ deň</span>
                         {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
-                        {item.postal_code ? <span className="text-white/60"> · {item.postal_code}</span> : null}
+                        {item.postal_code ? (
+                          <span className="text-white/60"> · {item.postal_code}</span>
+                        ) : null}
                       </div>
-
-                      {item.description ? (
-                        <div className="mt-2 line-clamp-2 text-white/70">{item.description}</div>
-                      ) : (
-                        <div className="mt-2 text-white/50">Bez popisu</div>
-                      )}
                     </Link>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold">Hodnotenia prenajímateľa</h2>
-
-            {ownerReviews.length === 0 ? (
-              <div className="mt-3 text-white/60">Zatiaľ bez hodnotení prenajímateľa.</div>
-            ) : (
-              <ul className="mt-4 space-y-3">
-                {ownerReviews.map((review) => (
-                  <li key={review.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="font-medium">{review.rating} ⭐</div>
-                      <div className="text-sm text-white/60">{formatDate(review.created_at)}</div>
-                    </div>
-
-                    {review.comment ? (
-                      <div className="mt-2 whitespace-pre-wrap text-white/80">{review.comment}</div>
-                    ) : (
-                      <div className="mt-2 text-white/50">Bez komentára.</div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          </section>
         </>
       ) : null}
     </main>
