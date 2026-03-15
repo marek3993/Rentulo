@@ -372,23 +372,19 @@ export default function ReservationsPage() {
   const disputed = useMemo(() => rows.filter((r) => r.status === "disputed"), [rows]);
   const cancelled = useMemo(() => rows.filter((r) => r.status === "cancelled"), [rows]);
 
-  const SectionCard = ({
-    title,
-    subtitle,
-    children,
-  }: {
-    title: string;
-    subtitle: string;
-    children: React.ReactNode;
-  }) => (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
-      </div>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
+const renderSection = (
+  title: string,
+  subtitle: string,
+  content: React.ReactNode
+) => (
+  <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+    <div>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+    </div>
+    <div className="mt-4">{content}</div>
+  </section>
+);
 
   const renderPhotoGrid = (
     reservationId: number,
@@ -431,7 +427,7 @@ export default function ReservationsPage() {
     );
   };
 
-  const Card = ({ r }: { r: Reservation }) => {
+  const renderCard = (r: Reservation) => {
     const itemMeta = itemMetaMap[r.item_id];
     const photos = photoMap[r.id] ?? [];
 
@@ -478,7 +474,7 @@ export default function ReservationsPage() {
         : "Termín už uplynul.";
 
     return (
-      <li className="rounded-2xl border border-white/10 bg-black/20 p-5 shadow-sm">
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -823,7 +819,7 @@ export default function ReservationsPage() {
             Platba je zaevidovaná. Čaká sa na potvrdenie prenajímateľa.
           </div>
         ) : null}
-      </li>
+      </div>
     );
   };
 
@@ -851,110 +847,103 @@ export default function ReservationsPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
       ) : null}
 
-      <SectionCard
-        title="Čakajúce rezervácie"
-        subtitle="Rezervácie čakajúce na potvrdenie alebo na platbu."
-      >
-        {pending.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne čakajúce rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {pending.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+      {renderSection(
+  "Čakajúce rezervácie",
+  "Rezervácie čakajúce na potvrdenie alebo na platbu.",
+  pending.length === 0 ? (
+    <p className="text-white/60">Nemáš žiadne čakajúce rezervácie.</p>
+  ) : (
+    <ul className="space-y-3">
+      {pending.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Potvrdené rezervácie"
-        subtitle="Rezervácie schválené prenajímateľom a pripravené na odovzdanie."
-      >
-        {confirmed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne potvrdené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {confirmed.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Potvrdené rezervácie",
+  "Rezervácie schválené prenajímateľom a pripravené na odovzdanie.",
+  confirmed.length === 0 ? (
+    <p className="text-white/60">Nemáš žiadne potvrdené rezervácie.</p>
+  ) : (
+    <ul className="space-y-3">
+      {confirmed.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Prebieha prenájom"
-        subtitle="Vec je u teba. Pred vrátením nahraj fotky a potom potvrď vrátenie."
-      >
-        {inRental.length === 0 ? (
-          <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
-        ) : (
-          <ul className="space-y-3">
-            {inRental.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Prebieha prenájom",
+  "Vec je u teba. Pred vrátením nahraj fotky a potom potvrď vrátenie.",
+  inRental.length === 0 ? (
+    <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
+  ) : (
+    <ul className="space-y-3">
+      {inRental.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Čaká na potvrdenie vrátenia"
-        subtitle="Prenajímateľ ešte kontroluje stav po vrátení."
-      >
-        {returnPending.length === 0 ? (
-          <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>
-        ) : (
-          <ul className="space-y-3">
-            {returnPending.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Čaká na potvrdenie vrátenia",
+  "Prenajímateľ ešte kontroluje stav po vrátení.",
+  returnPending.length === 0 ? (
+    <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>
+  ) : (
+    <ul className="space-y-3">
+      {returnPending.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Dokončené rezervácie"
-        subtitle="Prenájmy, ktoré sú riadne ukončené."
-      >
-        {completed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne dokončené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {completed.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Dokončené rezervácie",
+  "Prenájmy, ktoré sú riadne ukončené.",
+  completed.length === 0 ? (
+    <p className="text-white/60">Nemáš žiadne dokončené rezervácie.</p>
+  ) : (
+    <ul className="space-y-3">
+      {completed.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Sporné rezervácie"
-        subtitle="Rezervácie, pri ktorých bol nahlásený problém."
-      >
-        {disputed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne sporné rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {disputed.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Sporné rezervácie",
+  "Rezervácie, pri ktorých bol nahlásený problém.",
+  disputed.length === 0 ? (
+    <p className="text-white/60">Nemáš žiadne sporné rezervácie.</p>
+  ) : (
+    <ul className="space-y-3">
+      {disputed.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
 
-      <SectionCard
-        title="Zrušené rezervácie"
-        subtitle="História zrušených rezervácií."
-      >
-        {cancelled.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne zrušené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {cancelled.map((r) => (
-              <Card key={r.id} r={r} />
-            ))}
-          </ul>
-        )}
-      </SectionCard>
+{renderSection(
+  "Zrušené rezervácie",
+  "História zrušených rezervácií.",
+  cancelled.length === 0 ? (
+    <p className="text-white/60">Nemáš žiadne zrušené rezervácie.</p>
+  ) : (
+    <ul className="space-y-3">
+      {cancelled.map((r) => (
+        <li key={r.id}>{renderCard(r)}</li>
+      ))}
+    </ul>
+  )
+)}
     </main>
   );
 }
