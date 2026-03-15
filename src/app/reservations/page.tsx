@@ -49,6 +49,14 @@ type ConditionPhoto = {
   signed_url: string | null;
 };
 
+type ConversationRow = {
+  id: number;
+  item_id: number;
+  owner_id: string;
+  renter_id: string;
+  reservation_id: number | null;
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -118,6 +126,8 @@ export default function ReservationsPage() {
   const [itemMetaMap, setItemMetaMap] = useState<Record<number, ItemMeta>>({});
   const [reviewMap, setReviewMap] = useState<Record<number, ReviewFlags>>({});
   const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
+  const [conversationMap, setConversationMap] = useState<Record<number, number>>({});
+  const [chatOpeningForReservation, setChatOpeningForReservation] = useState<number | null>(null);
 
   const [openReviewKey, setOpenReviewKey] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
@@ -170,9 +180,33 @@ export default function ReservationsPage() {
           };
         }
         setItemMetaMap(map);
+
+        const { data: conversationsData } = await supabase
+          .from("conversations")
+          .select("id,item_id,owner_id,renter_id,reservation_id")
+          .eq("renter_id", userId)
+          .in("item_id", itemIds);
+
+        const nextConversationMap: Record<number, number> = {};
+
+        for (const reservation of reservationRows) {
+          const itemMeta = map[reservation.item_id];
+          if (!itemMeta) continue;
+
+          const match = ((conversationsData ?? []) as ConversationRow[]).find(
+            (c) => c.item_id === reservation.item_id && c.owner_id === itemMeta.owner_id
+          );
+
+          if (match) {
+            nextConversationMap[reservation.id] = match.id;
+          }
+        }
+
+        setConversationMap(nextConversationMap);
       }
     } else {
       setItemMetaMap({});
+      setConversationMap({});
     }
 
     const reservationIds = reservationRows.map((r) => r.id);
@@ -273,6 +307,74 @@ export default function ReservationsPage() {
 
     if (insertError) {
       throw new Error(`Vytvorenie profilu zlyhalo: ${insertError.message}`);
+    }
+  };
+
+  const openChatForReservation = async (reservation: Reservation) => {
+    const itemMeta = itemMetaMap[reservation.item_id];
+    if (!itemMeta) {
+      alert("Chýbajú údaje o položke.");
+      return;
+    }
+
+    setChatOpeningForReservation(reservation.id);
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!userId) {
+        router.push("/login");
+        return;
+      }
+
+      await ensureProfileExists(userId);
+
+      const { data: existingConversation, error: existingError } = await supabase
+        .from("conversations")
+        .select("id,reservation_id")
+        .eq("item_id", reservation.item_id)
+        .eq("owner_id", itemMeta.owner_id)
+        .eq("renter_id", userId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw new Error(existingError.message);
+      }
+
+      if (existingConversation) {
+        if (!existingConversation.reservation_id) {
+          await supabase
+            .from("conversations")
+            .update({ reservation_id: reservation.id })
+            .eq("id", existingConversation.id);
+        }
+
+        router.push(`/messages/${existingConversation.id}`);
+        return;
+      }
+
+      const { data: createdConversation, error: createError } = await supabase
+        .from("conversations")
+        .insert({
+          item_id: reservation.item_id,
+          owner_id: itemMeta.owner_id,
+          renter_id: userId,
+          reservation_id: reservation.id,
+        })
+        .select("id")
+        .single();
+
+      if (createError) {
+        throw new Error(createError.message);
+      }
+
+      router.push(`/messages/${createdConversation.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Neznáma chyba pri otváraní chatu.";
+      alert(message);
+    } finally {
+      setChatOpeningForReservation(null);
     }
   };
 
@@ -540,6 +642,7 @@ export default function ReservationsPage() {
   const renderCard = (r: Reservation) => {
     const itemMeta = itemMetaMap[r.item_id];
     const photos = photoMap[r.id] ?? [];
+    const existingConversationId = conversationMap[r.id];
 
     const canPay = r.status === "pending" && r.payment_status === "unpaid";
     const canCancel =
@@ -739,6 +842,19 @@ export default function ReservationsPage() {
               Zrušiť rezerváciu
             </button>
           ) : null}
+
+          <button
+            type="button"
+            className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+            onClick={() => openChatForReservation(r)}
+            disabled={chatOpeningForReservation === r.id}
+          >
+            {chatOpeningForReservation === r.id
+              ? "Otváram chat..."
+              : existingConversationId
+              ? "Otvoriť chat"
+              : "Vytvoriť chat"}
+          </button>
 
           <Link
             className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
