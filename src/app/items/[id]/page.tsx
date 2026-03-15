@@ -48,14 +48,12 @@ export default function ItemDetailPage() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [activeImage, setActiveImage] = useState<string | null>(null);
 
-  // kalendár
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
   const [range, setRange] = useState<DateRange | undefined>();
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // ratingy + recenzie
   const [itemReviewAvg, setItemReviewAvg] = useState<number | null>(null);
   const [itemReviewCount, setItemReviewCount] = useState(0);
 
@@ -91,7 +89,6 @@ export default function ItemDetailPage() {
     const run = async () => {
       setStatus("Načítavam...");
 
-      // 1) item
       const { data: itemData, error: itemErr } = await supabase
         .from("items")
         .select("id,title,description,price_per_day,city,owner_id")
@@ -109,7 +106,6 @@ export default function ItemDetailPage() {
       const typedItem = itemData as Item;
       setItem(typedItem);
 
-      // 2) fotky
       const { data: imgs, error: imgErr } = await supabase
         .from("item_images")
         .select("path")
@@ -127,7 +123,6 @@ export default function ItemDetailPage() {
         setActiveImage(null);
       }
 
-      // 3) profil prenajímateľa
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
         .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
@@ -137,7 +132,6 @@ export default function ItemDetailPage() {
       if (!profErr && prof) setOwner(prof as any);
       else setOwner(null);
 
-      // 4) rezervácie pre kalendár
       const { data: reservations, error: rErr } = await supabase
         .from("reservations")
         .select("date_from,date_to,status,created_at")
@@ -161,7 +155,6 @@ export default function ItemDetailPage() {
         setReservedRanges([]);
       }
 
-      // 5) rating agregácie + recenzie (read-only)
       const { data: itemAgg } = await supabase
         .from("reviews")
         .select("rating")
@@ -229,7 +222,6 @@ export default function ItemDetailPage() {
       return;
     }
 
-    // ensure profile exists
     const { data: prof, error: profErr } = await supabase
       .from("profiles")
       .select("id")
@@ -295,10 +287,7 @@ export default function ItemDetailPage() {
 
       {item ? (
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* Ľavo: galéria + info + recenzie */}
-          <div className="lg:col-span-2 space-y-4">
-
-            {/* INFO */}
+          <div className="space-y-4 lg:col-span-2">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <h1 className="text-2xl font-semibold">{item.title}</h1>
               <div className="mt-2 text-white/80">
@@ -307,13 +296,12 @@ export default function ItemDetailPage() {
               </div>
 
               {item.description ? (
-                <p className="mt-4 text-white/80 whitespace-pre-wrap">{item.description}</p>
+                <p className="mt-4 whitespace-pre-wrap text-white/80">{item.description}</p>
               ) : (
                 <p className="mt-4 text-white/60">Bez popisu.</p>
               )}
             </div>
-            
-            {/* GALÉRIA: veľký obrázok + mini náhľady */}
+
             {imageUrls.length > 0 ? (
               <div className="space-y-3">
                 <img
@@ -341,24 +329,21 @@ export default function ItemDetailPage() {
               <div className="h-56 w-full rounded-2xl border border-white/10 bg-white/5" />
             )}
 
-            
-
-            {/* HODNOTENIA (len info, bez formulára) */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
               <div className="flex flex-wrap gap-8">
                 <div>
-                  <div className="text-white/70 text-sm">Hodnotenie položky</div>
-                  <div className="text-white/90 font-semibold">
+                  <div className="text-sm text-white/70">Hodnotenie položky</div>
+                  <div className="font-semibold text-white/90">
                     {itemReviewAvg !== null ? itemReviewAvg.toFixed(2) : "-"} ⭐{" "}
-                    <span className="text-white/60 font-normal">({itemReviewCount})</span>
+                    <span className="font-normal text-white/60">({itemReviewCount})</span>
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-white/70 text-sm">Hodnotenie prenajímateľa</div>
-                  <div className="text-white/90 font-semibold">
+                  <div className="text-sm text-white/70">Hodnotenie prenajímateľa</div>
+                  <div className="font-semibold text-white/90">
                     {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐{" "}
-                    <span className="text-white/60 font-normal">({ownerReviewCount})</span>
+                    <span className="font-normal text-white/60">({ownerReviewCount})</span>
                   </div>
                 </div>
               </div>
@@ -373,7 +358,7 @@ export default function ItemDetailPage() {
                       <li key={r.id} className="rounded-xl border border-white/10 p-4">
                         <div className="flex items-center justify-between">
                           <div className="font-medium">{r.rating} ⭐</div>
-                          <div className="text-white/60 text-sm">
+                          <div className="text-sm text-white/60">
                             {new Date(r.created_at).toISOString().slice(0, 10)}
                           </div>
                         </div>
@@ -383,35 +368,35 @@ export default function ItemDetailPage() {
                   </ul>
                 )}
               </div>
-
-              <div className="text-sm text-white/60">
-                Hodnotenie sa bude pridávať až po potvrdení odovzdania/vyzdvihnutia (neskôr).
-              </div>
             </div>
           </div>
 
-          {/* Pravý stĺpec: prenajímateľ + rezervácia */}
           <div className="space-y-4">
-            {/* Prenajímateľ */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
               <div className="font-semibold">Prenajímateľ</div>
 
-              <div className="mt-4 flex items-center gap-3">
-                {ownerAvatarUrl ? (
-                  <img
-                    src={ownerAvatarUrl}
-                    alt="avatar"
-                    className="h-12 w-12 rounded-full border border-white/10 object-cover"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5" />
-                )}
+              <Link href={`/profile/${item.owner_id}`} className="mt-4 block rounded-xl hover:bg-white/5">
+                <div className="flex items-center gap-3">
+                  {ownerAvatarUrl ? (
+                    <img
+                      src={ownerAvatarUrl}
+                      alt="avatar"
+                      className="h-12 w-12 rounded-full border border-white/10 object-cover"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5" />
+                  )}
 
-                <div>
-                  <div className="font-medium">{owner?.full_name ?? "Bez mena"}</div>
-                  <div className="text-white/60 text-sm">{owner?.city ?? "Bez mesta"}</div>
+                  <div>
+                    <div className="font-medium">{owner?.full_name ?? "Bez mena"}</div>
+                    <div className="text-sm text-white/60">{owner?.city ?? "Bez mesta"}</div>
+                  </div>
                 </div>
-              </div>
+
+                <div className="mt-3 text-sm text-white/60">
+                  Zobraziť verejný profil prenajímateľa
+                </div>
+              </Link>
 
               {owner?.bio ? (
                 <div className="mt-3 whitespace-pre-wrap text-sm text-white/80">{owner.bio}</div>
@@ -425,22 +410,22 @@ export default function ItemDetailPage() {
                 owner?.linkedin_url) ? (
                 <div className="mt-4 space-y-2 text-sm">
                   {owner.website_url ? (
-                    <a className="underline text-white/80 block" href={owner.website_url} target="_blank" rel="noreferrer">
+                    <a className="block underline text-white/80" href={owner.website_url} target="_blank" rel="noreferrer">
                       Web
                     </a>
                   ) : null}
                   {owner.instagram_url ? (
-                    <a className="underline text-white/80 block" href={owner.instagram_url} target="_blank" rel="noreferrer">
+                    <a className="block underline text-white/80" href={owner.instagram_url} target="_blank" rel="noreferrer">
                       Instagram
                     </a>
                   ) : null}
                   {owner.facebook_url ? (
-                    <a className="underline text-white/80 block" href={owner.facebook_url} target="_blank" rel="noreferrer">
+                    <a className="block underline text-white/80" href={owner.facebook_url} target="_blank" rel="noreferrer">
                       Facebook
                     </a>
                   ) : null}
                   {owner.linkedin_url ? (
-                    <a className="underline text-white/80 block" href={owner.linkedin_url} target="_blank" rel="noreferrer">
+                    <a className="block underline text-white/80" href={owner.linkedin_url} target="_blank" rel="noreferrer">
                       LinkedIn
                     </a>
                   ) : null}
@@ -448,7 +433,6 @@ export default function ItemDetailPage() {
               ) : null}
             </div>
 
-            {/* Rezervácia */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
               <div className="font-semibold">Rezervácia</div>
 
