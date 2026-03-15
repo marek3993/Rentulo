@@ -27,6 +27,16 @@ type Reservation = {
   payment_provider: string;
 };
 
+type ItemMeta = {
+  title: string;
+  owner_id: string;
+};
+
+type ReviewFlags = {
+  item: boolean;
+  owner: boolean;
+};
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -83,6 +93,14 @@ export default function ReservationsPage() {
   const [rows, setRows] = useState<Reservation[]>([]);
   const [status, setStatus] = useState("Načítavam...");
 
+  const [itemMetaMap, setItemMetaMap] = useState<Record<number, ItemMeta>>({});
+  const [reviewMap, setReviewMap] = useState<Record<number, ReviewFlags>>({});
+
+  const [openReviewKey, setOpenReviewKey] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
   const load = async () => {
     setStatus("Načítavam...");
 
@@ -105,7 +123,58 @@ export default function ReservationsPage() {
       return;
     }
 
-    setRows((data ?? []) as Reservation[]);
+    const reservationRows = (data ?? []) as Reservation[];
+    setRows(reservationRows);
+
+    const itemIds = Array.from(new Set(reservationRows.map((r) => r.item_id)));
+    if (itemIds.length > 0) {
+      const { data: itemsData, error: itemsErr } = await supabase
+        .from("items")
+        .select("id,title,owner_id")
+        .in("id", itemIds);
+
+      if (!itemsErr) {
+        const map: Record<number, ItemMeta> = {};
+        for (const item of (itemsData ?? []) as any[]) {
+          map[item.id] = {
+            title: item.title,
+            owner_id: item.owner_id,
+          };
+        }
+        setItemMetaMap(map);
+      }
+    } else {
+      setItemMetaMap({});
+    }
+
+    const reservationIds = reservationRows.map((r) => r.id);
+    if (reservationIds.length > 0) {
+      const { data: reviewsData, error: reviewsErr } = await supabase
+        .from("reviews")
+        .select("reservation_id,reviewee_type")
+        .in("reservation_id", reservationIds)
+        .eq("reviewer_id", userId);
+
+      if (!reviewsErr) {
+        const map: Record<number, ReviewFlags> = {};
+        for (const r of reservationRows) {
+          map[r.id] = { item: false, owner: false };
+        }
+
+        for (const rev of (reviewsData ?? []) as any[]) {
+          if (!map[rev.reservation_id]) {
+            map[rev.reservation_id] = { item: false, owner: false };
+          }
+          if (rev.reviewee_type === "item") map[rev.reservation_id].item = true;
+          if (rev.reviewee_type === "owner") map[rev.reservation_id].owner = true;
+        }
+
+        setReviewMap(map);
+      }
+    } else {
+      setReviewMap({});
+    }
+
     setStatus("");
   };
 
@@ -130,6 +199,50 @@ export default function ReservationsPage() {
       return;
     }
 
+    await load();
+  };
+
+  const submitReview = async (
+    reservation: Reservation,
+    revieweeType: "item" | "owner"
+  ) => {
+    const itemMeta = itemMetaMap[reservation.item_id];
+    if (!itemMeta) {
+      setStatus("Chyba: chýbajú údaje o položke.");
+      return;
+    }
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setStatus("Odosielam hodnotenie...");
+
+    const { error } = await supabase.from("reviews").insert({
+      reservation_id: reservation.id,
+      item_id: reservation.item_id,
+      reviewer_id: userId,
+      rating: reviewRating,
+      comment: reviewComment.trim() ? reviewComment.trim() : null,
+      reviewee_type: revieweeType,
+      reviewee_id: itemMeta.owner_id,
+    });
+
+    if (error) {
+      setReviewSubmitting(false);
+      setStatus("Chyba: " + error.message);
+      return;
+    }
+
+    setReviewSubmitting(false);
+    setReviewComment("");
+    setReviewRating(5);
+    setOpenReviewKey(null);
+    setStatus("Hodnotenie uložené ✅");
     await load();
   };
 
@@ -177,6 +290,13 @@ export default function ReservationsPage() {
 
     const canMarkReturned = r.status === "in_rental";
 
+    const canReviewItem = r.status === "completed" && !reviewMap[r.id]?.item;
+    const canReviewOwner = r.status === "completed" && !reviewMap[r.id]?.owner;
+
+    const itemMeta = itemMetaMap[r.item_id];
+    const reviewItemKey = `item-${r.id}`;
+    const reviewOwnerKey = `owner-${r.id}`;
+
     const startIn = daysUntil(r.date_from);
     const endIn = daysUntil(r.date_to);
 
@@ -201,7 +321,8 @@ export default function ReservationsPage() {
             </div>
 
             <div className="text-white/80">
-              <span className="text-white/50">Položka:</span> {r.item_id}
+              <span className="text-white/50">Položka:</span>{" "}
+              {itemMeta?.title ?? r.item_id}
             </div>
 
             <div className="text-white/80">
@@ -284,8 +405,136 @@ export default function ReservationsPage() {
         </div>
 
         {r.status === "completed" ? (
-          <div className="mt-3 text-sm text-white/60">
-            Hodnotenie spravíme v ďalšom kroku po ukončení prenájmu.
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="font-medium">Hodnotenie po ukončení prenájmu</div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canReviewItem ? (
+                <button
+                  type="button"
+                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                  onClick={() => {
+                    setOpenReviewKey(reviewItemKey);
+                    setReviewRating(5);
+                    setReviewComment("");
+                  }}
+                >
+                  Ohodnotiť vec
+                </button>
+              ) : (
+                <span className="rounded border border-white/10 px-4 py-2 text-sm text-white/60">
+                  Vec už ohodnotená
+                </span>
+              )}
+
+              {canReviewOwner ? (
+                <button
+                  type="button"
+                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                  onClick={() => {
+                    setOpenReviewKey(reviewOwnerKey);
+                    setReviewRating(5);
+                    setReviewComment("");
+                  }}
+                >
+                  Ohodnotiť prenajímateľa
+                </button>
+              ) : (
+                <span className="rounded border border-white/10 px-4 py-2 text-sm text-white/60">
+                  Prenajímateľ už ohodnotený
+                </span>
+              )}
+            </div>
+
+            {openReviewKey === reviewItemKey ? (
+              <div className="mt-4 space-y-3">
+                <div className="text-sm text-white/70">Hodnotíš vec</div>
+
+                <select
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={reviewRating}
+                  onChange={(e) => setReviewRating(Number(e.target.value))}
+                >
+                  {[5, 4, 3, 2, 1].map((n) => (
+                    <option key={n} value={n}>
+                      {n} ⭐
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  rows={3}
+                  placeholder="Komentár k veci"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                    type="button"
+                    disabled={reviewSubmitting}
+                    onClick={() => submitReview(r, "item")}
+                  >
+                    {reviewSubmitting ? "Odosielam..." : "Odoslať hodnotenie veci"}
+                  </button>
+
+                  <button
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                    type="button"
+                    onClick={() => setOpenReviewKey(null)}
+                  >
+                    Zrušiť
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {openReviewKey === reviewOwnerKey ? (
+              <div className="mt-4 space-y-3">
+                <div className="text-sm text-white/70">Hodnotíš prenajímateľa</div>
+
+                <select
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={reviewRating}
+                  onChange={(e) => setReviewRating(Number(e.target.value))}
+                >
+                  {[5, 4, 3, 2, 1].map((n) => (
+                    <option key={n} value={n}>
+                      {n} ⭐
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  rows={3}
+                  placeholder="Komentár k prenajímateľovi"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                />
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                    type="button"
+                    disabled={reviewSubmitting}
+                    onClick={() => submitReview(r, "owner")}
+                  >
+                    {reviewSubmitting ? "Odosielam..." : "Odoslať hodnotenie prenajímateľa"}
+                  </button>
+
+                  <button
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                    type="button"
+                    onClick={() => setOpenReviewKey(null)}
+                  >
+                    Zrušiť
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
