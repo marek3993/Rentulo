@@ -630,12 +630,23 @@ const renderSection = (
             <div className="font-medium">Upload fotiek po vrátení</div>
 
             <input
-              type="file"
-              accept="image/*"
-              multiple
-              disabled={returnUploading}
-              onChange={(e) => setReturnFiles(Array.from(e.target.files ?? []))}
-            />
+  id={`renter-return-upload-${r.id}`}
+  type="file"
+  accept="image/*"
+  multiple
+  className="hidden"
+  disabled={returnUploading}
+  onChange={(e) => setReturnFiles(Array.from(e.target.files ?? []))}
+/>
+
+<label
+  htmlFor={`renter-return-upload-${r.id}`}
+  className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
+    returnUploading ? "pointer-events-none opacity-50" : ""
+  }`}
+>
+  Vybrať súbory
+</label>
 
             <textarea
               className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
@@ -646,13 +657,16 @@ const renderSection = (
               disabled={returnUploading}
             />
 
-            {returnFiles.length > 0 ? (
-              <div className="text-sm text-white/60">
-                Vybrané fotky: {returnFiles.map((f) => f.name).join(", ")}
-              </div>
-            ) : (
-              <div className="text-sm text-white/50">Zatiaľ nie sú vybrané žiadne fotky.</div>
-            )}
+          {returnFiles.length > 0 ? (
+  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+    <div className="font-medium text-white">Vybrané súbory:</div>
+    <div className="mt-1">{returnFiles.map((f) => f.name).join(", ")}</div>
+  </div>
+) : (
+  <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/50">
+    Zatiaľ nie sú vybrané žiadne súbory.
+  </div>
+)}
 
             <div className="flex flex-wrap gap-2">
               <button
@@ -815,7 +829,7 @@ const renderSection = (
         ) : null}
 
         {r.status === "pending" && r.payment_status === "paid" ? (
-          <div className="mt-3 text-sm text-white/60">
+          <div className="mt-3 text-sm text-white/60">  
             Platba je zaevidovaná. Čaká sa na potvrdenie prenajímateľa.
           </div>
         ) : null}
