@@ -201,69 +201,79 @@ export default function ItemDetailPage() {
     run();
   }, [itemId]);
 
-  const reserve = async () => {
-    setStatus("Vytváram rezerváciu...");
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
-
-    if (!userId) {
-      router.push("/login");
-      return;
-    }
-
-    if (!dateFrom || !dateTo) {
-      setStatus("Vyberte dátum od/do.");
-      return;
-    }
-
-    if (days <= 0) {
-      setStatus("Neplatný rozsah dátumov.");
-      return;
-    }
-
-    const { data: prof, error: profErr } = await supabase
+  const ensureProfileExists = async (userId: string) => {
+    const { data: existingProfile, error: selectError } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", userId)
       .maybeSingle();
 
-    if (profErr) {
-      setStatus("Chyba: " + profErr.message);
-      return;
+    if (selectError) {
+      throw new Error(`Kontrola profilu zlyhala: ${selectError.message}`);
     }
 
-    if (!prof) {
-      const { error: insProfErr } = await supabase.from("profiles").insert({ id: userId, role: "user" });
-      if (insProfErr) {
-        setStatus("Chyba: " + insProfErr.message);
+    if (existingProfile) return;
+
+    const { error: insertError } = await supabase.from("profiles").insert({
+      id: userId,
+    });
+
+    if (insertError) {
+      throw new Error(`Vytvorenie profilu zlyhalo: ${insertError.message}`);
+    }
+  };
+
+  const reserve = async () => {
+    setStatus("Vytváram rezerváciu...");
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!userId) {
+        router.push("/login");
         return;
       }
+
+      if (!dateFrom || !dateTo) {
+        setStatus("Vyberte dátum od/do.");
+        return;
+      }
+
+      if (days <= 0) {
+        setStatus("Neplatný rozsah dátumov.");
+        return;
+      }
+
+      await ensureProfileExists(userId);
+
+      const { data: reservation, error } = await supabase
+        .from("reservations")
+        .insert({
+          item_id: itemId,
+          renter_id: userId,
+          date_from: dateFrom,
+          date_to: dateTo,
+          status: "pending",
+          payment_provider: "none",
+          payment_status: "unpaid",
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        const msg = error.message.includes("overlaps")
+          ? "Táto položka je už rezervovaná v zadanom termíne."
+          : error.message;
+        setStatus("Chyba: " + msg);
+        return;
+      }
+
+      router.push(`/payment?reservation_id=${reservation.id}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Neznáma chyba pri rezervácii.";
+      setStatus("Chyba: " + message);
     }
-
-    const { data: reservation, error } = await supabase
-      .from("reservations")
-      .insert({
-        item_id: itemId,
-        renter_id: userId,
-        date_from: dateFrom,
-        date_to: dateTo,
-        status: "pending",
-        payment_provider: "none",
-        payment_status: "unpaid",
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      const msg = error.message.includes("overlaps")
-        ? "Táto položka je už rezervovaná v zadanom termíne."
-        : error.message;
-      setStatus("Chyba: " + msg);
-      return;
-    }
-
-    router.push(`/payment?reservation_id=${reservation.id}`);
   };
 
   if (status === "Nenájdené") {
