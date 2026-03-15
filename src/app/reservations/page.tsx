@@ -276,6 +276,29 @@ export default function ReservationsPage() {
     }
   };
 
+  const getReviewSubmitErrorMessage = (error: { message?: string; code?: string } | null) => {
+    if (!error) return "Neznáma chyba pri ukladaní hodnotenia.";
+
+    if (error.code === "23505") {
+      return "Toto hodnotenie už bolo odoslané.";
+    }
+
+    const message = error.message ?? "";
+
+    if (message.toLowerCase().includes("duplicate")) {
+      return "Toto hodnotenie už bolo odoslané.";
+    }
+
+    if (
+      message.toLowerCase().includes("row-level security") ||
+      message.toLowerCase().includes("violates row-level security")
+    ) {
+      return "Hodnotenie je možné pridať až po riadnom ukončení prenájmu.";
+    }
+
+    return message || "Neznáma chyba pri ukladaní hodnotenia.";
+  };
+
   const updateReservationStatus = async (
     id: number,
     nextStatus: "return_pending_confirmation" | "cancelled" | "disputed"
@@ -383,13 +406,33 @@ export default function ReservationsPage() {
   ) => {
     const itemMeta = itemMetaMap[reservation.item_id];
     if (!itemMeta) {
+      alert("Chýbajú údaje o položke.");
       setStatus("Chyba: chýbajú údaje o položke.");
+      return;
+    }
+
+    if (reservation.status !== "completed") {
+      alert("Hodnotenie je možné pridať až po riadnom ukončení prenájmu.");
+      setStatus("Hodnotenie je možné pridať až po riadnom ukončení prenájmu.");
+      return;
+    }
+
+    if (revieweeType === "item" && reviewMap[reservation.id]?.item) {
+      alert("Vec už bola ohodnotená.");
+      setStatus("Vec už bola ohodnotená.");
+      return;
+    }
+
+    if (revieweeType === "owner" && reviewMap[reservation.id]?.owner) {
+      alert("Prenajímateľ už bol ohodnotený.");
+      setStatus("Prenajímateľ už bol ohodnotený.");
       return;
     }
 
     const { data: sess } = await supabase.auth.getSession();
     const userId = sess.session?.user.id;
     if (!userId) {
+      alert("Musíš byť prihlásený.");
       router.push("/login");
       return;
     }
@@ -397,28 +440,35 @@ export default function ReservationsPage() {
     setReviewSubmitting(true);
     setStatus("Odosielam hodnotenie...");
 
-    const { error } = await supabase.from("reviews").insert({
-      reservation_id: reservation.id,
-      item_id: reservation.item_id,
-      reviewer_id: userId,
-      rating: reviewRating,
-      comment: reviewComment.trim() ? reviewComment.trim() : null,
-      reviewee_type: revieweeType,
-      reviewee_id: itemMeta.owner_id,
-    });
+    try {
+      await ensureProfileExists(userId);
 
-    if (error) {
+      const { error } = await supabase.from("reviews").insert({
+        reservation_id: reservation.id,
+        item_id: reservation.item_id,
+        reviewer_id: userId,
+        rating: reviewRating,
+        comment: reviewComment.trim() ? reviewComment.trim() : null,
+        reviewee_type: revieweeType,
+        reviewee_id: itemMeta.owner_id,
+      });
+
+      if (error) {
+        const message = getReviewSubmitErrorMessage(error);
+        setStatus("Chyba: " + message);
+        alert(message);
+        return;
+      }
+
+      setReviewComment("");
+      setReviewRating(5);
+      setOpenReviewKey(null);
+      setStatus("Hodnotenie uložené ✅");
+      alert("Hodnotenie bolo úspešne uložené.");
+      await load();
+    } finally {
       setReviewSubmitting(false);
-      setStatus("Chyba: " + error.message);
-      return;
     }
-
-    setReviewSubmitting(false);
-    setReviewComment("");
-    setReviewRating(5);
-    setOpenReviewKey(null);
-    setStatus("Hodnotenie uložené ✅");
-    await load();
   };
 
   const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
@@ -817,6 +867,7 @@ export default function ReservationsPage() {
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                   value={reviewRating}
                   onChange={(e) => setReviewRating(Number(e.target.value))}
+                  disabled={reviewSubmitting}
                 >
                   {[5, 4, 3, 2, 1].map((n) => (
                     <option key={n} value={n}>
@@ -831,6 +882,7 @@ export default function ReservationsPage() {
                   placeholder="Komentár k veci"
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
+                  disabled={reviewSubmitting}
                 />
 
                 <div className="flex flex-wrap gap-2">
@@ -844,9 +896,10 @@ export default function ReservationsPage() {
                   </button>
 
                   <button
-                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
                     type="button"
                     onClick={() => setOpenReviewKey(null)}
+                    disabled={reviewSubmitting}
                   >
                     Zrušiť
                   </button>
@@ -862,6 +915,7 @@ export default function ReservationsPage() {
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                   value={reviewRating}
                   onChange={(e) => setReviewRating(Number(e.target.value))}
+                  disabled={reviewSubmitting}
                 >
                   {[5, 4, 3, 2, 1].map((n) => (
                     <option key={n} value={n}>
@@ -876,6 +930,7 @@ export default function ReservationsPage() {
                   placeholder="Komentár k prenajímateľovi"
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
+                  disabled={reviewSubmitting}
                 />
 
                 <div className="flex flex-wrap gap-2">
@@ -889,9 +944,10 @@ export default function ReservationsPage() {
                   </button>
 
                   <button
-                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
                     type="button"
                     onClick={() => setOpenReviewKey(null)}
+                    disabled={reviewSubmitting}
                   >
                     Zrušiť
                   </button>
