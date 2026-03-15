@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 
 function NavLink({
@@ -40,6 +41,86 @@ function SecondaryNavLink({
       href={href}
     >
       {children}
+    </Link>
+  );
+}
+
+function MessagesNavLink() {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUnreadCount = async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!userId) {
+        if (active) setUnreadCount(0);
+        return;
+      }
+
+      const { data: conversations, error: conversationsError } = await supabase
+        .from("conversations")
+        .select("id")
+        .or(`owner_id.eq.${userId},renter_id.eq.${userId}`);
+
+      if (conversationsError || !conversations || conversations.length === 0) {
+        if (active) setUnreadCount(0);
+        return;
+      }
+
+      const conversationIds = conversations.map((c: any) => c.id);
+
+      const { data: messages } = await supabase
+        .from("messages")
+        .select("id,sender_id,read_at")
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", userId)
+        .is("read_at", null);
+
+      if (active) {
+        setUnreadCount(messages?.length ?? 0);
+      }
+    };
+
+    loadUnreadCount();
+
+    const channel = supabase
+      .channel("nav-messages-unread")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return (
+    <Link
+      className="relative rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+      href="/messages"
+    >
+      Správy
+      {unreadCount > 0 ? (
+        <span className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-xs font-semibold text-black">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -106,6 +187,7 @@ export default function ClientNav() {
             <NavLink href="/items">Ponuky</NavLink>
             <NavLink href="/reservations">Moje rezervácie</NavLink>
             <NavLink href="/owner/items">Prenajímam</NavLink>
+            <MessagesNavLink />
             <NavLink href="/profile">Profil</NavLink>
             <NavLink href="/admin/items">Administrácia</NavLink>
             <NotificationBell />

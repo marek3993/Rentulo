@@ -55,114 +55,137 @@ export default function MessagesPage() {
   const [lastMessageMap, setLastMessageMap] = useState<Record<number, MessageRow | null>>({});
   const [unreadCountMap, setUnreadCountMap] = useState<Record<number, number>>({});
 
-  useEffect(() => {
-    const run = async () => {
-      setStatus("Načítavam...");
+  const loadConversations = async () => {
+    setStatus("Načítavam...");
 
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
 
-      if (!userId) {
-        router.push("/login");
-        return;
-      }
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
 
-      setCurrentUserId(userId);
+    setCurrentUserId(userId);
 
-      const { data: conversationData, error: conversationError } = await supabase
-        .from("conversations")
-        .select("id,item_id,owner_id,renter_id,reservation_id,created_at,updated_at")
-        .or(`owner_id.eq.${userId},renter_id.eq.${userId}`)
-        .order("updated_at", { ascending: false });
+    const { data: conversationData, error: conversationError } = await supabase
+      .from("conversations")
+      .select("id,item_id,owner_id,renter_id,reservation_id,created_at,updated_at")
+      .or(`owner_id.eq.${userId},renter_id.eq.${userId}`)
+      .order("updated_at", { ascending: false });
 
-      if (conversationError) {
-        setStatus("Chyba: " + conversationError.message);
-        return;
-      }
+    if (conversationError) {
+      setStatus("Chyba: " + conversationError.message);
+      return;
+    }
 
-      const conversationRows = (conversationData ?? []) as ConversationRow[];
-      setConversations(conversationRows);
+    const conversationRows = (conversationData ?? []) as ConversationRow[];
+    setConversations(conversationRows);
 
-      if (conversationRows.length === 0) {
-        setItemMap({});
-        setProfileMap({});
-        setAvatarUrlMap({});
-        setLastMessageMap({});
-        setUnreadCountMap({});
-        setStatus("");
-        return;
-      }
-
-      const itemIds = Array.from(new Set(conversationRows.map((c) => c.item_id)));
-      const participantIds = Array.from(
-        new Set(conversationRows.flatMap((c) => [c.owner_id, c.renter_id]))
-      );
-      const conversationIds = conversationRows.map((c) => c.id);
-
-      const { data: itemData } = await supabase
-        .from("items")
-        .select("id,title")
-        .in("id", itemIds);
-
-      const nextItemMap: Record<number, ItemRow> = {};
-      for (const item of (itemData ?? []) as any[]) {
-        nextItemMap[item.id] = item as ItemRow;
-      }
-      setItemMap(nextItemMap);
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id,full_name,city,avatar_path")
-        .in("id", participantIds);
-
-      const nextProfileMap: Record<string, ProfileRow> = {};
-      const nextAvatarUrlMap: Record<string, string> = {};
-
-      for (const profile of (profileData ?? []) as any[]) {
-        nextProfileMap[profile.id] = profile as ProfileRow;
-
-        if (profile.avatar_path) {
-          const { data: pub } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_path);
-          nextAvatarUrlMap[profile.id] = pub.publicUrl;
-        }
-      }
-
-      setProfileMap(nextProfileMap);
-      setAvatarUrlMap(nextAvatarUrlMap);
-
-      const { data: messageData } = await supabase
-        .from("messages")
-        .select("id,conversation_id,sender_id,body,created_at,read_at")
-        .in("conversation_id", conversationIds)
-        .order("created_at", { ascending: false });
-
-      const nextLastMessageMap: Record<number, MessageRow | null> = {};
-      const nextUnreadCountMap: Record<number, number> = {};
-
-      for (const id of conversationIds) {
-        nextLastMessageMap[id] = null;
-        nextUnreadCountMap[id] = 0;
-      }
-
-      for (const raw of (messageData ?? []) as any[]) {
-        const msg = raw as MessageRow;
-
-        if (!nextLastMessageMap[msg.conversation_id]) {
-          nextLastMessageMap[msg.conversation_id] = msg;
-        }
-
-        if (msg.sender_id !== userId && !msg.read_at) {
-          nextUnreadCountMap[msg.conversation_id] =
-            (nextUnreadCountMap[msg.conversation_id] ?? 0) + 1;
-        }
-      }
-
-      setLastMessageMap(nextLastMessageMap);
-      setUnreadCountMap(nextUnreadCountMap);
+    if (conversationRows.length === 0) {
+      setItemMap({});
+      setProfileMap({});
+      setAvatarUrlMap({});
+      setLastMessageMap({});
+      setUnreadCountMap({});
       setStatus("");
-    };
+      return;
+    }
 
-    run();
+    const itemIds = Array.from(new Set(conversationRows.map((c) => c.item_id)));
+    const participantIds = Array.from(
+      new Set(conversationRows.flatMap((c) => [c.owner_id, c.renter_id]))
+    );
+    const conversationIds = conversationRows.map((c) => c.id);
+
+    const { data: itemData } = await supabase
+      .from("items")
+      .select("id,title")
+      .in("id", itemIds);
+
+    const nextItemMap: Record<number, ItemRow> = {};
+    for (const item of (itemData ?? []) as any[]) {
+      nextItemMap[item.id] = item as ItemRow;
+    }
+    setItemMap(nextItemMap);
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("id,full_name,city,avatar_path")
+      .in("id", participantIds);
+
+    const nextProfileMap: Record<string, ProfileRow> = {};
+    const nextAvatarUrlMap: Record<string, string> = {};
+
+    for (const profile of (profileData ?? []) as any[]) {
+      nextProfileMap[profile.id] = profile as ProfileRow;
+
+      if (profile.avatar_path) {
+        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_path);
+        nextAvatarUrlMap[profile.id] = pub.publicUrl;
+      }
+    }
+
+    setProfileMap(nextProfileMap);
+    setAvatarUrlMap(nextAvatarUrlMap);
+
+    const { data: messageData } = await supabase
+      .from("messages")
+      .select("id,conversation_id,sender_id,body,created_at,read_at")
+      .in("conversation_id", conversationIds)
+      .order("created_at", { ascending: false });
+
+    const nextLastMessageMap: Record<number, MessageRow | null> = {};
+    const nextUnreadCountMap: Record<number, number> = {};
+
+    for (const id of conversationIds) {
+      nextLastMessageMap[id] = null;
+      nextUnreadCountMap[id] = 0;
+    }
+
+    for (const raw of (messageData ?? []) as any[]) {
+      const msg = raw as MessageRow;
+
+      if (!nextLastMessageMap[msg.conversation_id]) {
+        nextLastMessageMap[msg.conversation_id] = msg;
+      }
+
+      if (msg.sender_id !== userId && !msg.read_at) {
+        nextUnreadCountMap[msg.conversation_id] =
+          (nextUnreadCountMap[msg.conversation_id] ?? 0) + 1;
+      }
+    }
+
+    setLastMessageMap(nextLastMessageMap);
+    setUnreadCountMap(nextUnreadCountMap);
+    setStatus("");
+  };
+
+  useEffect(() => {
+    loadConversations();
+
+    const channel = supabase
+      .channel("messages-page-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          loadConversations();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "conversations" },
+        () => {
+          loadConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   return (

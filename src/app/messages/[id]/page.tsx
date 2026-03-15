@@ -69,6 +69,19 @@ export default function MessageDetailPage() {
     return supabase.storage.from("avatars").getPublicUrl(otherProfile.avatar_path).data.publicUrl;
   }, [otherProfile?.avatar_path]);
 
+  const markMessagesAsRead = async (messageRows: MessageRow[], userId: string) => {
+    const unreadIds = messageRows
+      .filter((msg) => msg.sender_id !== userId && !msg.read_at)
+      .map((msg) => msg.id);
+
+    if (unreadIds.length === 0) return;
+
+    await supabase
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .in("id", unreadIds);
+  };
+
   const loadConversation = async () => {
     setStatus("Načítavam...");
 
@@ -143,26 +156,37 @@ export default function MessageDetailPage() {
 
     const messageRows = (messageData ?? []) as MessageRow[];
     setMessages(messageRows);
-
-    const unreadIds = messageRows
-      .filter((msg) => msg.sender_id !== userId && !msg.read_at)
-      .map((msg) => msg.id);
-
-    if (unreadIds.length > 0) {
-      await supabase
-        .from("messages")
-        .update({ read_at: new Date().toISOString() })
-        .in("id", unreadIds);
-    }
+    await markMessagesAsRead(messageRows, userId);
 
     setStatus("");
   };
 
   useEffect(() => {
     if (!Number.isFinite(conversationId)) return;
+
     loadConversation();
+
+    const channel = supabase
+      .channel(`messages-detail-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          loadConversation();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId]);
+  }, [conversationId, router]);
 
   const sendMessage = async () => {
     const body = newMessage.trim();
