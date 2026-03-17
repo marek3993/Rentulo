@@ -403,7 +403,7 @@ export default function ReservationsPage() {
 
   const updateReservationStatus = async (
     id: number,
-    nextStatus: "return_pending_confirmation" | "cancelled" | "disputed"
+    nextStatus: "return_pending_confirmation" | "cancelled"
   ) => {
     setStatus("Ukladám zmenu...");
 
@@ -651,7 +651,7 @@ export default function ReservationsPage() {
       r.status !== "in_rental" &&
       r.status !== "return_pending_confirmation";
 
-    const canDispute =
+    const canOpenDispute =
       r.status === "confirmed" ||
       r.status === "in_rental" ||
       r.status === "return_pending_confirmation";
@@ -823,14 +823,22 @@ export default function ReservationsPage() {
             </Link>
           ) : null}
 
-          {canDispute ? (
-            <button
+          {canOpenDispute ? (
+            <Link
               className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-              onClick={() => updateReservationStatus(r.id, "disputed")}
-              type="button"
+              href={`/disputes/new?reservation_id=${r.id}`}
             >
               Nahlásiť problém
-            </button>
+            </Link>
+          ) : null}
+
+          {r.status === "disputed" ? (
+            <Link
+              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+              href="/disputes"
+            >
+              Otvoriť spor
+            </Link>
           ) : null}
 
           {canCancel ? (
