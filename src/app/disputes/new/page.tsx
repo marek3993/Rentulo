@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -27,7 +27,7 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("sk-SK");
 }
 
-export default function NewDisputePage() {
+function NewDisputePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -278,5 +278,21 @@ export default function NewDisputePage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function NewDisputePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="space-y-6">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            Načítavam...
+          </div>
+        </main>
+      }
+    >
+      <NewDisputePageInner />
+    </Suspense>
   );
 }
