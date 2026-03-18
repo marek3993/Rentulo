@@ -189,7 +189,9 @@ export default function ClientNav() {
             <NavLink href="/owner/items">Prenajímam</NavLink>
             <MessagesNavLink />
             <NavLink href="/profile">Profil</NavLink>
+            <NavLink href="/verification">Overenie</NavLink>
             <NavLink href="/admin/items">Administrácia</NavLink>
+            <NavLink href="/admin/verifications">Overenia</NavLink>
             <NotificationBell />
           </nav>
 
