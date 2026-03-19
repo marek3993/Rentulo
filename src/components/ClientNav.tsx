@@ -190,6 +190,7 @@ export default function ClientNav() {
             <MessagesNavLink />
             <NavLink href="/profile">Profil</NavLink>
             <NavLink href="/verification">Overenie</NavLink>
+            <NavLink href="/admin/users">Používatelia</NavLink>
             <NavLink href="/admin/items">Administrácia</NavLink>
             <NavLink href="/admin/verifications">Overenia</NavLink>
             <NotificationBell />
