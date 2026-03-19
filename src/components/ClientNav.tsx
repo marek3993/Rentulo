@@ -127,6 +127,7 @@ function MessagesNavLink() {
 
 export default function ClientNav() {
   const [hidden, setHidden] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -165,6 +166,48 @@ export default function ClientNav() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadRole = async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!userId) {
+        if (active) setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error || !data) {
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(data.role === "admin");
+    };
+
+    loadRole();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadRole();
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <header
       className={`sticky top-0 z-50 border-b border-white/10 bg-neutral-950/85 backdrop-blur transition-transform duration-300 ${
@@ -190,9 +233,15 @@ export default function ClientNav() {
             <MessagesNavLink />
             <NavLink href="/profile">Profil</NavLink>
             <NavLink href="/verification">Overenie</NavLink>
-            <NavLink href="/admin/users">Používatelia</NavLink>
-            <NavLink href="/admin/items">Administrácia</NavLink>
-            <NavLink href="/admin/verifications">Overenia</NavLink>
+
+            {isAdmin ? (
+              <>
+                <NavLink href="/admin/items">Administrácia</NavLink>
+                <NavLink href="/admin/verifications">Overenia</NavLink>
+                <NavLink href="/admin/users">Používatelia</NavLink>
+              </>
+            ) : null}
+
             <NotificationBell />
           </nav>
 
