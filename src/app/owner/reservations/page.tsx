@@ -17,7 +17,7 @@ type ReservationStatus =
 
 type PaymentStatus = "unpaid" | "paid" | "failed" | string;
 
-type Reservation = {
+type Row = {
   id: number;
   item_id: number;
   date_from: string;
@@ -25,16 +25,13 @@ type Reservation = {
   status: ReservationStatus;
   payment_status: PaymentStatus;
   payment_provider: string;
+  renter_id: string;
 };
 
-type ItemMeta = {
+type ItemRow = {
+  id: number;
   title: string;
   owner_id: string;
-};
-
-type ReviewFlags = {
-  item: boolean;
-  owner: boolean;
 };
 
 type ConditionPhoto = {
@@ -57,6 +54,26 @@ type ConversationRow = {
   reservation_id: number | null;
 };
 
+type RenterProfileMeta = {
+  full_name: string | null;
+  city: string | null;
+  verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
+};
+
+function verificationBadgeClass(status: string) {
+  if (status === "verified") return "bg-emerald-600/90 text-white";
+  if (status === "pending") return "bg-yellow-400 text-black";
+  if (status === "rejected") return "bg-red-600/90 text-white";
+  return "bg-white/10 text-white";
+}
+
+function verificationLabel(status: string) {
+  if (status === "verified") return "Overený používateľ";
+  if (status === "pending") return "Čaká na overenie";
+  if (status === "rejected") return "Overenie zamietnuté";
+  return "Neoverený profil";
+}
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -74,14 +91,10 @@ function daysUntil(dateStr: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
-function hasRentalStarted(dateStr: string) {
-  const now = new Date();
-  const start = new Date(dateStr);
-
-  now.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-
-  return start.getTime() <= now.getTime();
+function shortId(id: string) {
+  if (!id) return "-";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}...${id.slice(-4)}`;
 }
 
 function reservationBadge(status: ReservationStatus) {
@@ -118,26 +131,21 @@ function paymentStatusLabel(status: PaymentStatus) {
   return "Nezaplatené";
 }
 
-export default function ReservationsPage() {
+export default function OwnerReservationsPage() {
   const router = useRouter();
-  const [rows, setRows] = useState<Reservation[]>([]);
-  const [status, setStatus] = useState("Načítavam...");
 
-  const [itemMetaMap, setItemMetaMap] = useState<Record<number, ItemMeta>>({});
-  const [reviewMap, setReviewMap] = useState<Record<number, ReviewFlags>>({});
+  const [rows, setRows] = useState<Row[]>([]);
+  const [status, setStatus] = useState("Načítavam...");
+  const [itemTitleMap, setItemTitleMap] = useState<Record<number, string>>({});
   const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
   const [conversationMap, setConversationMap] = useState<Record<number, number>>({});
+  const [renterProfileMap, setRenterProfileMap] = useState<Record<string, RenterProfileMeta>>({});
   const [chatOpeningForReservation, setChatOpeningForReservation] = useState<number | null>(null);
 
-  const [openReviewKey, setOpenReviewKey] = useState<string | null>(null);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-
-  const [openReturnUploadForReservation, setOpenReturnUploadForReservation] = useState<number | null>(null);
-  const [returnFiles, setReturnFiles] = useState<File[]>([]);
-  const [returnNote, setReturnNote] = useState("");
-  const [returnUploading, setReturnUploading] = useState(false);
+  const [openUploadKey, setOpenUploadKey] = useState<string | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     setStatus("Načítavam...");
@@ -150,10 +158,39 @@ export default function ReservationsPage() {
       return;
     }
 
+    const { data: ownedItems, error: itemErr } = await supabase
+      .from("items")
+      .select("id,title,owner_id")
+      .eq("owner_id", userId)
+      .order("id", { ascending: false });
+
+    if (itemErr) {
+      setStatus("Chyba: " + itemErr.message);
+      return;
+    }
+
+    const itemRows = (ownedItems ?? []) as ItemRow[];
+
+    const titleMap: Record<number, string> = {};
+    for (const item of itemRows) {
+      titleMap[item.id] = item.title;
+    }
+    setItemTitleMap(titleMap);
+
+    const itemIds = itemRows.map((i) => i.id);
+    if (itemIds.length === 0) {
+      setRows([]);
+      setPhotoMap({});
+      setConversationMap({});
+      setRenterProfileMap({});
+      setStatus("");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider")
-      .eq("renter_id", userId)
+      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider,renter_id")
+      .in("item_id", itemIds)
       .order("id", { ascending: false });
 
     if (error) {
@@ -161,125 +198,104 @@ export default function ReservationsPage() {
       return;
     }
 
-    const reservationRows = (data ?? []) as Reservation[];
+    const reservationRows = (data ?? []) as Row[];
     setRows(reservationRows);
 
-    const itemIds = Array.from(new Set(reservationRows.map((r) => r.item_id)));
-    if (itemIds.length > 0) {
-      const { data: itemsData, error: itemsErr } = await supabase
-        .from("items")
-        .select("id,title,owner_id")
-        .in("id", itemIds);
+    const renterIds = Array.from(
+      new Set(
+        reservationRows
+          .map((r) => r.renter_id)
+          .filter(Boolean)
+      )
+    );
 
-      if (!itemsErr) {
-        const map: Record<number, ItemMeta> = {};
-        for (const item of (itemsData ?? []) as any[]) {
-          map[item.id] = {
-            title: item.title,
-            owner_id: item.owner_id,
-          };
-        }
-        setItemMetaMap(map);
+    if (renterIds.length > 0) {
+      const { data: renterProfiles } = await supabase
+        .from("profiles")
+        .select("id,full_name,city,verification_status")
+        .in("id", renterIds);
 
-        const { data: conversationsData } = await supabase
-          .from("conversations")
-          .select("id,item_id,owner_id,renter_id,reservation_id")
-          .eq("renter_id", userId)
-          .in("item_id", itemIds);
-
-        const nextConversationMap: Record<number, number> = {};
-
-        for (const reservation of reservationRows) {
-          const itemMeta = map[reservation.item_id];
-          if (!itemMeta) continue;
-
-          const match = ((conversationsData ?? []) as ConversationRow[]).find(
-            (c) => c.item_id === reservation.item_id && c.owner_id === itemMeta.owner_id
-          );
-
-          if (match) {
-            nextConversationMap[reservation.id] = match.id;
-          }
-        }
-
-        setConversationMap(nextConversationMap);
+      const nextRenterMap: Record<string, RenterProfileMeta> = {};
+      for (const p of (renterProfiles ?? []) as any[]) {
+        nextRenterMap[p.id] = {
+          full_name: p.full_name ?? null,
+          city: p.city ?? null,
+          verification_status: p.verification_status ?? "unverified",
+        };
       }
+
+      setRenterProfileMap(nextRenterMap);
     } else {
-      setItemMetaMap({});
-      setConversationMap({});
+      setRenterProfileMap({});
     }
+
+    const { data: conversationsData } = await supabase
+      .from("conversations")
+      .select("id,item_id,owner_id,renter_id,reservation_id")
+      .eq("owner_id", userId)
+      .in("item_id", itemIds);
+
+    const nextConversationMap: Record<number, number> = {};
+    for (const reservation of reservationRows) {
+      const match = ((conversationsData ?? []) as ConversationRow[]).find(
+        (c) => c.item_id === reservation.item_id && c.renter_id === reservation.renter_id
+      );
+
+      if (match) {
+        nextConversationMap[reservation.id] = match.id;
+      }
+    }
+    setConversationMap(nextConversationMap);
 
     const reservationIds = reservationRows.map((r) => r.id);
-    if (reservationIds.length > 0) {
-      const { data: reviewsData, error: reviewsErr } = await supabase
-        .from("reviews")
-        .select("reservation_id,reviewee_type")
-        .in("reservation_id", reservationIds)
-        .eq("reviewer_id", userId);
-
-      if (!reviewsErr) {
-        const map: Record<number, ReviewFlags> = {};
-        for (const r of reservationRows) {
-          map[r.id] = { item: false, owner: false };
-        }
-
-        for (const rev of (reviewsData ?? []) as any[]) {
-          if (!map[rev.reservation_id]) {
-            map[rev.reservation_id] = { item: false, owner: false };
-          }
-          if (rev.reviewee_type === "item") map[rev.reservation_id].item = true;
-          if (rev.reviewee_type === "owner") map[rev.reservation_id].owner = true;
-        }
-
-        setReviewMap(map);
-      }
-    } else {
-      setReviewMap({});
-    }
-
-    if (reservationIds.length > 0) {
-      const { data: photosData, error: photosErr } = await supabase
-        .from("rental_condition_photos")
-        .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
-        .in("reservation_id", reservationIds)
-        .order("created_at", { ascending: false });
-
-      if (!photosErr) {
-        const map: Record<number, ConditionPhoto[]> = {};
-
-        for (const raw of (photosData ?? []) as any[]) {
-          let signedUrl: string | null = null;
-
-          const { data: signed } = await supabase.storage
-            .from("rental-condition-photos")
-            .createSignedUrl(raw.path, 60 * 60);
-
-          signedUrl = signed?.signedUrl ?? null;
-
-          const photo: ConditionPhoto = {
-            id: raw.id,
-            reservation_id: raw.reservation_id,
-            item_id: raw.item_id,
-            phase: raw.phase,
-            actor: raw.actor,
-            path: raw.path,
-            note: raw.note,
-            created_at: raw.created_at,
-            signed_url: signedUrl,
-          };
-
-          if (!map[photo.reservation_id]) {
-            map[photo.reservation_id] = [];
-          }
-          map[photo.reservation_id].push(photo);
-        }
-
-        setPhotoMap(map);
-      }
-    } else {
+    if (reservationIds.length === 0) {
       setPhotoMap({});
+      setStatus("");
+      return;
     }
 
+    const { data: photosData, error: photosErr } = await supabase
+      .from("rental_condition_photos")
+      .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
+      .in("reservation_id", reservationIds)
+      .order("created_at", { ascending: false });
+
+    if (photosErr) {
+      setPhotoMap({});
+      setStatus("");
+      return;
+    }
+
+    const map: Record<number, ConditionPhoto[]> = {};
+
+    for (const raw of (photosData ?? []) as any[]) {
+      let signedUrl: string | null = null;
+
+      const { data: signed } = await supabase.storage
+        .from("rental-condition-photos")
+        .createSignedUrl(raw.path, 60 * 60);
+
+      signedUrl = signed?.signedUrl ?? null;
+
+      const photo: ConditionPhoto = {
+        id: raw.id,
+        reservation_id: raw.reservation_id,
+        item_id: raw.item_id,
+        phase: raw.phase,
+        actor: raw.actor,
+        path: raw.path,
+        note: raw.note,
+        created_at: raw.created_at,
+        signed_url: signedUrl,
+      };
+
+      if (!map[photo.reservation_id]) {
+        map[photo.reservation_id] = [];
+      }
+      map[photo.reservation_id].push(photo);
+    }
+
+    setPhotoMap(map);
     setStatus("");
   };
 
@@ -310,13 +326,7 @@ export default function ReservationsPage() {
     }
   };
 
-  const openChatForReservation = async (reservation: Reservation) => {
-    const itemMeta = itemMetaMap[reservation.item_id];
-    if (!itemMeta) {
-      alert("Chýbajú údaje o položke.");
-      return;
-    }
-
+  const openChatForReservation = async (reservation: Row) => {
     setChatOpeningForReservation(reservation.id);
 
     try {
@@ -334,8 +344,8 @@ export default function ReservationsPage() {
         .from("conversations")
         .select("id,reservation_id")
         .eq("item_id", reservation.item_id)
-        .eq("owner_id", itemMeta.owner_id)
-        .eq("renter_id", userId)
+        .eq("owner_id", userId)
+        .eq("renter_id", reservation.renter_id)
         .maybeSingle();
 
       if (existingError) {
@@ -358,8 +368,8 @@ export default function ReservationsPage() {
         .from("conversations")
         .insert({
           item_id: reservation.item_id,
-          owner_id: itemMeta.owner_id,
-          renter_id: userId,
+          owner_id: userId,
+          renter_id: reservation.renter_id,
           reservation_id: reservation.id,
         })
         .select("id")
@@ -378,32 +388,14 @@ export default function ReservationsPage() {
     }
   };
 
-  const getReviewSubmitErrorMessage = (error: { message?: string; code?: string } | null) => {
-    if (!error) return "Neznáma chyba pri ukladaní hodnotenia.";
-
-    if (error.code === "23505") {
-      return "Toto hodnotenie už bolo odoslané.";
-    }
-
-    const message = error.message ?? "";
-
-    if (message.toLowerCase().includes("duplicate")) {
-      return "Toto hodnotenie už bolo odoslané.";
-    }
-
-    if (
-      message.toLowerCase().includes("row-level security") ||
-      message.toLowerCase().includes("violates row-level security")
-    ) {
-      return "Hodnotenie je možné pridať až po riadnom ukončení prenájmu.";
-    }
-
-    return message || "Neznáma chyba pri ukladaní hodnotenia.";
-  };
-
   const updateReservationStatus = async (
     id: number,
-    nextStatus: "return_pending_confirmation" | "cancelled" | "disputed"
+    nextStatus:
+      | "confirmed"
+      | "in_rental"
+      | "completed"
+      | "cancelled"
+      | "disputed"
   ) => {
     setStatus("Ukladám zmenu...");
 
@@ -420,20 +412,20 @@ export default function ReservationsPage() {
     await load();
   };
 
-  const uploadReturnPhotos = async (reservation: Reservation) => {
-    if (!hasRentalStarted(reservation.date_from)) {
-      alert("Fotky po vrátení môžeš nahrávať až od začiatku prenájmu.");
-      setStatus("Fotky po vrátení môžeš nahrávať až od začiatku prenájmu.");
-      return;
-    }
+  const startUpload = (reservationId: number, phase: "handover" | "return") => {
+    setOpenUploadKey(`${reservationId}-${phase}`);
+    setUploadFiles([]);
+    setUploadNote("");
+  };
 
-    if (returnFiles.length === 0) {
+  const uploadConditionPhotos = async (reservation: Row, phase: "handover" | "return") => {
+    if (uploadFiles.length === 0) {
       alert("Vyber aspoň jednu fotku.");
       setStatus("Najprv vyber aspoň jednu fotku.");
       return;
     }
 
-    setReturnUploading(true);
+    setUploading(true);
     setStatus("Pripravujem upload...");
 
     try {
@@ -448,13 +440,13 @@ export default function ReservationsPage() {
 
       await ensureProfileExists(userId);
 
-      for (let i = 0; i < returnFiles.length; i++) {
-        const file = returnFiles[i];
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
         const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
         const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-        const path = `${reservation.id}/return/renter/${crypto.randomUUID()}.${safeExt}`;
+        const path = `${reservation.id}/${phase}/owner/${crypto.randomUUID()}.${safeExt}`;
 
-        setStatus(`Nahrávam fotku ${i + 1}/${returnFiles.length}...`);
+        setStatus(`Nahrávam fotku ${i + 1}/${uploadFiles.length}...`);
 
         const { error: uploadError } = await supabase.storage
           .from("rental-condition-photos")
@@ -474,10 +466,10 @@ export default function ReservationsPage() {
             reservation_id: reservation.id,
             item_id: reservation.item_id,
             uploaded_by: userId,
-            phase: "return",
-            actor: "renter",
+            phase,
+            actor: "owner",
             path,
-            note: returnNote.trim() ? returnNote.trim() : null,
+            note: uploadNote.trim() ? uploadNote.trim() : null,
           });
 
         if (insertError) {
@@ -485,91 +477,21 @@ export default function ReservationsPage() {
         }
       }
 
-      setStatus("Fotky po vrátení nahraté ✅");
-      alert("Fotky po vrátení boli úspešne nahrané.");
-      setOpenReturnUploadForReservation(null);
-      setReturnFiles([]);
-      setReturnNote("");
+      setStatus("Fotky nahraté ✅");
+      alert("Fotky stavu boli úspešne nahrané.");
+      setOpenUploadKey(null);
+      setUploadFiles([]);
+      setUploadNote("");
       await load();
     } catch (err) {
+      console.error("Owner condition upload failed:", err);
       const message =
         err instanceof Error ? err.message : "Neznáma chyba pri nahrávaní fotiek.";
 
       setStatus("Chyba pri nahrávaní: " + message);
       alert(message);
     } finally {
-      setReturnUploading(false);
-    }
-  };
-
-  const submitReview = async (
-    reservation: Reservation,
-    revieweeType: "item" | "owner"
-  ) => {
-    const itemMeta = itemMetaMap[reservation.item_id];
-    if (!itemMeta) {
-      alert("Chýbajú údaje o položke.");
-      setStatus("Chyba: chýbajú údaje o položke.");
-      return;
-    }
-
-    if (reservation.status !== "completed") {
-      alert("Hodnotenie je možné pridať až po riadnom ukončení prenájmu.");
-      setStatus("Hodnotenie je možné pridať až po riadnom ukončení prenájmu.");
-      return;
-    }
-
-    if (revieweeType === "item" && reviewMap[reservation.id]?.item) {
-      alert("Vec už bola ohodnotená.");
-      setStatus("Vec už bola ohodnotená.");
-      return;
-    }
-
-    if (revieweeType === "owner" && reviewMap[reservation.id]?.owner) {
-      alert("Prenajímateľ už bol ohodnotený.");
-      setStatus("Prenajímateľ už bol ohodnotený.");
-      return;
-    }
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
-    if (!userId) {
-      alert("Musíš byť prihlásený.");
-      router.push("/login");
-      return;
-    }
-
-    setReviewSubmitting(true);
-    setStatus("Odosielam hodnotenie...");
-
-    try {
-      await ensureProfileExists(userId);
-
-      const { error } = await supabase.from("reviews").insert({
-        reservation_id: reservation.id,
-        item_id: reservation.item_id,
-        reviewer_id: userId,
-        rating: reviewRating,
-        comment: reviewComment.trim() ? reviewComment.trim() : null,
-        reviewee_type: revieweeType,
-        reviewee_id: itemMeta.owner_id,
-      });
-
-      if (error) {
-        const message = getReviewSubmitErrorMessage(error);
-        setStatus("Chyba: " + message);
-        alert(message);
-        return;
-      }
-
-      setReviewComment("");
-      setReviewRating(5);
-      setOpenReviewKey(null);
-      setStatus("Hodnotenie uložené ✅");
-      alert("Hodnotenie bolo úspešne uložené.");
-      await load();
-    } finally {
-      setReviewSubmitting(false);
+      setUploading(false);
     }
   };
 
@@ -584,18 +506,20 @@ export default function ReservationsPage() {
   const disputed = useMemo(() => rows.filter((r) => r.status === "disputed"), [rows]);
   const cancelled = useMemo(() => rows.filter((r) => r.status === "cancelled"), [rows]);
 
-  const renderSection = (
-    title: string,
-    subtitle: string,
-    content: React.ReactNode
-  ) => (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
-      </div>
-      <div className="mt-4">{content}</div>
-    </section>
+  const SummaryCard = ({
+    title,
+    value,
+    subtitle,
+  }: {
+    title: string;
+    value: number;
+    subtitle: string;
+  }) => (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="text-sm text-white/60">{title}</div>
+      <div className="mt-2 text-3xl font-semibold">{value}</div>
+      <div className="mt-1 text-sm text-white/50">{subtitle}</div>
+    </div>
   );
 
   const renderPhotoGrid = (
@@ -639,466 +563,414 @@ export default function ReservationsPage() {
     );
   };
 
-  const renderCard = (r: Reservation) => {
-    const itemMeta = itemMetaMap[r.item_id];
-    const photos = photoMap[r.id] ?? [];
-    const existingConversationId = conversationMap[r.id];
-
-    const canPay = r.status === "pending" && r.payment_status === "unpaid";
-    const canCancel =
-      r.status !== "cancelled" &&
-      r.status !== "completed" &&
-      r.status !== "in_rental" &&
-      r.status !== "return_pending_confirmation";
-
-    const canDispute =
-      r.status === "confirmed" ||
-      r.status === "in_rental" ||
-      r.status === "return_pending_confirmation";
-
-    const renterReturnCount = photos.filter(
-      (p) => p.phase === "return" && p.actor === "renter"
-    ).length;
-
-    const ownerHandoverCount = photos.filter(
-      (p) => p.phase === "handover" && p.actor === "owner"
-    ).length;
-
-    const rentalStarted = hasRentalStarted(r.date_from);
-    const canMarkReturned =
-      r.status === "in_rental" && rentalStarted && renterReturnCount > 0;
-
-    const canReviewItem = r.status === "completed" && !reviewMap[r.id]?.item;
-    const canReviewOwner = r.status === "completed" && !reviewMap[r.id]?.owner;
-
-    const reviewItemKey = `item-${r.id}`;
-    const reviewOwnerKey = `owner-${r.id}`;
-
-    const startIn = daysUntil(r.date_from);
-    const endIn = daysUntil(r.date_to);
-
-    const countdownText =
-      r.status === "cancelled"
-        ? "Táto rezervácia je zrušená."
-        : r.status === "completed"
-        ? "Prenájom je úspešne ukončený."
-        : startIn > 0
-        ? `Začína o ${startIn} ${startIn === 1 ? "deň" : startIn < 5 ? "dni" : "dní"}.`
-        : endIn >= 0
-        ? "Prenájom práve prebieha alebo začína dnes."
-        : "Termín už uplynul.";
-
-    return (
-      <div className="rounded-2xl border border-white/10 bg-black/20 p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-white/50">Rezervácia</span>
-              <strong className="text-base">#{r.id}</strong>
-            </div>
-
-            <div className="text-white/80">
-              <span className="text-white/50">Položka:</span> {itemMeta?.title ?? r.item_id}
-            </div>
-
-            <div className="text-white/80">
-              <span className="text-white/50">Termín:</span> {formatDate(r.date_from)} →{" "}
-              {formatDate(r.date_to)}
-            </div>
-
-            <div className="text-sm text-white/60">{countdownText}</div>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-medium ${reservationBadge(
-                r.status
-              )}`}
-            >
-              {reservationStatusLabel(r.status)}
-            </span>
-
-            <span
-              className={`rounded-full px-3 py-1 text-sm font-medium ${paymentBadge(
-                r.payment_status
-              )}`}
-            >
-              {paymentStatusLabel(r.payment_status)}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-4 text-sm text-white/50">
-          Poskytovateľ platby: {r.payment_provider}
-        </div>
-
-        {r.status === "confirmed" || r.status === "in_rental" || r.status === "return_pending_confirmation" ? (
-          <div className="mt-4 space-y-4">
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="font-semibold">Fotky pri odovzdaní od prenajímateľa</div>
-              <div className="mt-1 text-sm text-white/60">
-                Tieto fotky ukazujú stav veci pri odovzdaní. Nahraté prenajímateľom: <strong>{ownerHandoverCount}</strong>
-              </div>
-              <div className="mt-3">{renderPhotoGrid(r.id, "handover", "owner")}</div>
-            </div>
-          </div>
-        ) : null}
-
-        {r.status === "in_rental" ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="font-semibold">Krok: vrátenie veci</div>
-            <div className="mt-1 text-sm text-white/60">
-              Najprv nahraj svoje fotky po vrátení. Až potom klikni <strong>Vrátil som</strong>.
-            </div>
-
-            {!rentalStarted ? (
-              <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/60">
-                Fotky po vrátení môžeš nahrávať až od dátumu začiatku prenájmu: <strong>{formatDate(r.date_from)}</strong>.
-              </div>
-            ) : null}
-
-            <div className="mt-3 text-sm text-white/70">
-              Tvoje nahraté fotky po vrátení: <strong>{renterReturnCount}</strong>
-            </div>
-
-            <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => {
-                  setOpenReturnUploadForReservation(r.id);
-                  setReturnFiles([]);
-                  setReturnNote("");
-                }}
-                disabled={!rentalStarted}
-              >
-                Nahrať fotky po vrátení
-              </button>
-
-              <button
-                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                onClick={() => updateReservationStatus(r.id, "return_pending_confirmation")}
-                disabled={!canMarkReturned}
-                type="button"
-              >
-                Vrátil som
-              </button>
-            </div>
-
-            {!rentalStarted ? (
-              <div className="mt-3 text-sm text-white/60">
-                Návratový flow sa sprístupní až v deň začiatku prenájmu.
-              </div>
-            ) : renterReturnCount === 0 ? (
-              <div className="mt-3 text-sm text-white/60">
-                Bez fotiek po vrátení nejde pokračovať.
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {r.status === "return_pending_confirmation" ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="font-semibold">Čaká sa na potvrdenie prenajímateľa</div>
-            <div className="mt-1 text-sm text-white/60">
-              Nahral si fotky po vrátení a označil si rezerváciu ako vrátenú. Teraz čakáš, kým prenajímateľ skontroluje stav a potvrdí ukončenie.
-            </div>
-
-            <div className="mt-4">
-              <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
-              <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {canPay ? (
-            <Link
-              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
-              href={`/payment?reservation_id=${r.id}`}
-            >
-              Dokončiť platbu
-            </Link>
-          ) : null}
-
-          {canDispute ? (
-            <button
-              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-              onClick={() => updateReservationStatus(r.id, "disputed")}
-              type="button"
-            >
-              Nahlásiť problém
-            </button>
-          ) : null}
-
-          {canCancel ? (
-            <button
-              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-              onClick={() => updateReservationStatus(r.id, "cancelled")}
-              type="button"
-            >
-              Zrušiť rezerváciu
-            </button>
-          ) : null}
-
-          <button
-            type="button"
-            className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-            onClick={() => openChatForReservation(r)}
-            disabled={chatOpeningForReservation === r.id}
-          >
-            {chatOpeningForReservation === r.id
-              ? "Otváram chat..."
-              : existingConversationId
-              ? "Otvoriť chat"
-              : "Vytvoriť chat"}
-          </button>
-
-          <Link
-            className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-            href={`/items/${r.item_id}`}
-          >
-            Detail ponuky
-          </Link>
-        </div>
-
-        {openReturnUploadForReservation === r.id ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
-            <div className="font-medium">Upload fotiek po vrátení</div>
-
-            <input
-              id={`renter-return-upload-${r.id}`}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              disabled={returnUploading}
-              onChange={(e) => setReturnFiles(Array.from(e.target.files ?? []))}
-            />
-
-            <label
-              htmlFor={`renter-return-upload-${r.id}`}
-              className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
-                returnUploading ? "pointer-events-none opacity-50" : ""
-              }`}
-            >
-              Vybrať súbory
-            </label>
-
-            <textarea
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-              rows={3}
-              placeholder="Poznámka k stavu po vrátení (voliteľné)"
-              value={returnNote}
-              onChange={(e) => setReturnNote(e.target.value)}
-              disabled={returnUploading}
-            />
-
-            {returnFiles.length > 0 ? (
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
-                <div className="font-medium text-white">Vybrané súbory:</div>
-                <div className="mt-1">{returnFiles.map((f) => f.name).join(", ")}</div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/50">
-                Zatiaľ nie sú vybrané žiadne súbory.
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                disabled={returnUploading}
-                onClick={() => uploadReturnPhotos(r)}
-              >
-                {returnUploading ? "Nahrávam..." : "Nahrať fotky"}
-              </button>
-
-              <button
-                type="button"
-                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                disabled={returnUploading}
-                onClick={() => {
-                  setOpenReturnUploadForReservation(null);
-                  setReturnFiles([]);
-                  setReturnNote("");
-                }}
-              >
-                Zrušiť
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {r.status === "completed" ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="font-medium">Hodnotenie po ukončení prenájmu</div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {canReviewItem ? (
-                <button
-                  type="button"
-                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                  onClick={() => {
-                    setOpenReviewKey(reviewItemKey);
-                    setReviewRating(5);
-                    setReviewComment("");
-                  }}
-                >
-                  Ohodnotiť vec
-                </button>
-              ) : (
-                <span className="rounded border border-white/10 px-4 py-2 text-sm text-white/60">
-                  Vec už ohodnotená
-                </span>
-              )}
-
-              {canReviewOwner ? (
-                <button
-                  type="button"
-                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                  onClick={() => {
-                    setOpenReviewKey(reviewOwnerKey);
-                    setReviewRating(5);
-                    setReviewComment("");
-                  }}
-                >
-                  Ohodnotiť prenajímateľa
-                </button>
-              ) : (
-                <span className="rounded border border-white/10 px-4 py-2 text-sm text-white/60">
-                  Prenajímateľ už ohodnotený
-                </span>
-              )}
-            </div>
-
-            {openReviewKey === reviewItemKey ? (
-              <div className="mt-4 space-y-3">
-                <div className="text-sm text-white/70">Hodnotíš vec</div>
-
-                <select
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={reviewRating}
-                  onChange={(e) => setReviewRating(Number(e.target.value))}
-                  disabled={reviewSubmitting}
-                >
-                  {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>
-                      {n} ⭐
-                    </option>
-                  ))}
-                </select>
-
-                <textarea
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  rows={3}
-                  placeholder="Komentár k veci"
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  disabled={reviewSubmitting}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                    type="button"
-                    disabled={reviewSubmitting}
-                    onClick={() => submitReview(r, "item")}
-                  >
-                    {reviewSubmitting ? "Odosielam..." : "Odoslať hodnotenie veci"}
-                  </button>
-
-                  <button
-                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                    type="button"
-                    onClick={() => setOpenReviewKey(null)}
-                    disabled={reviewSubmitting}
-                  >
-                    Zrušiť
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {openReviewKey === reviewOwnerKey ? (
-              <div className="mt-4 space-y-3">
-                <div className="text-sm text-white/70">Hodnotíš prenajímateľa</div>
-
-                <select
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={reviewRating}
-                  onChange={(e) => setReviewRating(Number(e.target.value))}
-                  disabled={reviewSubmitting}
-                >
-                  {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>
-                      {n} ⭐
-                    </option>
-                  ))}
-                </select>
-
-                <textarea
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  rows={3}
-                  placeholder="Komentár k prenajímateľovi"
-                  value={reviewComment}
-                  onChange={(e) => setReviewComment(e.target.value)}
-                  disabled={reviewSubmitting}
-                />
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                    type="button"
-                    disabled={reviewSubmitting}
-                    onClick={() => submitReview(r, "owner")}
-                  >
-                    {reviewSubmitting ? "Odosielam..." : "Odoslať hodnotenie prenajímateľa"}
-                  </button>
-
-                  <button
-                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                    type="button"
-                    onClick={() => setOpenReviewKey(null)}
-                    disabled={reviewSubmitting}
-                  >
-                    Zrušiť
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {r.status === "pending" && r.payment_status === "paid" ? (
-          <div className="mt-3 text-sm text-white/60">
-            Platba je zaevidovaná. Čaká sa na potvrdenie prenajímateľa.
-          </div>
-        ) : null}
+  const renderSection = (title: string, subtitle: string, sectionRows: Row[]) => (
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
       </div>
-    );
-  };
+
+      {sectionRows.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
+          V tejto sekcii zatiaľ nič nie je.
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {sectionRows.map((r) => {
+            const startIn = daysUntil(r.date_from);
+            const photos = photoMap[r.id] ?? [];
+            const existingConversationId = conversationMap[r.id];
+            const renterProfile = renterProfileMap[r.renter_id];
+
+            const handoverOwnerCount = photos.filter(
+              (p) => p.phase === "handover" && p.actor === "owner"
+            ).length;
+
+            const returnOwnerCount = photos.filter(
+              (p) => p.phase === "return" && p.actor === "owner"
+            ).length;
+
+            const returnRenterCount = photos.filter(
+              (p) => p.phase === "return" && p.actor === "renter"
+            ).length;
+
+            const canConfirm = r.status === "pending" && r.payment_status === "paid";
+            const canMarkHandedOver = r.status === "confirmed" && handoverOwnerCount > 0;
+            const canConfirmReturn =
+              r.status === "return_pending_confirmation" &&
+              returnOwnerCount > 0 &&
+              returnRenterCount > 0;
+
+            const canCancel =
+              r.status !== "cancelled" &&
+              r.status !== "completed" &&
+              r.status !== "in_rental";
+
+            const canMarkDisputed =
+              r.status === "confirmed" ||
+              r.status === "in_rental" ||
+              r.status === "return_pending_confirmation";
+
+            const handoverUploadOpen = openUploadKey === `${r.id}-handover`;
+            const returnUploadOpen = openUploadKey === `${r.id}-return`;
+
+            return (
+              <li key={r.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-white/50">Rezervácia</span>
+                      <strong className="text-base">#{r.id}</strong>
+                    </div>
+
+                    <div className="text-white/85">
+                      <span className="text-white/50">Položka:</span>{" "}
+                      <strong>{itemTitleMap[r.item_id] ?? `#${r.item_id}`}</strong>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-white/80">
+                      <span className="text-white/50">Zákazník:</span>
+
+                      <Link
+                        href={`/profile/${r.renter_id}`}
+                        className="underline underline-offset-2 hover:text-white"
+                      >
+                        {renterProfile?.full_name?.trim() || shortId(r.renter_id)}
+                      </Link>
+
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                          renterProfile?.verification_status || "unverified"
+                        )}`}
+                      >
+                        {verificationLabel(renterProfile?.verification_status || "unverified")}
+                      </span>
+
+                      {renterProfile?.city ? (
+                        <span className="text-sm text-white/50">· {renterProfile.city}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="text-white/80">
+                      <span className="text-white/50">Termín:</span> {formatDate(r.date_from)} →{" "}
+                      {formatDate(r.date_to)}
+                    </div>
+
+                    <div className="text-sm text-white/60">
+                      {r.status === "cancelled"
+                        ? "Rezervácia je zrušená."
+                        : r.status === "completed"
+                        ? "Prenájom je ukončený."
+                        : startIn > 0
+                        ? `Začiatok prenájmu o ${startIn} ${startIn === 1 ? "deň" : startIn < 5 ? "dni" : "dní"}.`
+                        : startIn === 0
+                        ? "Prenájom začína dnes."
+                        : "Termín už začal alebo prebieha."}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${reservationBadge(
+                        r.status
+                      )}`}
+                    >
+                      {reservationStatusLabel(r.status)}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${paymentBadge(
+                        r.payment_status
+                      )}`}
+                    >
+                      {paymentStatusLabel(r.payment_status)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 text-sm text-white/50">
+                  Poskytovateľ platby: {r.payment_provider}
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  {r.status === "confirmed" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="font-semibold">Krok 1: odovzdanie zákazníkovi</div>
+                      <div className="mt-1 text-sm text-white/60">
+                        Najprv nahraj fotky stavu veci pri odovzdaní. Až potom označ rezerváciu ako odovzdanú.
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="text-sm text-white/70">
+                          Nahraté fotky pri odovzdaní: <strong>{handoverOwnerCount}</strong>
+                        </div>
+                        <div className="mt-3">{renderPhotoGrid(r.id, "handover", "owner")}</div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                          onClick={() => startUpload(r.id, "handover")}
+                        >
+                          Nahrať fotky pri odovzdaní
+                        </button>
+
+                        <button
+                          className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                          onClick={() => updateReservationStatus(r.id, "in_rental")}
+                          disabled={!canMarkHandedOver}
+                          type="button"
+                        >
+                          Potvrdiť odovzdanie
+                        </button>
+                      </div>
+
+                      {handoverOwnerCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Bez fotiek pri odovzdaní nejde pokračovať.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {r.status === "return_pending_confirmation" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="font-semibold">Krok 2: vrátenie od zákazníka</div>
+                      <div className="mt-1 text-sm text-white/60">
+                        Najprv si pozri fotky od zákazníka. Potom nahraj svoje fotky po vrátení a až nakoniec potvrď ukončenie prenájmu.
+                      </div>
+
+                      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                        <div>
+                          <div className="text-sm font-medium text-white/80">Fotky od zákazníka po vrátení</div>
+                          <div className="mt-1 text-sm text-white/60">
+                            Nahraté zákazníkom: <strong>{returnRenterCount}</strong>
+                          </div>
+                          <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
+                        </div>
+
+                        <div>
+                          <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
+                          <div className="mt-1 text-sm text-white/60">
+                            Nahraté prenajímateľom: <strong>{returnOwnerCount}</strong>
+                          </div>
+                          <div className="mt-3">{renderPhotoGrid(r.id, "return", "owner")}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                          onClick={() => startUpload(r.id, "return")}
+                        >
+                          Nahrať fotky po vrátení
+                        </button>
+
+                        <button
+                          className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                          onClick={() => updateReservationStatus(r.id, "completed")}
+                          disabled={!canConfirmReturn}
+                          type="button"
+                        >
+                          Potvrdiť vrátenie
+                        </button>
+                      </div>
+
+                      {returnRenterCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Zákazník ešte nenahral svoje fotky po vrátení.
+                        </div>
+                      ) : null}
+
+                      {returnOwnerCount === 0 ? (
+                        <div className="mt-3 text-sm text-white/60">
+                          Pred potvrdením vrátenia najprv nahraj svoje fotky po vrátení.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {r.status === "in_rental" ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+                      Vec je označená ako odovzdaná. Teraz čakáš, kým zákazník nahrá fotky po vrátení a klikne <strong>Vrátil som</strong>.
+                    </div>
+                  ) : null}
+                </div>
+
+                {handoverUploadOpen || returnUploadOpen ? (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                    <div className="font-medium">
+                      {handoverUploadOpen ? "Upload fotiek pri odovzdaní" : "Upload fotiek po vrátení"}
+                    </div>
+
+                    <input
+                      id={`owner-upload-${r.id}-${handoverUploadOpen ? "handover" : "return"}`}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      disabled={uploading}
+                      onChange={(e) => setUploadFiles(Array.from(e.target.files ?? []))}
+                    />
+
+                    <label
+                      htmlFor={`owner-upload-${r.id}-${handoverUploadOpen ? "handover" : "return"}`}
+                      className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
+                        uploading ? "pointer-events-none opacity-50" : ""
+                      }`}
+                    >
+                      Vybrať súbory
+                    </label>
+
+                    <textarea
+                      className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                      rows={3}
+                      placeholder="Poznámka k stavu (voliteľné)"
+                      value={uploadNote}
+                      onChange={(e) => setUploadNote(e.target.value)}
+                      disabled={uploading}
+                    />
+
+                    {uploadFiles.length > 0 ? (
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+                        <div className="font-medium text-white">Vybrané súbory:</div>
+                        <div className="mt-1">{uploadFiles.map((f) => f.name).join(", ")}</div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/50">
+                        Zatiaľ nie sú vybrané žiadne súbory.
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                        disabled={uploading}
+                        onClick={() =>
+                          uploadConditionPhotos(
+                            r,
+                            handoverUploadOpen ? "handover" : "return"
+                          )
+                        }
+                      >
+                        {uploading ? "Nahrávam..." : "Nahrať fotky"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                        disabled={uploading}
+                        onClick={() => {
+                          setOpenUploadKey(null);
+                          setUploadFiles([]);
+                          setUploadNote("");
+                        }}
+                      >
+                        Zrušiť
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {canConfirm ? (
+                    <button
+                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                      onClick={() => updateReservationStatus(r.id, "confirmed")}
+                      type="button"
+                    >
+                      Potvrdiť rezerváciu
+                    </button>
+                  ) : null}
+
+                  {canMarkDisputed ? (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => updateReservationStatus(r.id, "disputed")}
+                      type="button"
+                    >
+                      Označiť spor
+                    </button>
+                  ) : null}
+
+                  {canCancel ? (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => updateReservationStatus(r.id, "cancelled")}
+                      type="button"
+                    >
+                      Zrušiť
+                    </button>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+                    onClick={() => openChatForReservation(r)}
+                    disabled={chatOpeningForReservation === r.id}
+                  >
+                    {chatOpeningForReservation === r.id
+                      ? "Otváram chat..."
+                      : existingConversationId
+                      ? "Otvoriť chat"
+                      : "Vytvoriť chat"}
+                  </button>
+
+                  <Link
+                    href={`/items/${r.item_id}`}
+                    className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                  >
+                    Detail ponuky
+                  </Link>
+                </div>
+
+                {r.status === "disputed" ? (
+                  <div className="mt-3 rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-sm text-white/80">
+                    Táto rezervácia je označená ako spor. Skontroluj reklamáciu a komunikáciu so zákazníkom.
+                  </div>
+                ) : null}
+
+                {r.payment_status !== "paid" && r.status === "pending" ? (
+                  <div className="mt-3 text-sm text-white/60">
+                    Potvrdenie je dostupné až po úspešnej platbe.
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 
   return (
     <main className="space-y-6">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Moje rezervácie</h1>
+            <h1 className="text-2xl font-semibold">Rezervácie mojich ponúk</h1>
             <p className="mt-1 text-white/60">
-              Jasný postup od prevzatia až po vrátenie a hodnotenie.
+              Prehľad objednávok zákazníkov a jasné kroky od odovzdania až po vrátenie.
             </p>
           </div>
 
-          <Link
-            className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-            href="/items"
-          >
-            Prejsť na ponuky
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/owner/items"
+              className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+            >
+              Moje ponuky
+            </Link>
+            <Link
+              href="/owner/disputes"
+              className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+            >
+              Reklamácie
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -1106,102 +978,69 @@ export default function ReservationsPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
       ) : null}
 
+      <div className="grid gap-4 md:grid-cols-4">
+        <SummaryCard
+          title="Čakajúce"
+          value={pending.length}
+          subtitle="Čakajú na schválenie"
+        />
+        <SummaryCard
+          title="Potvrdené"
+          value={confirmed.length}
+          subtitle="Pripravené na odovzdanie"
+        />
+        <SummaryCard
+          title="Prebieha prenájom"
+          value={inRental.length}
+          subtitle="Vec je u zákazníka"
+        />
+        <SummaryCard
+          title="Čaká na vrátenie"
+          value={returnPending.length}
+          subtitle="Zákazník označil vrátenie"
+        />
+      </div>
+
       {renderSection(
         "Čakajúce rezervácie",
-        "Rezervácie čakajúce na potvrdenie alebo na platbu.",
-        pending.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne čakajúce rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {pending.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Nové rezervácie, ktoré ešte neboli potvrdené.",
+        pending
       )}
 
       {renderSection(
         "Potvrdené rezervácie",
-        "Rezervácie schválené prenajímateľom a pripravené na odovzdanie.",
-        confirmed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne potvrdené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {confirmed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Rezervácie schválené a pripravené na odovzdanie.",
+        confirmed
       )}
 
       {renderSection(
-        "Prebieha prenájom",
-        "Vec je u teba. Pred vrátením nahraj fotky a potom potvrď vrátenie.",
-        inRental.length === 0 ? (
-          <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
-        ) : (
-          <ul className="space-y-3">
-            {inRental.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Prebiehajúce prenájmy",
+        "Tieto rezervácie sú už odovzdané zákazníkovi.",
+        inRental
       )}
 
       {renderSection(
         "Čaká na potvrdenie vrátenia",
-        "Prenajímateľ ešte kontroluje stav po vrátení.",
-        returnPending.length === 0 ? (
-          <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>
-        ) : (
-          <ul className="space-y-3">
-            {returnPending.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Zákazník tvrdí, že vrátil. Treba skontrolovať fotky a potvrdiť ukončenie.",
+        returnPending
       )}
 
       {renderSection(
         "Dokončené rezervácie",
-        "Prenájmy, ktoré sú riadne ukončené.",
-        completed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne dokončené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {completed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Prenájom bol úspešne ukončený.",
+        completed
       )}
 
       {renderSection(
         "Sporné rezervácie",
-        "Rezervácie, pri ktorých bol nahlásený problém.",
-        disputed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne sporné rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {disputed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        "Rezervácie označené ako spor.",
+        disputed
       )}
 
       {renderSection(
         "Zrušené rezervácie",
         "História zrušených rezervácií.",
-        cancelled.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne zrušené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {cancelled.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
+        cancelled
       )}
     </main>
   );

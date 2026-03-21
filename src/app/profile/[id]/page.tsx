@@ -15,7 +15,10 @@ type PublicProfile = {
   facebook_url: string | null;
   linkedin_url: string | null;
   website_url: string | null;
-  verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
+};
+
+type VerificationRow = {
+  status: "pending" | "approved" | "rejected" | string | null;
 };
 
 type ItemRow = {
@@ -28,15 +31,15 @@ type ItemRow = {
   is_active: boolean;
 };
 
-function verificationBadgeClass(status: string) {
-  if (status === "verified") return "bg-emerald-600/90 text-white";
+function verificationBadgeClass(status: string | null) {
+  if (status === "approved") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
   if (status === "rejected") return "bg-red-600/90 text-white";
   return "bg-white/10 text-white";
 }
 
-function verificationLabel(status: string) {
-  if (status === "verified") return "Overený profil";
+function verificationLabel(status: string | null) {
+  if (status === "approved") return "Overený profil";
   if (status === "pending") return "Čaká na overenie";
   if (status === "rejected") return "Overenie zamietnuté";
   return "Neoverený profil";
@@ -48,6 +51,7 @@ export default function PublicProfilePage() {
 
   const [status, setStatus] = useState("Načítavam...");
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string>>({});
 
@@ -96,9 +100,7 @@ export default function PublicProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select(
-          "id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status"
-        )
+        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
         .eq("id", profileId)
         .maybeSingle();
 
@@ -113,6 +115,16 @@ export default function PublicProfilePage() {
       }
 
       setProfile(prof as PublicProfile);
+
+      const { data: verificationData } = await supabase
+        .from("user_verifications")
+        .select("status")
+        .eq("user_id", profileId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setVerificationStatus((verificationData as VerificationRow | null)?.status ?? null);
 
       const { data: itemsData, error: itemsErr } = await supabase
         .from("items")
@@ -190,10 +202,10 @@ export default function PublicProfilePage() {
 
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${verificationBadgeClass(
-                      profile.verification_status
+                      verificationStatus
                     )}`}
                   >
-                    {verificationLabel(profile.verification_status)}
+                    {verificationLabel(verificationStatus)}
                   </span>
                 </div>
 

@@ -57,6 +57,26 @@ type ConversationRow = {
   reservation_id: number | null;
 };
 
+type OwnerProfileMeta = {
+  full_name: string | null;
+  city: string | null;
+  verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
+};
+
+function verificationBadgeClass(status: string) {
+  if (status === "verified") return "bg-emerald-600/90 text-white";
+  if (status === "pending") return "bg-yellow-400 text-black";
+  if (status === "rejected") return "bg-red-600/90 text-white";
+  return "bg-white/10 text-white";
+}
+
+function verificationLabel(status: string) {
+  if (status === "verified") return "Overený používateľ";
+  if (status === "pending") return "Čaká na overenie";
+  if (status === "rejected") return "Overenie zamietnuté";
+  return "Neoverený profil";
+}
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -124,6 +144,7 @@ export default function ReservationsPage() {
   const [status, setStatus] = useState("Načítavam...");
 
   const [itemMetaMap, setItemMetaMap] = useState<Record<number, ItemMeta>>({});
+  const [ownerProfileMap, setOwnerProfileMap] = useState<Record<string, OwnerProfileMeta>>({});
   const [reviewMap, setReviewMap] = useState<Record<number, ReviewFlags>>({});
   const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
   const [conversationMap, setConversationMap] = useState<Record<number, number>>({});
@@ -181,6 +202,34 @@ export default function ReservationsPage() {
         }
         setItemMetaMap(map);
 
+        const ownerIds = Array.from(
+          new Set(
+            Object.values(map)
+              .map((x) => x.owner_id)
+              .filter(Boolean)
+          )
+        );
+
+        if (ownerIds.length > 0) {
+          const { data: ownerProfiles } = await supabase
+            .from("profiles")
+            .select("id,full_name,city,verification_status")
+            .in("id", ownerIds);
+
+          const ownerMap: Record<string, OwnerProfileMeta> = {};
+          for (const p of (ownerProfiles ?? []) as any[]) {
+            ownerMap[p.id] = {
+              full_name: p.full_name ?? null,
+              city: p.city ?? null,
+              verification_status: p.verification_status ?? "unverified",
+            };
+          }
+
+          setOwnerProfileMap(ownerMap);
+        } else {
+          setOwnerProfileMap({});
+        }
+
         const { data: conversationsData } = await supabase
           .from("conversations")
           .select("id,item_id,owner_id,renter_id,reservation_id")
@@ -206,6 +255,7 @@ export default function ReservationsPage() {
       }
     } else {
       setItemMetaMap({});
+      setOwnerProfileMap({});
       setConversationMap({});
     }
 
@@ -641,6 +691,7 @@ export default function ReservationsPage() {
 
   const renderCard = (r: Reservation) => {
     const itemMeta = itemMetaMap[r.item_id];
+    const ownerProfile = itemMeta ? ownerProfileMap[itemMeta.owner_id] : null;
     const photos = photoMap[r.id] ?? [];
     const existingConversationId = conversationMap[r.id];
 
@@ -700,6 +751,30 @@ export default function ReservationsPage() {
             <div className="text-white/80">
               <span className="text-white/50">Položka:</span> {itemMeta?.title ?? r.item_id}
             </div>
+
+            {itemMeta ? (
+              <div className="flex flex-wrap items-center gap-2 text-white/80">
+                <span className="text-white/50">Prenajímateľ:</span>
+                <Link
+                  href={`/profile/${itemMeta.owner_id}`}
+                  className="underline underline-offset-2 hover:text-white"
+                >
+                  {ownerProfile?.full_name?.trim() || "Používateľ"}
+                </Link>
+
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                    ownerProfile?.verification_status || "unverified"
+                  )}`}
+                >
+                  {verificationLabel(ownerProfile?.verification_status || "unverified")}
+                </span>
+
+                {ownerProfile?.city ? (
+                  <span className="text-sm text-white/50">· {ownerProfile.city}</span>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="text-white/80">
               <span className="text-white/50">Termín:</span> {formatDate(r.date_from)} →{" "}
@@ -871,6 +946,12 @@ export default function ReservationsPage() {
             Detail ponuky
           </Link>
         </div>
+
+        {r.status === "disputed" ? (
+          <div className="mt-3 rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-sm text-white/80">
+            Táto rezervácia je označená ako spor. Skontroluj detail sporu a ďalšiu komunikáciu v chate.
+          </div>
+        ) : null}
 
         {openReturnUploadForReservation === r.id ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
