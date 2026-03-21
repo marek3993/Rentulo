@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 type ReservationRow = {
   id: number;
+  item_id: number;
   payment_status: string | null;
   payment_provider: string | null;
   payment_due_at: string | null;
@@ -37,7 +38,7 @@ function PaymentInner() {
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,payment_status,payment_provider,payment_due_at,status")
+      .select("id,item_id,payment_status,payment_provider,payment_due_at,status")
       .eq("id", reservationId)
       .maybeSingle();
 
@@ -60,6 +61,22 @@ function PaymentInner() {
       provider: "demo",
       note,
       currency: "EUR",
+    });
+  };
+
+  const insertNotification = async (
+    userId: string,
+    title: string,
+    body: string,
+    link: string
+  ) => {
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      type: "payment",
+      title,
+      body,
+      link,
+      is_read: false,
     });
   };
 
@@ -149,6 +166,12 @@ function PaymentInner() {
       return;
     }
 
+    const currentReservation = await loadReservation();
+    if (!currentReservation) {
+      setStatus("Chyba: rezervácia neexistuje.");
+      return;
+    }
+
     const { error } = await supabase
       .from("reservations")
       .update({
@@ -167,6 +190,28 @@ function PaymentInner() {
       userId,
       "payment_demo_paid",
       "Používateľ simuloval úspešnú demo platbu."
+    );
+
+    const { data: itemRow } = await supabase
+      .from("items")
+      .select("owner_id,title")
+      .eq("id", currentReservation.item_id)
+      .maybeSingle();
+
+    if (itemRow?.owner_id) {
+      await insertNotification(
+        itemRow.owner_id,
+        "Platba prijatá",
+        `Rezervácia #${reservationId} bola zaplatená.`,
+        "/owner/reservations"
+      );
+    }
+
+    await insertNotification(
+      userId,
+      "Platba úspešná",
+      `Rezervácia #${reservationId} bola úspešne zaplatená.`,
+      "/reservations"
     );
 
     setStatus("Platba úspešná ✅ (demo)");
@@ -204,6 +249,13 @@ function PaymentInner() {
       userId,
       "payment_demo_failed",
       "Používateľ simuloval zlyhanie demo platby."
+    );
+
+    await insertNotification(
+      userId,
+      "Platba zlyhala",
+      `Platba pre rezerváciu #${reservationId} zlyhala.`,
+      "/reservations"
     );
 
     setStatus("Platba zlyhala (demo)");
