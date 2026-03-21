@@ -25,6 +25,7 @@ type Row = {
   status: ReservationStatus;
   payment_status: PaymentStatus;
   payment_provider: string;
+  payment_due_at?: string | null;
   renter_id: string;
 };
 
@@ -60,6 +61,15 @@ type RenterProfileMeta = {
   verification_status: "unverified" | "pending" | "verified" | "rejected" | string;
 };
 
+type PaymentEvent = {
+  id: number;
+  reservation_id: number;
+  event_type: string;
+  provider: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 function verificationBadgeClass(status: string) {
   if (status === "verified") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
@@ -78,6 +88,12 @@ function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString("sk-SK");
+}
+
+function formatDateTime(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString("sk-SK");
 }
 
 function daysUntil(dateStr: string) {
@@ -131,6 +147,13 @@ function paymentStatusLabel(status: PaymentStatus) {
   return "Nezaplatené";
 }
 
+function paymentEventLabel(eventType: string) {
+  if (eventType === "payment_demo_paid") return "Demo platba úspešná";
+  if (eventType === "payment_demo_failed") return "Demo platba zlyhala";
+  if (eventType === "payment_expired") return "Platba expirovala";
+  return eventType;
+}
+
 export default function OwnerReservationsPage() {
   const router = useRouter();
 
@@ -140,6 +163,7 @@ export default function OwnerReservationsPage() {
   const [photoMap, setPhotoMap] = useState<Record<number, ConditionPhoto[]>>({});
   const [conversationMap, setConversationMap] = useState<Record<number, number>>({});
   const [renterProfileMap, setRenterProfileMap] = useState<Record<string, RenterProfileMeta>>({});
+  const [paymentEventMap, setPaymentEventMap] = useState<Record<number, PaymentEvent[]>>({});
   const [chatOpeningForReservation, setChatOpeningForReservation] = useState<number | null>(null);
 
   const [openUploadKey, setOpenUploadKey] = useState<string | null>(null);
@@ -183,13 +207,14 @@ export default function OwnerReservationsPage() {
       setPhotoMap({});
       setConversationMap({});
       setRenterProfileMap({});
+      setPaymentEventMap({});
       setStatus("");
       return;
     }
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider,renter_id")
+      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider,payment_due_at,renter_id")
       .in("item_id", itemIds)
       .order("id", { ascending: false });
 
@@ -202,11 +227,7 @@ export default function OwnerReservationsPage() {
     setRows(reservationRows);
 
     const renterIds = Array.from(
-      new Set(
-        reservationRows
-          .map((r) => r.renter_id)
-          .filter(Boolean)
-      )
+      new Set(reservationRows.map((r) => r.renter_id).filter(Boolean))
     );
 
     if (renterIds.length > 0) {
@@ -250,9 +271,25 @@ export default function OwnerReservationsPage() {
     const reservationIds = reservationRows.map((r) => r.id);
     if (reservationIds.length === 0) {
       setPhotoMap({});
+      setPaymentEventMap({});
       setStatus("");
       return;
     }
+
+    const { data: paymentEventsData } = await supabase
+      .from("payment_events")
+      .select("id,reservation_id,event_type,provider,note,created_at")
+      .in("reservation_id", reservationIds)
+      .order("created_at", { ascending: false });
+
+    const nextPaymentEventMap: Record<number, PaymentEvent[]> = {};
+    for (const ev of (paymentEventsData ?? []) as PaymentEvent[]) {
+      if (!nextPaymentEventMap[ev.reservation_id]) {
+        nextPaymentEventMap[ev.reservation_id] = [];
+      }
+      nextPaymentEventMap[ev.reservation_id].push(ev);
+    }
+    setPaymentEventMap(nextPaymentEventMap);
 
     const { data: photosData, error: photosErr } = await supabase
       .from("rental_condition_photos")
@@ -544,7 +581,7 @@ export default function OwnerReservationsPage() {
               <img
                 src={p.signed_url}
                 alt="condition photo"
-                className="h-28 w-full rounded-lg object-cover border border-white/10"
+                className="h-28 w-full rounded-lg border border-white/10 object-cover"
               />
             ) : (
               <div className="flex h-28 items-center justify-center rounded-lg border border-white/10 bg-black/20 text-white/50">
@@ -559,6 +596,46 @@ export default function OwnerReservationsPage() {
             {p.note ? <div className="mt-1 text-sm text-white/70">{p.note}</div> : null}
           </div>
         ))}
+      </div>
+    );
+  };
+
+  const renderPaymentHistory = (reservationId: number) => {
+    const events = paymentEventMap[reservationId] ?? [];
+
+    if (events.length === 0) {
+      return (
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="font-medium">História platby</div>
+          <div className="mt-2 text-sm text-white/50">Zatiaľ bez záznamov.</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="font-medium">História platby</div>
+        <div className="mt-3 space-y-2">
+          {events.map((event) => (
+            <div
+              key={event.id}
+              className="rounded-lg border border-white/10 bg-black/20 p-3 text-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="font-medium text-white/90">
+                  {paymentEventLabel(event.event_type)}
+                </div>
+                <div className="text-white/50">{formatDateTime(event.created_at)}</div>
+              </div>
+
+              <div className="mt-1 text-white/60">
+                Poskytovateľ: {event.provider || "-"}
+              </div>
+
+              {event.note ? <div className="mt-1 text-white/70">{event.note}</div> : null}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -655,6 +732,13 @@ export default function OwnerReservationsPage() {
                       <span className="text-white/50">Termín:</span> {formatDate(r.date_from)} →{" "}
                       {formatDate(r.date_to)}
                     </div>
+
+                    {r.payment_due_at ? (
+                      <div className="text-sm text-white/60">
+                        Platbu treba dokončiť do:{" "}
+                        <strong className="text-white">{formatDateTime(r.payment_due_at)}</strong>
+                      </div>
+                    ) : null}
 
                     <div className="text-sm text-white/60">
                       {r.status === "cancelled"
@@ -938,6 +1022,8 @@ export default function OwnerReservationsPage() {
                     Potvrdenie je dostupné až po úspešnej platbe.
                   </div>
                 ) : null}
+
+                {renderPaymentHistory(r.id)}
               </li>
             );
           })}
