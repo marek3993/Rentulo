@@ -5,15 +5,63 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
+type ReservationRow = {
+  id: number;
+  payment_status: string | null;
+  payment_provider: string | null;
+  payment_due_at: string | null;
+  status: string | null;
+};
+
+function formatDateTime(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleString("sk-SK");
+}
+
 function PaymentInner() {
   const sp = useSearchParams();
   const router = useRouter();
 
   const reservationIdRaw = sp.get("reservation_id");
   const reservationId = reservationIdRaw ? Number(reservationIdRaw) : NaN;
+  const success = sp.get("success");
+  const cancel = sp.get("cancel");
 
   const [status, setStatus] = useState("Pripravujem platbu...");
   const [mode, setMode] = useState<"loading" | "stripe" | "demo">("loading");
+  const [reservation, setReservation] = useState<ReservationRow | null>(null);
+
+  const loadReservation = async () => {
+    if (!Number.isFinite(reservationId)) return null;
+
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("id,payment_status,payment_provider,payment_due_at,status")
+      .eq("id", reservationId)
+      .maybeSingle();
+
+    if (error) return null;
+
+    const row = (data ?? null) as ReservationRow | null;
+    setReservation(row);
+    return row;
+  };
+
+  const insertPaymentEvent = async (
+    actorUserId: string,
+    eventType: string,
+    note: string
+  ) => {
+    await supabase.from("payment_events").insert({
+      reservation_id: reservationId,
+      actor_user_id: actorUserId,
+      event_type: eventType,
+      provider: "demo",
+      note,
+      currency: "EUR",
+    });
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -23,7 +71,39 @@ function PaymentInner() {
         return;
       }
 
-      // Skús checkout (ak Stripe nie je, API vráti 501 -> demo)
+      const row = await loadReservation();
+
+      if (row?.status === "cancelled" && row?.payment_status === "failed") {
+        setStatus("Táto platba už expirovala alebo zlyhala.");
+        setMode("demo");
+        return;
+      }
+
+      if (row?.payment_status === "paid") {
+        setStatus("Táto rezervácia je už zaplatená ✅");
+        setMode("demo");
+        return;
+      }
+
+      if (success === "1") {
+        setStatus("Platba prebehla. Kontrolujem stav...");
+        if (row?.payment_status === "paid") {
+          setStatus("Platba úspešná ✅");
+          setTimeout(() => router.push("/reservations"), 1000);
+          return;
+        }
+
+        setStatus("Platba prebehla, ale potvrdenie ešte nedobehol.");
+        setMode("stripe");
+        return;
+      }
+
+      if (cancel === "1") {
+        setStatus("Platba bola zrušená.");
+        setMode("stripe");
+        return;
+      }
+
       try {
         const res = await fetch("/api/checkout", {
           method: "POST",
@@ -45,7 +125,7 @@ function PaymentInner() {
           return;
         }
 
-        setStatus("Chyba platby: neplatná odpoveď.");
+        setStatus(json?.error || "Chyba platby.");
         setMode("demo");
       } catch {
         setStatus("Demo režim: platobná brána nie je dostupná.");
@@ -54,7 +134,7 @@ function PaymentInner() {
     };
 
     run();
-  }, [reservationId]);
+  }, [reservationId, router, success, cancel]);
 
   const markPaidDemo = async () => {
     if (!Number.isFinite(reservationId)) return;
@@ -83,39 +163,17 @@ function PaymentInner() {
       return;
     }
 
+    await insertPaymentEvent(
+      userId,
+      "payment_demo_paid",
+      "Používateľ simuloval úspešnú demo platbu."
+    );
+
     setStatus("Platba úspešná ✅ (demo)");
     router.push("/reservations");
   };
 
-  return (
-    <main className="max-w-xl">
-      <h1 className="text-2xl font-semibold">Platba</h1>
-
-      <p className="mt-4">
-        Rezervácia: <strong>#{reservationIdRaw ?? "-"}</strong>
-      </p>
-
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
-        <p className="font-medium">{status}</p>
-
-        {mode === "demo" ? (
-          <div className="mt-4 space-y-3">
-            <div className="text-white/70 text-sm">
-              Toto je testovací režim. Neskôr sa tu napojí Stripe a stránka bude presmerovávať na reálnu platbu.
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
-                onClick={markPaidDemo}
-                type="button"
-              >
-                Simulovať úspešnú platbu
-              </button>
-
-              <button
-  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-  onClick={async () => {
+  const markFailedDemo = async () => {
     if (!Number.isFinite(reservationId)) return;
 
     setStatus("Simulujem zlyhanie platby...");
@@ -142,13 +200,55 @@ function PaymentInner() {
       return;
     }
 
+    await insertPaymentEvent(
+      userId,
+      "payment_demo_failed",
+      "Používateľ simuloval zlyhanie demo platby."
+    );
+
     setStatus("Platba zlyhala (demo)");
     router.push("/reservations");
-  }}
-  type="button"
->
-  Simulovať zlyhanie
-</button>
+  };
+
+  return (
+    <main className="max-w-xl">
+      <h1 className="text-2xl font-semibold">Platba</h1>
+
+      <p className="mt-4">
+        Rezervácia: <strong>#{reservationIdRaw ?? "-"}</strong>
+      </p>
+
+      {reservation?.payment_due_at ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+          Platbu treba dokončiť do:{" "}
+          <strong className="text-white">{formatDateTime(reservation.payment_due_at)}</strong>
+        </div>
+      ) : null}
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <p className="font-medium">{status}</p>
+
+        {mode === "demo" ? (
+          <div className="mt-4 space-y-3">
+            <div className="text-sm text-white/70">Toto je testovací režim.</div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
+                onClick={markPaidDemo}
+                type="button"
+                disabled={reservation?.payment_status === "paid"}
+              >
+                Simulovať úspešnú platbu
+              </button>
+
+              <button
+                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                onClick={markFailedDemo}
+                type="button"
+              >
+                Simulovať zlyhanie
+              </button>
             </div>
           </div>
         ) : null}
