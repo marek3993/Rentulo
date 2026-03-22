@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useParams, useRouter } from "next/navigation";
 
@@ -59,6 +59,9 @@ export default function MessageDetailPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
 
+  const loadIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
   const otherProfile = useMemo(() => {
     if (!conversation || !currentUserId) return null;
     return currentUserId === conversation.owner_id ? renterProfile : ownerProfile;
@@ -69,12 +72,23 @@ export default function MessageDetailPage() {
     return supabase.storage.from("avatars").getPublicUrl(otherProfile.avatar_path).data.publicUrl;
   }, [otherProfile?.avatar_path]);
 
-  const markMessagesAsRead = async (messageRows: MessageRow[], userId: string) => {
-    const unreadIds = messageRows
-      .filter((msg) => msg.sender_id !== userId && !msg.read_at)
-      .map((msg) => msg.id);
+  const markConversationAsRead = async (userId: string) => {
+    const { data: unreadMessages, error: unreadError } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", userId)
+      .is("read_at", null);
 
-    if (unreadIds.length === 0) return;
+    if (unreadError) {
+      return;
+    }
+
+    const unreadIds = (unreadMessages ?? []).map((msg: { id: number }) => msg.id);
+
+    if (unreadIds.length === 0) {
+      return;
+    }
 
     await supabase
       .from("messages")
@@ -83,10 +97,14 @@ export default function MessageDetailPage() {
   };
 
   const loadConversation = async () => {
+    const loadId = ++loadIdRef.current;
+
     setStatus("Načítavam...");
 
     const { data: sess } = await supabase.auth.getSession();
     const userId = sess.session?.user.id;
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     if (!userId) {
       router.push("/login");
@@ -100,6 +118,8 @@ export default function MessageDetailPage() {
       .select("id,item_id,owner_id,renter_id,reservation_id,created_at,updated_at")
       .eq("id", conversationId)
       .maybeSingle();
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     if (conversationError) {
       setStatus("Chyba: " + conversationError.message);
@@ -118,30 +138,30 @@ export default function MessageDetailPage() {
       return;
     }
 
+    const [{ data: itemData }, { data: ownerData }, { data: renterData }] = await Promise.all([
+      supabase.from("items").select("id,title").eq("id", conversationRow.item_id).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("id,full_name,city,avatar_path")
+        .eq("id", conversationRow.owner_id)
+        .maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("id,full_name,city,avatar_path")
+        .eq("id", conversationRow.renter_id)
+        .maybeSingle(),
+    ]);
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
+
     setConversation(conversationRow);
-
-    const { data: itemData } = await supabase
-      .from("items")
-      .select("id,title")
-      .eq("id", conversationRow.item_id)
-      .maybeSingle();
-
     setItem((itemData ?? null) as ItemRow | null);
-
-    const { data: ownerData } = await supabase
-      .from("profiles")
-      .select("id,full_name,city,avatar_path")
-      .eq("id", conversationRow.owner_id)
-      .maybeSingle();
-
-    const { data: renterData } = await supabase
-      .from("profiles")
-      .select("id,full_name,city,avatar_path")
-      .eq("id", conversationRow.renter_id)
-      .maybeSingle();
-
     setOwnerProfile((ownerData ?? null) as ProfileRow | null);
     setRenterProfile((renterData ?? null) as ProfileRow | null);
+
+    await markConversationAsRead(userId);
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     const { data: messageData, error: messageError } = await supabase
       .from("messages")
@@ -149,21 +169,21 @@ export default function MessageDetailPage() {
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
+
     if (messageError) {
       setStatus("Chyba: " + messageError.message);
       return;
     }
 
-    const messageRows = (messageData ?? []) as MessageRow[];
-    setMessages(messageRows);
-    await markMessagesAsRead(messageRows, userId);
-
+    setMessages((messageData ?? []) as MessageRow[]);
     setStatus("");
   };
 
   useEffect(() => {
     if (!Number.isFinite(conversationId)) return;
 
+    mountedRef.current = true;
     loadConversation();
 
     const channel = supabase
@@ -183,6 +203,7 @@ export default function MessageDetailPage() {
       .subscribe();
 
     return () => {
+      mountedRef.current = false;
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,9 +294,7 @@ export default function MessageDetailPage() {
                   <h1 className="text-2xl font-semibold">
                     {otherProfile?.full_name ?? "Bez mena"}
                   </h1>
-                  <div className="mt-1 text-white/60">
-                    {otherProfile?.city ?? "Bez mesta"}
-                  </div>
+                  <div className="mt-1 text-white/60">{otherProfile?.city ?? "Bez mesta"}</div>
                   <div className="mt-2 text-sm text-white/70">
                     Položka: <strong>{item?.title ?? `#${conversation.item_id}`}</strong>
                   </div>
@@ -340,7 +359,7 @@ export default function MessageDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
+          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
             <div className="font-semibold">Nová správa</div>
 
             <textarea

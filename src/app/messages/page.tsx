@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
@@ -55,11 +55,18 @@ export default function MessagesPage() {
   const [lastMessageMap, setLastMessageMap] = useState<Record<number, MessageRow | null>>({});
   const [unreadCountMap, setUnreadCountMap] = useState<Record<number, number>>({});
 
+  const loadIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
   const loadConversations = async () => {
+    const loadId = ++loadIdRef.current;
+
     setStatus("Načítavam...");
 
     const { data: sess } = await supabase.auth.getSession();
     const userId = sess.session?.user.id;
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     if (!userId) {
       router.push("/login");
@@ -73,6 +80,8 @@ export default function MessagesPage() {
       .select("id,item_id,owner_id,renter_id,reservation_id,created_at,updated_at")
       .or(`owner_id.eq.${userId},renter_id.eq.${userId}`)
       .order("updated_at", { ascending: false });
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     if (conversationError) {
       setStatus("Chyba: " + conversationError.message);
@@ -98,42 +107,37 @@ export default function MessagesPage() {
     );
     const conversationIds = conversationRows.map((c) => c.id);
 
-    const { data: itemData } = await supabase
-      .from("items")
-      .select("id,title")
-      .in("id", itemIds);
+    const [{ data: itemData }, { data: profileData }, { data: messageData }] = await Promise.all([
+      supabase.from("items").select("id,title").in("id", itemIds),
+      supabase
+        .from("profiles")
+        .select("id,full_name,city,avatar_path")
+        .in("id", participantIds),
+      supabase
+        .from("messages")
+        .select("id,conversation_id,sender_id,body,created_at,read_at")
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     const nextItemMap: Record<number, ItemRow> = {};
-    for (const item of (itemData ?? []) as any[]) {
-      nextItemMap[item.id] = item as ItemRow;
+    for (const item of (itemData ?? []) as ItemRow[]) {
+      nextItemMap[item.id] = item;
     }
-    setItemMap(nextItemMap);
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("id,full_name,city,avatar_path")
-      .in("id", participantIds);
 
     const nextProfileMap: Record<string, ProfileRow> = {};
     const nextAvatarUrlMap: Record<string, string> = {};
 
-    for (const profile of (profileData ?? []) as any[]) {
-      nextProfileMap[profile.id] = profile as ProfileRow;
+    for (const profile of (profileData ?? []) as ProfileRow[]) {
+      nextProfileMap[profile.id] = profile;
 
       if (profile.avatar_path) {
         const { data: pub } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_path);
         nextAvatarUrlMap[profile.id] = pub.publicUrl;
       }
     }
-
-    setProfileMap(nextProfileMap);
-    setAvatarUrlMap(nextAvatarUrlMap);
-
-    const { data: messageData } = await supabase
-      .from("messages")
-      .select("id,conversation_id,sender_id,body,created_at,read_at")
-      .in("conversation_id", conversationIds)
-      .order("created_at", { ascending: false });
 
     const nextLastMessageMap: Record<number, MessageRow | null> = {};
     const nextUnreadCountMap: Record<number, number> = {};
@@ -143,9 +147,7 @@ export default function MessagesPage() {
       nextUnreadCountMap[id] = 0;
     }
 
-    for (const raw of (messageData ?? []) as any[]) {
-      const msg = raw as MessageRow;
-
+    for (const msg of (messageData ?? []) as MessageRow[]) {
       if (!nextLastMessageMap[msg.conversation_id]) {
         nextLastMessageMap[msg.conversation_id] = msg;
       }
@@ -156,13 +158,31 @@ export default function MessagesPage() {
       }
     }
 
+    setItemMap(nextItemMap);
+    setProfileMap(nextProfileMap);
+    setAvatarUrlMap(nextAvatarUrlMap);
     setLastMessageMap(nextLastMessageMap);
     setUnreadCountMap(nextUnreadCountMap);
     setStatus("");
   };
 
   useEffect(() => {
+    mountedRef.current = true;
+
     loadConversations();
+
+    const handleFocus = () => {
+      loadConversations();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadConversations();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const channel = supabase
       .channel("messages-page-realtime")
@@ -183,6 +203,9 @@ export default function MessagesPage() {
       .subscribe();
 
     return () => {
+      mountedRef.current = false;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,9 +296,7 @@ export default function MessagesPage() {
                           {lastMessage.body}
                         </div>
                       ) : (
-                        <div className="mt-2 text-sm text-white/50">
-                          Zatiaľ bez správ.
-                        </div>
+                        <div className="mt-2 text-sm text-white/50">Zatiaľ bez správ.</div>
                       )}
                     </div>
                   </div>
