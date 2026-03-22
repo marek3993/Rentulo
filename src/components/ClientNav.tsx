@@ -283,14 +283,7 @@ export default function ClientNav() {
                 <NavLink href="/profile">Profil</NavLink>
                 <NavLink href="/verification">Overenie</NavLink>
 
-                {isAdmin ? (
-                  <>
-                    <NavLink href="/admin">Administrácia</NavLink>
-                    <NavLink href="/admin/verifications">Overenia</NavLink>
-                    <NavLink href="/admin/users">Používatelia</NavLink>
-                    <NavLink href="/admin/actions">Audit log</NavLink>
-                  </>
-                ) : null}
+                {isAdmin ? <NavLink href="/admin">Administrácia</NavLink> : null}
 
                 <NotificationBell />
               </>
