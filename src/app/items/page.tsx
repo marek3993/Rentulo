@@ -83,28 +83,25 @@ export default function ItemsPage() {
     const map: Record<number, string[]> = {};
     const nextActiveMap: Record<number, number> = {};
 
-    for (const im of (imgs ?? []) as any[]) {
-      if (!map[im.item_id]) {
-        map[im.item_id] = [];
-        nextActiveMap[im.item_id] = 0;
+    for (const raw of (imgs ?? []) as { item_id: number; path: string }[]) {
+      const { data: pub } = supabase.storage.from("item-images").getPublicUrl(raw.path);
+
+      if (!map[raw.item_id]) {
+        map[raw.item_id] = [];
       }
 
-      const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
-      map[im.item_id].push(pub.publicUrl);
+      map[raw.item_id].push(pub.publicUrl);
+    }
+
+    for (const item of rows) {
+      nextActiveMap[item.id] = 0;
+      if (!map[item.id]) {
+        map[item.id] = [];
+      }
     }
 
     setImageMap(map);
-    setActiveImageIndexMap((prev) => {
-      const merged = { ...nextActiveMap };
-
-      for (const row of rows) {
-        const currentIndex = prev[row.id] ?? 0;
-        const count = map[row.id]?.length ?? 0;
-        merged[row.id] = count > 0 ? Math.min(currentIndex, count - 1) : 0;
-      }
-
-      return merged;
-    });
+    setActiveImageIndexMap(nextActiveMap);
   };
 
   const loadDefaultItems = async () => {
@@ -244,29 +241,42 @@ export default function ItemsPage() {
     await loadDefaultItems();
   };
 
-  const setItemImageIndex = (itemId: number, nextIndex: number) => {
-    setActiveImageIndexMap((prev) => ({
-      ...prev,
-      [itemId]: nextIndex,
-    }));
-  };
+  const showPrevImage = (itemId: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-  const showPrevImage = (itemId: number) => {
     const images = imageMap[itemId] ?? [];
     if (images.length <= 1) return;
 
-    const current = activeImageIndexMap[itemId] ?? 0;
-    const next = current === 0 ? images.length - 1 : current - 1;
-    setItemImageIndex(itemId, next);
+    setActiveImageIndexMap((prev) => {
+      const current = prev[itemId] ?? 0;
+      const nextIndex = current === 0 ? images.length - 1 : current - 1;
+      return { ...prev, [itemId]: nextIndex };
+    });
   };
 
-  const showNextImage = (itemId: number) => {
+  const showNextImage = (itemId: number, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     const images = imageMap[itemId] ?? [];
     if (images.length <= 1) return;
 
-    const current = activeImageIndexMap[itemId] ?? 0;
-    const next = current === images.length - 1 ? 0 : current + 1;
-    setItemImageIndex(itemId, next);
+    setActiveImageIndexMap((prev) => {
+      const current = prev[itemId] ?? 0;
+      const nextIndex = current >= images.length - 1 ? 0 : current + 1;
+      return { ...prev, [itemId]: nextIndex };
+    });
+  };
+
+  const selectImage = (
+    itemId: number,
+    imageIndex: number,
+    e: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setActiveImageIndexMap((prev) => ({ ...prev, [itemId]: imageIndex }));
   };
 
   return (
@@ -420,116 +430,107 @@ export default function ItemsPage() {
           const images = imageMap[item.id] ?? [];
           const activeIndex = activeImageIndexMap[item.id] ?? 0;
           const activeImage = images[activeIndex] ?? null;
+          const hasMultipleImages = images.length > 1;
 
           return (
-            <li
-              key={item.id}
-              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
-            >
-              <div className="relative">
-                {activeImage ? (
-                  <img
-                    src={activeImage}
-                    alt={item.title}
-                    className="h-52 w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
-                    Bez fotky
-                  </div>
-                )}
-
-                {images.length > 1 ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => showPrevImage(item.id)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
-                    >
-                      ←
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => showNextImage(item.id)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
-                    >
-                      →
-                    </button>
-
-                    <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
-                      {activeIndex + 1}/{images.length}
+            <li key={item.id}>
+              <Link
+                href={`/items/${item.id}`}
+                className="block h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
+              >
+                <div className="relative">
+                  {activeImage ? (
+                    <img
+                      src={activeImage}
+                      alt={item.title}
+                      className="h-52 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
+                      Bez fotky
                     </div>
-                  </>
-                ) : null}
-              </div>
+                  )}
 
-              {images.length > 1 ? (
-                <div className="flex gap-2 overflow-x-auto border-t border-white/10 bg-black/20 px-3 py-3">
-                  {images.map((imageUrl, index) => (
-                    <button
-                      key={imageUrl}
-                      type="button"
-                      onClick={() => setItemImageIndex(item.id, index)}
-                      className={`shrink-0 overflow-hidden rounded-lg border ${
-                        activeIndex === index ? "border-indigo-400" : "border-white/10"
-                      }`}
-                    >
-                      <img
-                        src={imageUrl}
-                        alt={`${item.title} ${index + 1}`}
-                        className="h-14 w-20 object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+                  {hasMultipleImages ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Predchádzajúca fotka"
+                        onClick={(e) => showPrevImage(item.id, e)}
+                        className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/45 text-lg text-white backdrop-blur hover:bg-black/65"
+                      >
+                        ←
+                      </button>
 
-              <div className="space-y-3 p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  {item.category ? (
-                    <div className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
-                      {item.category}
-                    </div>
-                  ) : null}
+                      <button
+                        type="button"
+                        aria-label="Ďalšia fotka"
+                        onClick={(e) => showNextImage(item.id, e)}
+                        className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/45 text-lg text-white backdrop-blur hover:bg-black/65"
+                      >
+                        →
+                      </button>
 
-                  {item.distance_km !== null && item.distance_km !== undefined ? (
-                    <div className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">
-                      {item.distance_km} km
-                    </div>
+                      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+                        {images.map((_, imageIndex) => (
+                          <button
+                            key={imageIndex}
+                            type="button"
+                            aria-label={`Fotka ${imageIndex + 1}`}
+                            onClick={(e) => selectImage(item.id, imageIndex, e)}
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              imageIndex === activeIndex ? "bg-white" : "bg-white/40"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </>
                   ) : null}
                 </div>
 
-                <div>
-                  <div className="text-lg font-semibold">{item.title}</div>
+                <div className="space-y-3 p-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.category ? (
+                      <div className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
+                        {item.category}
+                      </div>
+                    ) : null}
 
-                  <div className="mt-1 text-sm text-white/60">
-                    {item.city ? <span>{item.city}</span> : null}
-                    {item.city && item.postal_code ? <span> · </span> : null}
-                    {item.postal_code ? <span>{item.postal_code}</span> : null}
+                    {item.distance_km !== null && item.distance_km !== undefined ? (
+                      <div className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">
+                        {item.distance_km} km
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <div className="text-lg font-semibold">{item.title}</div>
+
+                    <div className="mt-1 text-sm text-white/60">
+                      {item.city ? <span>{item.city}</span> : null}
+                      {item.city && item.postal_code ? <span> · </span> : null}
+                      {item.postal_code ? <span>{item.postal_code}</span> : null}
+                    </div>
+                  </div>
+
+                  <div className="text-base font-medium text-white">
+                    {item.price_per_day} €
+                    <span className="ml-1 text-sm font-normal text-white/60">/ deň</span>
+                  </div>
+
+                  {item.description ? (
+                    <div className="line-clamp-3 text-sm leading-6 text-white/70">
+                      {item.description}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-white/45">Bez popisu</div>
+                  )}
+
+                  <div className="pt-1 text-sm font-medium text-indigo-300">
+                    Otvoriť detail →
                   </div>
                 </div>
-
-                <div className="text-base font-medium text-white">
-                  {item.price_per_day} €
-                  <span className="ml-1 text-sm font-normal text-white/60">/ deň</span>
-                </div>
-
-                {item.description ? (
-                  <div className="line-clamp-3 text-sm leading-6 text-white/70">
-                    {item.description}
-                  </div>
-                ) : (
-                  <div className="text-sm text-white/45">Bez popisu</div>
-                )}
-
-                <Link
-                  href={`/items/${item.id}`}
-                  className="inline-flex pt-1 text-sm font-medium text-indigo-300 hover:text-indigo-200"
-                >
-                  Otvoriť detail →
-                </Link>
-              </div>
+              </Link>
             </li>
           );
         })}
