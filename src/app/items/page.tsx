@@ -40,7 +40,8 @@ const CATEGORIES = [
 
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
-  const [imageMap, setImageMap] = useState<Record<number, string>>({});
+  const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
+  const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
   const [status, setStatus] = useState("Načítavam...");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,6 +64,7 @@ export default function ItemsPage() {
 
     if (ids.length === 0) {
       setImageMap({});
+      setActiveImageIndexMap({});
       return;
     }
 
@@ -74,19 +76,35 @@ export default function ItemsPage() {
 
     if (imgErr) {
       setImageMap({});
+      setActiveImageIndexMap({});
       return;
     }
 
-    const map: Record<number, string> = {};
+    const map: Record<number, string[]> = {};
+    const nextActiveMap: Record<number, number> = {};
 
     for (const im of (imgs ?? []) as any[]) {
       if (!map[im.item_id]) {
-        const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
-        map[im.item_id] = pub.publicUrl;
+        map[im.item_id] = [];
+        nextActiveMap[im.item_id] = 0;
       }
+
+      const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
+      map[im.item_id].push(pub.publicUrl);
     }
 
     setImageMap(map);
+    setActiveImageIndexMap((prev) => {
+      const merged = { ...nextActiveMap };
+
+      for (const row of rows) {
+        const currentIndex = prev[row.id] ?? 0;
+        const count = map[row.id]?.length ?? 0;
+        merged[row.id] = count > 0 ? Math.min(currentIndex, count - 1) : 0;
+      }
+
+      return merged;
+    });
   };
 
   const loadDefaultItems = async () => {
@@ -226,6 +244,31 @@ export default function ItemsPage() {
     await loadDefaultItems();
   };
 
+  const setItemImageIndex = (itemId: number, nextIndex: number) => {
+    setActiveImageIndexMap((prev) => ({
+      ...prev,
+      [itemId]: nextIndex,
+    }));
+  };
+
+  const showPrevImage = (itemId: number) => {
+    const images = imageMap[itemId] ?? [];
+    if (images.length <= 1) return;
+
+    const current = activeImageIndexMap[itemId] ?? 0;
+    const next = current === 0 ? images.length - 1 : current - 1;
+    setItemImageIndex(itemId, next);
+  };
+
+  const showNextImage = (itemId: number) => {
+    const images = imageMap[itemId] ?? [];
+    if (images.length <= 1) return;
+
+    const current = activeImageIndexMap[itemId] ?? 0;
+    const next = current === images.length - 1 ? 0 : current + 1;
+    setItemImageIndex(itemId, next);
+  };
+
   return (
     <main className="space-y-6">
       <section className="rentulo-card p-6 md:p-8">
@@ -356,16 +399,15 @@ export default function ItemsPage() {
             <strong className="text-white">{radiusKm} km</strong>
             {categoryFilter !== "Všetky kategórie" ? (
               <>
-                {" "}· kategória <strong className="text-white">{categoryFilter}</strong>
+                {" "}
+                · kategória <strong className="text-white">{categoryFilter}</strong>
               </>
             ) : null}
           </div>
         ) : null}
       </section>
 
-      {status ? (
-        <div className="rentulo-card p-4 text-white/80">{status}</div>
-      ) : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
       {filteredItems.length === 0 && !status ? (
         <div className="rentulo-card p-8 text-center text-white/60">
@@ -374,23 +416,74 @@ export default function ItemsPage() {
       ) : null}
 
       <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredItems.map((item) => (
-          <li key={item.id}>
-            <Link
-              href={`/items/${item.id}`}
-              className="block h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
+        {filteredItems.map((item) => {
+          const images = imageMap[item.id] ?? [];
+          const activeIndex = activeImageIndexMap[item.id] ?? 0;
+          const activeImage = images[activeIndex] ?? null;
+
+          return (
+            <li
+              key={item.id}
+              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
             >
-              {imageMap[item.id] ? (
-                <img
-                  src={imageMap[item.id]}
-                  alt={item.title}
-                  className="h-52 w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
-                  Bez fotky
+              <div className="relative">
+                {activeImage ? (
+                  <img
+                    src={activeImage}
+                    alt={item.title}
+                    className="h-52 w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
+                    Bez fotky
+                  </div>
+                )}
+
+                {images.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => showPrevImage(item.id)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
+                    >
+                      ←
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => showNextImage(item.id)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
+                    >
+                      →
+                    </button>
+
+                    <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
+                      {activeIndex + 1}/{images.length}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              {images.length > 1 ? (
+                <div className="flex gap-2 overflow-x-auto border-t border-white/10 bg-black/20 px-3 py-3">
+                  {images.map((imageUrl, index) => (
+                    <button
+                      key={imageUrl}
+                      type="button"
+                      onClick={() => setItemImageIndex(item.id, index)}
+                      className={`shrink-0 overflow-hidden rounded-lg border ${
+                        activeIndex === index ? "border-indigo-400" : "border-white/10"
+                      }`}
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`${item.title} ${index + 1}`}
+                        className="h-14 w-20 object-cover"
+                      />
+                    </button>
+                  ))}
                 </div>
-              )}
+              ) : null}
 
               <div className="space-y-3 p-5">
                 <div className="flex flex-wrap items-center gap-2">
@@ -430,13 +523,16 @@ export default function ItemsPage() {
                   <div className="text-sm text-white/45">Bez popisu</div>
                 )}
 
-                <div className="pt-1 text-sm font-medium text-indigo-300">
+                <Link
+                  href={`/items/${item.id}`}
+                  className="inline-flex pt-1 text-sm font-medium text-indigo-300 hover:text-indigo-200"
+                >
                   Otvoriť detail →
-                </div>
+                </Link>
               </div>
-            </Link>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </main>
   );

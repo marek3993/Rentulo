@@ -68,7 +68,8 @@ export default function ItemDetailPage() {
   const [owner, setOwner] = useState<OwnerProfile | null>(null);
 
   const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
   const [range, setRange] = useState<DateRange | undefined>();
@@ -86,6 +87,7 @@ export default function ItemDetailPage() {
 
   const selectedFrom = range?.from ? range.from.toISOString().slice(0, 10) : "";
   const selectedTo = range?.to ? range.to.toISOString().slice(0, 10) : "";
+  const activeImage = imageUrls[activeImageIndex] ?? null;
 
   const days = useMemo(() => {
     if (!dateFrom || !dateTo) return 0;
@@ -141,10 +143,10 @@ export default function ItemDetailPage() {
           (x) => supabase.storage.from("item-images").getPublicUrl(x.path).data.publicUrl
         );
         setImageUrls(urls);
-        setActiveImage(urls[0] ?? null);
+        setActiveImageIndex(0);
       } else {
         setImageUrls([]);
-        setActiveImage(null);
+        setActiveImageIndex(0);
       }
 
       const { data: prof, error: profErr } = await supabase
@@ -233,6 +235,27 @@ export default function ItemDetailPage() {
     if (!Number.isFinite(itemId)) return;
     run();
   }, [itemId]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!lightboxOpen) return;
+
+      if (e.key === "Escape") {
+        setLightboxOpen(false);
+      }
+
+      if (e.key === "ArrowLeft" && imageUrls.length > 1) {
+        setActiveImageIndex((prev) => (prev === 0 ? imageUrls.length - 1 : prev - 1));
+      }
+
+      if (e.key === "ArrowRight" && imageUrls.length > 1) {
+        setActiveImageIndex((prev) => (prev === imageUrls.length - 1 ? 0 : prev + 1));
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxOpen, imageUrls.length]);
 
   const ensureProfileExists = async (userId: string) => {
     const { data: existingProfile, error: selectError } = await supabase
@@ -373,6 +396,16 @@ export default function ItemDetailPage() {
     }
   };
 
+  const showPrevImage = () => {
+    if (imageUrls.length <= 1) return;
+    setActiveImageIndex((prev) => (prev === 0 ? imageUrls.length - 1 : prev - 1));
+  };
+
+  const showNextImage = () => {
+    if (imageUrls.length <= 1) return;
+    setActiveImageIndex((prev) => (prev === imageUrls.length - 1 ? 0 : prev + 1));
+  };
+
   if (status === "Nenájdené") {
     return (
       <main className="space-y-4">
@@ -382,7 +415,9 @@ export default function ItemDetailPage() {
 
         <div className="rentulo-card p-8">
           <div className="text-xl font-semibold">Položka neexistuje</div>
-          <div className="mt-2 text-white/70">Táto ponuka sa nenašla alebo už nie je dostupná.</div>
+          <div className="mt-2 text-white/70">
+            Táto ponuka sa nenašla alebo už nie je dostupná.
+          </div>
         </div>
       </main>
     );
@@ -431,27 +466,57 @@ export default function ItemDetailPage() {
 
             {imageUrls.length > 0 ? (
               <section className="space-y-3">
-                <img
-                  src={activeImage ?? imageUrls[0]}
-                  alt="hlavná fotka"
-                  className="h-[440px] w-full rounded-2xl border border-white/10 object-cover"
-                />
+                <div className="relative overflow-hidden rounded-2xl border border-white/10">
+                  <button type="button" onClick={() => setLightboxOpen(true)} className="block w-full">
+                    <img
+                      src={activeImage ?? imageUrls[0]}
+                      alt="hlavná fotka"
+                      className="h-[440px] w-full object-cover"
+                    />
+                  </button>
+
+                  {imageUrls.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={showPrevImage}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-white hover:bg-black/70"
+                      >
+                        ←
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={showNextImage}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-white hover:bg-black/70"
+                      >
+                        →
+                      </button>
+
+                      <div className="absolute bottom-4 right-4 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+                        {activeImageIndex + 1}/{imageUrls.length}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {imageUrls.map((u) => (
+                  {imageUrls.map((u, index) => (
                     <button
                       key={u}
                       type="button"
-                      onClick={() => setActiveImage(u)}
+                      onClick={() => setActiveImageIndex(index)}
                       className={`overflow-hidden rounded-xl border p-0.5 ${
-                        (activeImage ?? imageUrls[0]) === u
-                          ? "border-indigo-400"
-                          : "border-white/10"
+                        activeImageIndex === index ? "border-indigo-400" : "border-white/10"
                       }`}
                     >
                       <img src={u} alt="náhľad" className="h-20 w-28 rounded-lg object-cover" />
                     </button>
                   ))}
+                </div>
+
+                <div className="text-sm text-white/55">
+                  Klikni na veľkú fotku pre zväčšenie.
                 </div>
               </section>
             ) : (
@@ -674,6 +739,63 @@ export default function ItemDetailPage() {
                 Rezervované dni sú červené a nedajú sa vybrať.
               </div>
             </section>
+          </div>
+        </div>
+      ) : null}
+
+      {lightboxOpen && activeImage ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full border border-white/20 bg-black/50 px-4 py-2 text-white hover:bg-black/70"
+            onClick={() => setLightboxOpen(false)}
+          >
+            Zavrieť
+          </button>
+
+          {imageUrls.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-4 py-3 text-white hover:bg-black/70"
+                onClick={showPrevImage}
+              >
+                ←
+              </button>
+
+              <button
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-4 py-3 text-white hover:bg-black/70"
+                onClick={showNextImage}
+              >
+                →
+              </button>
+            </>
+          ) : null}
+
+          <div className="max-h-full max-w-6xl">
+            <img
+              src={activeImage}
+              alt="zväčšená fotka"
+              className="max-h-[85vh] max-w-full rounded-2xl object-contain"
+            />
+
+            {imageUrls.length > 1 ? (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {imageUrls.map((u, index) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setActiveImageIndex(index)}
+                    className={`overflow-hidden rounded-lg border ${
+                      activeImageIndex === index ? "border-indigo-400" : "border-white/20"
+                    }`}
+                  >
+                    <img src={u} alt={`náhľad ${index + 1}`} className="h-16 w-24 object-cover" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
