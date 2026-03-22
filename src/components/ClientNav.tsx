@@ -285,7 +285,7 @@ export default function ClientNav() {
 
                 {isAdmin ? (
                   <>
-                    <NavLink href="/admin/items">Administrácia</NavLink>
+                    <NavLink href="/admin">Administrácia</NavLink>
                     <NavLink href="/admin/verifications">Overenia</NavLink>
                     <NavLink href="/admin/users">Používatelia</NavLink>
                     <NavLink href="/admin/actions">Audit log</NavLink>
