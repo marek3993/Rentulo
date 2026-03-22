@@ -15,10 +15,7 @@ type PublicProfile = {
   facebook_url: string | null;
   linkedin_url: string | null;
   website_url: string | null;
-};
-
-type VerificationRow = {
-  status: "pending" | "approved" | "rejected" | string | null;
+  verification_status: "unverified" | "pending" | "verified" | "rejected" | string | null;
 };
 
 type ItemRow = {
@@ -32,14 +29,14 @@ type ItemRow = {
 };
 
 function verificationBadgeClass(status: string | null) {
-  if (status === "approved") return "bg-emerald-600/90 text-white";
+  if (status === "verified") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
   if (status === "rejected") return "bg-red-600/90 text-white";
   return "bg-white/10 text-white";
 }
 
 function verificationLabel(status: string | null) {
-  if (status === "approved") return "Overený profil";
+  if (status === "verified") return "Overený profil";
   if (status === "pending") return "Čaká na overenie";
   if (status === "rejected") return "Overenie zamietnuté";
   return "Neoverený profil";
@@ -51,7 +48,6 @@ export default function PublicProfilePage() {
 
   const [status, setStatus] = useState("Načítavam...");
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string>>({});
 
@@ -100,7 +96,9 @@ export default function PublicProfilePage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url")
+        .select(
+          "id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status"
+        )
         .eq("id", profileId)
         .maybeSingle();
 
@@ -115,16 +113,6 @@ export default function PublicProfilePage() {
       }
 
       setProfile(prof as PublicProfile);
-
-      const { data: verificationData } = await supabase
-        .from("user_verifications")
-        .select("status")
-        .eq("user_id", profileId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      setVerificationStatus((verificationData as VerificationRow | null)?.status ?? null);
 
       const { data: itemsData, error: itemsErr } = await supabase
         .from("items")
@@ -151,36 +139,26 @@ export default function PublicProfilePage() {
   if (status === "Profil neexistuje.") {
     return (
       <main className="space-y-6">
-        <Link
-          href="/items"
-          className="inline-flex rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-        >
+        <Link href="/items" className="rentulo-btn-secondary inline-flex px-4 py-2.5 text-sm">
           Späť na ponuky
         </Link>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          Profil neexistuje.
-        </div>
+        <div className="rentulo-card p-6">Profil neexistuje.</div>
       </main>
     );
   }
 
   return (
     <main className="space-y-6">
-      <Link
-        href="/items"
-        className="inline-flex rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-      >
+      <Link href="/items" className="rentulo-btn-secondary inline-flex px-4 py-2.5 text-sm">
         Späť na ponuky
       </Link>
 
-      {status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
-      ) : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
       {profile ? (
         <>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <section className="rentulo-card p-6 md:p-8">
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
               <div className="shrink-0">
                 {avatarUrl ? (
@@ -190,7 +168,9 @@ export default function PublicProfilePage() {
                     className="h-24 w-24 rounded-full border border-white/10 object-cover"
                   />
                 ) : (
-                  <div className="h-24 w-24 rounded-full border border-white/10 bg-white/5" />
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/45">
+                    Bez fotky
+                  </div>
                 )}
               </div>
 
@@ -202,10 +182,10 @@ export default function PublicProfilePage() {
 
                   <span
                     className={`rounded-full px-3 py-1 text-sm font-medium ${verificationBadgeClass(
-                      verificationStatus
+                      profile.verification_status
                     )}`}
                   >
-                    {verificationLabel(verificationStatus)}
+                    {verificationLabel(profile.verification_status)}
                   </span>
                 </div>
 
@@ -213,23 +193,25 @@ export default function PublicProfilePage() {
                   {profile.city?.trim() || "Bez uvedeného mesta"}
                 </div>
 
-                {profile.bio ? (
-                  <div className="mt-4 whitespace-pre-wrap text-white/80">{profile.bio}</div>
+                {profile.bio?.trim() ? (
+                  <div className="mt-4 max-w-3xl whitespace-pre-wrap leading-7 text-white/80">
+                    {profile.bio}
+                  </div>
                 ) : (
                   <div className="mt-4 text-white/60">Bez popisu profilu.</div>
                 )}
 
-                {(profile.website_url ||
-                  profile.instagram_url ||
-                  profile.facebook_url ||
-                  profile.linkedin_url) ? (
+                {profile.website_url ||
+                profile.instagram_url ||
+                profile.facebook_url ||
+                profile.linkedin_url ? (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {profile.website_url ? (
                       <a
                         href={profile.website_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                        className="rentulo-btn-secondary px-3 py-2 text-sm"
                       >
                         Web
                       </a>
@@ -240,7 +222,7 @@ export default function PublicProfilePage() {
                         href={profile.instagram_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                        className="rentulo-btn-secondary px-3 py-2 text-sm"
                       >
                         Instagram
                       </a>
@@ -251,7 +233,7 @@ export default function PublicProfilePage() {
                         href={profile.facebook_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                        className="rentulo-btn-secondary px-3 py-2 text-sm"
                       >
                         Facebook
                       </a>
@@ -262,7 +244,7 @@ export default function PublicProfilePage() {
                         href={profile.linkedin_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                        className="rentulo-btn-secondary px-3 py-2 text-sm"
                       >
                         LinkedIn
                       </a>
@@ -271,12 +253,12 @@ export default function PublicProfilePage() {
                 ) : null}
               </div>
             </div>
-          </div>
+          </section>
 
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <section className="rentulo-card p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-semibold">Aktívne ponuky používateľa</h2>
+                <h2 className="text-2xl font-semibold">Aktívne ponuky používateľa</h2>
                 <p className="mt-1 text-sm text-white/60">
                   Verejne dostupné ponuky tohto profilu.
                 </p>
@@ -294,35 +276,41 @@ export default function PublicProfilePage() {
             ) : (
               <ul className="mt-4 grid gap-4 md:grid-cols-2">
                 {items.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-2xl border border-white/10 bg-black/20 p-4"
-                  >
-                    <Link href={`/items/${item.id}`} className="block">
+                  <li key={item.id}>
+                    <Link
+                      href={`/items/${item.id}`}
+                      className="block overflow-hidden rounded-2xl border border-white/10 bg-black/20 transition hover:border-indigo-400/40 hover:bg-white/[0.04]"
+                    >
                       {imageMap[item.id] ? (
                         <img
                           src={imageMap[item.id]}
                           alt={item.title}
-                          className="mb-3 h-44 w-full rounded-xl border border-white/10 object-cover"
+                          className="h-44 w-full object-cover"
                         />
                       ) : (
-                        <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
+                        <div className="flex h-44 w-full items-center justify-center bg-white/5 text-sm text-white/40">
+                          Bez fotky
+                        </div>
                       )}
 
-                      {item.category ? (
-                        <div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
-                          {item.category}
-                        </div>
-                      ) : null}
-
-                      <div className="text-lg font-semibold">{item.title}</div>
-
-                      <div className="mt-1 text-white/80">
-                        {item.price_per_day} € <span className="text-white/60">/ deň</span>
-                        {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
-                        {item.postal_code ? (
-                          <span className="text-white/60"> · {item.postal_code}</span>
+                      <div className="space-y-3 p-4">
+                        {item.category ? (
+                          <div className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs text-indigo-300">
+                            {item.category}
+                          </div>
                         ) : null}
+
+                        <div className="text-lg font-semibold">{item.title}</div>
+
+                        <div className="text-white/80">
+                          {item.price_per_day} € <span className="text-white/60">/ deň</span>
+                          {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+                          {item.postal_code ? (
+                            <span className="text-white/60"> · {item.postal_code}</span>
+                          ) : null}
+                        </div>
+
+                        <div className="text-sm font-medium text-indigo-300">Otvoriť detail →</div>
                       </div>
                     </Link>
                   </li>

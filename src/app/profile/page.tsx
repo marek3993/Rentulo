@@ -283,29 +283,29 @@ export default function ProfilePage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rentulo-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Môj profil</h1>
-            <p className="mt-1 text-white/60">
+          <div className="max-w-2xl">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Môj účet
+            </div>
+
+            <h1 className="mt-4 text-3xl font-semibold md:text-4xl">Môj profil</h1>
+
+            <p className="mt-2 leading-7 text-white/70">
               Uprav si profil, dôveryhodnosť a kontaktné odkazy.
             </p>
           </div>
 
-          <Link
-            href="/items"
-            className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-          >
+          <Link href="/items" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
             Prejsť na ponuky
           </Link>
         </div>
       </div>
 
-      {status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
-      ) : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rentulo-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-white/60">Stav overenia</div>
@@ -343,18 +343,18 @@ export default function ProfilePage() {
             {verificationStatus === "unverified" || verificationStatus === "rejected" ? (
               <button
                 type="button"
-                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                className="rentulo-btn-primary px-4 py-2.5 text-sm disabled:opacity-50"
                 onClick={requestVerification}
                 disabled={requestingVerification}
               >
                 {requestingVerification ? "Odosielam..." : "Požiadať o overenie"}
               </button>
             ) : verificationStatus === "pending" ? (
-              <div className="rounded border border-white/15 px-4 py-2 text-sm text-white/70">
+              <div className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/70">
                 Žiadosť čaká na spracovanie
               </div>
             ) : (
-              <div className="rounded border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300">
+              <div className="rounded-xl border border-emerald-500/40 px-4 py-2 text-sm text-emerald-300">
                 Profil je overený
               </div>
             )}
@@ -363,7 +363,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rentulo-card space-y-4 p-6">
           <div className="font-semibold">Profilová fotka</div>
 
           <div className="flex items-center gap-4">
@@ -374,7 +374,9 @@ export default function ProfilePage() {
                 className="h-20 w-20 rounded-full border border-white/10 object-cover"
               />
             ) : (
-              <div className="h-20 w-20 rounded-full border border-white/10 bg-white/5" />
+              <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-white/45">
+                Bez fotky
+              </div>
             )}
 
             <div className="text-sm text-white/70">
@@ -393,7 +395,7 @@ export default function ProfilePage() {
 
           <label
             htmlFor="profile-avatar-upload"
-            className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
+            className={`rentulo-btn-secondary inline-flex cursor-pointer px-4 py-2.5 text-sm ${
               uploading ? "pointer-events-none opacity-50" : ""
             }`}
           >
@@ -401,75 +403,75 @@ export default function ProfilePage() {
           </label>
         </div>
 
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="rentulo-card space-y-4 p-6">
           <div className="font-semibold">Základné údaje</div>
 
           <label className="block">
-            <div className="mb-1 text-white/80">Meno a priezvisko</div>
+            <div className="mb-1 text-white/80">Meno</div>
             <input
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              className="rentulo-input-light px-3 py-2"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="napr. Marek Benda"
+              placeholder="napr. Používateľ Rentulo"
             />
           </label>
 
           <label className="block">
             <div className="mb-1 text-white/80">Mesto</div>
             <input
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              className="rentulo-input-light px-3 py-2"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="napr. Bratislava"
+              placeholder="napr. Trnava"
             />
           </label>
 
           <label className="block">
             <div className="mb-1 text-white/80">Popis</div>
             <textarea
-              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+              className="rentulo-input-light px-3 py-2"
               rows={4}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Krátko o sebe, čo prenajímaš, pravidlá, spoľahlivosť..."
+              placeholder="Krátko predstav seba alebo svoje ponuky."
             />
           </label>
         </div>
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="rentulo-card space-y-3 p-6">
         <div className="font-semibold">Sociálne siete a web</div>
 
         <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          className="rentulo-input-light px-3 py-2"
           placeholder="Instagram URL"
           value={instagramUrl}
           onChange={(e) => setInstagramUrl(e.target.value)}
         />
 
         <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          className="rentulo-input-light px-3 py-2"
           placeholder="Facebook URL"
           value={facebookUrl}
           onChange={(e) => setFacebookUrl(e.target.value)}
         />
 
         <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          className="rentulo-input-light px-3 py-2"
           placeholder="LinkedIn URL"
           value={linkedinUrl}
           onChange={(e) => setLinkedinUrl(e.target.value)}
         />
 
         <input
-          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+          className="rentulo-input-light px-3 py-2"
           placeholder="Webstránka"
           value={websiteUrl}
           onChange={(e) => setWebsiteUrl(e.target.value)}
         />
 
         <button
-          className="mt-2 rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+          className="rentulo-btn-primary mt-2 px-4 py-2.5 text-sm disabled:opacity-50"
           onClick={save}
           type="button"
           disabled={saving}
