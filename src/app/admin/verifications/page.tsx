@@ -39,10 +39,16 @@ function statusLabel(status: VerificationStatus) {
 }
 
 function statusBadge(status: VerificationStatus) {
-  if (status === "approved") return "bg-green-600/90 text-white";
-  if (status === "pending") return "bg-yellow-400 text-black";
-  if (status === "rejected") return "bg-red-600/90 text-white";
-  return "bg-white/10 text-white";
+  if (status === "approved") return "bg-emerald-500/15 text-emerald-300";
+  if (status === "pending") return "bg-amber-500/15 text-amber-300";
+  if (status === "rejected") return "bg-red-500/15 text-red-300";
+  return "bg-white/10 text-white/75";
+}
+
+function shortUserId(value: string) {
+  if (!value) return "-";
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
 export default function AdminVerificationsPage() {
@@ -59,6 +65,12 @@ export default function AdminVerificationsPage() {
 
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
+  const pendingCount = useMemo(() => rows.filter((r) => r.status === "pending").length, [rows]);
+  const approvedCount = useMemo(() => rows.filter((r) => r.status === "approved").length, [rows]);
+  const rejectedCount = useMemo(() => rows.filter((r) => r.status === "rejected").length, [rows]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const load = async () => {
     setStatus("Načítavam...");
 
@@ -66,7 +78,7 @@ export default function AdminVerificationsPage() {
     const userId = sess.session?.user.id;
 
     if (!userId) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -82,13 +94,11 @@ export default function AdminVerificationsPage() {
     }
 
     if (!me || me.role !== "admin") {
-      setStatus("Nemáš prístup.");
+      router.replace("/");
       return;
     }
 
-    let req = supabase
-      .from("user_verifications")
-      .select("*", { count: "exact" });
+    let req = supabase.from("user_verifications").select("*", { count: "exact" });
 
     if (statusFilter !== "all") {
       req = req.eq("status", statusFilter);
@@ -135,12 +145,6 @@ export default function AdminVerificationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const pendingCount = useMemo(() => rows.filter((r) => r.status === "pending").length, [rows]);
-  const approvedCount = useMemo(() => rows.filter((r) => r.status === "approved").length, [rows]);
-  const rejectedCount = useMemo(() => rows.filter((r) => r.status === "rejected").length, [rows]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   const updateVerificationStatus = async (
     verificationId: number,
     nextStatus: "approved" | "rejected"
@@ -153,7 +157,7 @@ export default function AdminVerificationsPage() {
       const adminUserId = sess.session?.user.id;
 
       if (!adminUserId) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
@@ -183,49 +187,52 @@ export default function AdminVerificationsPage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <section className="rentulo-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Overenia používateľov</h1>
-            <p className="mt-1 text-white/60">
-              Administrácia žiadostí o overenie profilov.
+          <div className="max-w-2xl">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo administrácia
+            </div>
+
+            <h1 className="mt-4 text-3xl font-semibold">Overenia používateľov</h1>
+
+            <p className="mt-2 leading-7 text-white/70">
+              Schvaľovanie a zamietanie žiadostí o overenie profilov.
             </p>
           </div>
 
           <Link
-  href="/admin"
-  className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
->
-  Späť do administrácie
-</Link>
+            href="/admin"
+            className="rentulo-btn-secondary px-4 py-2.5 text-sm"
+          >
+            Späť do administrácie
+          </Link>
         </div>
-      </div>
+      </section>
 
-      {status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
-      ) : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Čakajúce</div>
           <div className="mt-2 text-3xl font-semibold">{pendingCount}</div>
           <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Schválené</div>
           <div className="mt-2 text-3xl font-semibold">{approvedCount}</div>
           <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Zamietnuté</div>
           <div className="mt-2 text-3xl font-semibold">{rejectedCount}</div>
           <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
         </div>
-      </div>
+      </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="rentulo-card p-5">
         <div>
           <h2 className="text-lg font-semibold">Vyhľadávanie a filtre</h2>
           <p className="mt-1 text-sm text-white/60">
@@ -240,7 +247,7 @@ export default function AdminVerificationsPage() {
             </label>
             <input
               id="verification-search"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white placeholder:text-white/40"
+              className="rentulo-input-dark mt-2 px-3 py-2 placeholder:text-white/40"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Meno, firma, IČO, poznámka"
@@ -253,7 +260,7 @@ export default function AdminVerificationsPage() {
             </label>
             <select
               id="verification-status"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white"
+              className="rentulo-input-dark mt-2 px-3 py-2"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -274,7 +281,7 @@ export default function AdminVerificationsPage() {
             </label>
             <select
               id="verification-sort"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white"
+              className="rentulo-input-dark mt-2 px-3 py-2"
               value={sort}
               onChange={(e) => {
                 setSort(e.target.value);
@@ -288,7 +295,7 @@ export default function AdminVerificationsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="rentulo-card p-5">
         <div>
           <h2 className="text-lg font-semibold">Zoznam žiadostí</h2>
           <p className="mt-1 text-sm text-white/60">
@@ -304,9 +311,14 @@ export default function AdminVerificationsPage() {
           <ul className="mt-4 space-y-3">
             {rows.map((row) => {
               const canApprove =
-                row.status === "pending" || row.status === "not_submitted" || row.status === "rejected";
+                row.status === "pending" ||
+                row.status === "not_submitted" ||
+                row.status === "rejected";
+
               const canReject =
-                row.status === "pending" || row.status === "not_submitted" || row.status === "approved";
+                row.status === "pending" ||
+                row.status === "not_submitted" ||
+                row.status === "approved";
 
               return (
                 <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
@@ -315,6 +327,14 @@ export default function AdminVerificationsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm text-white/50">Overenie</span>
                         <strong className="text-base">#{row.id}</strong>
+
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusBadge(
+                            row.status
+                          )}`}
+                        >
+                          {statusLabel(row.status)}
+                        </span>
                       </div>
 
                       <div className="text-white/85">
@@ -322,26 +342,27 @@ export default function AdminVerificationsPage() {
                         <strong>{row.full_name || "Bez mena"}</strong>
                       </div>
 
-                      <div className="text-white/80">
+                      <div className="text-white/75">
                         <span className="text-white/50">Firma:</span> {row.company_name || "-"}
                       </div>
 
-                      <div className="text-white/80">
+                      <div className="text-white/75">
                         <span className="text-white/50">IČO:</span> {row.ico || "-"}
                       </div>
 
-                      <div className="text-white/80">
-                        <span className="text-white/50">User ID:</span> {row.user_id}
+                      <div className="text-white/75">
+                        <span className="text-white/50">User ID:</span> {shortUserId(row.user_id)}
                       </div>
 
                       {row.note ? (
-                        <div className="max-w-3xl whitespace-pre-wrap text-sm text-white/70">
+                        <div className="max-w-3xl whitespace-pre-wrap text-sm leading-6 text-white/70">
                           {row.note}
                         </div>
                       ) : null}
 
                       <div className="text-sm text-white/50">
-                        Vytvorené: {formatDate(row.created_at)} · Aktualizované: {formatDate(row.updated_at)}
+                        Vytvorené: {formatDate(row.created_at)} · Aktualizované:{" "}
+                        {formatDate(row.updated_at)}
                       </div>
 
                       <div className="text-sm text-white/50">
@@ -349,42 +370,36 @@ export default function AdminVerificationsPage() {
                       </div>
                     </div>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-sm font-medium ${statusBadge(row.status)}`}
-                    >
-                      {statusLabel(row.status)}
-                    </span>
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      {canApprove ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                          disabled={updatingId === row.id}
+                          onClick={() => updateVerificationStatus(row.id, "approved")}
+                        >
+                          {updatingId === row.id ? "Ukladám..." : "Schváliť"}
+                        </button>
+                      ) : null}
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {canApprove ? (
-                      <button
-                        type="button"
-                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                        disabled={updatingId === row.id}
-                        onClick={() => updateVerificationStatus(row.id, "approved")}
+                      {canReject ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
+                          disabled={updatingId === row.id}
+                          onClick={() => updateVerificationStatus(row.id, "rejected")}
+                        >
+                          {updatingId === row.id ? "Ukladám..." : "Zamietnuť"}
+                        </button>
+                      ) : null}
+
+                      <Link
+                        href={`/profile/${row.user_id}`}
+                        className="rentulo-btn-secondary px-4 py-2 text-sm"
                       >
-                        {updatingId === row.id ? "Ukladám..." : "Schváliť"}
-                      </button>
-                    ) : null}
-
-                    {canReject ? (
-                      <button
-                        type="button"
-                        className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                        disabled={updatingId === row.id}
-                        onClick={() => updateVerificationStatus(row.id, "rejected")}
-                      >
-                        {updatingId === row.id ? "Ukladám..." : "Zamietnuť"}
-                      </button>
-                    ) : null}
-
-                    <Link
-                      href={`/profile/${row.user_id}`}
-                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                    >
-                      Verejný profil
-                    </Link>
+                        Verejný profil
+                      </Link>
+                    </div>
                   </div>
                 </li>
               );
@@ -403,7 +418,7 @@ export default function AdminVerificationsPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
               >
@@ -412,7 +427,7 @@ export default function AdminVerificationsPage() {
 
               <button
                 type="button"
-                className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
               >
