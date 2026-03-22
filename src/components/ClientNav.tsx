@@ -274,22 +274,27 @@ export default function ClientNav() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:flex-1 lg:pl-6">
           <nav className="flex flex-wrap items-center gap-2">
             <NavLink href="/items">Ponuky</NavLink>
-            <NavLink href="/reservations">Moje rezervácie</NavLink>
-            <NavLink href="/owner/items">Prenajímam</NavLink>
-            <MessagesNavLink />
-            <NavLink href="/profile">Profil</NavLink>
-            <NavLink href="/verification">Overenie</NavLink>
 
-            {isAdmin ? (
+            {isLoggedIn ? (
               <>
-                <NavLink href="/admin/items">Administrácia</NavLink>
-                <NavLink href="/admin/verifications">Overenia</NavLink>
-                <NavLink href="/admin/users">Používatelia</NavLink>
-                <NavLink href="/admin/actions">Audit log</NavLink>
+                <NavLink href="/reservations">Moje rezervácie</NavLink>
+                <NavLink href="/owner/items">Prenajímam</NavLink>
+                <MessagesNavLink />
+                <NavLink href="/profile">Profil</NavLink>
+                <NavLink href="/verification">Overenie</NavLink>
+
+                {isAdmin ? (
+                  <>
+                    <NavLink href="/admin/items">Administrácia</NavLink>
+                    <NavLink href="/admin/verifications">Overenia</NavLink>
+                    <NavLink href="/admin/users">Používatelia</NavLink>
+                    <NavLink href="/admin/actions">Audit log</NavLink>
+                  </>
+                ) : null}
+
+                <NotificationBell />
               </>
             ) : null}
-
-            <NotificationBell />
           </nav>
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
