@@ -23,13 +23,19 @@ function formatDate(dateStr: string | null) {
 }
 
 function roleBadge(role: string) {
-  if (role === "admin") return "bg-green-600/90 text-white";
-  return "bg-white/10 text-white";
+  if (role === "admin") return "bg-emerald-500/15 text-emerald-300";
+  return "bg-white/10 text-white/75";
 }
 
 function roleLabel(role: string) {
   if (role === "admin") return "Admin";
   return "Používateľ";
+}
+
+function shortUserId(value: string) {
+  if (!value) return "-";
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
 }
 
 export default function AdminUsersPage() {
@@ -59,7 +65,7 @@ export default function AdminUsersPage() {
     const userId = sess.session?.user.id;
 
     if (!userId) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -77,7 +83,7 @@ export default function AdminUsersPage() {
     }
 
     if (!me || me.role !== "admin") {
-      setStatus("Nemáš prístup.");
+      router.replace("/");
       return;
     }
 
@@ -153,49 +159,52 @@ export default function AdminUsersPage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <section className="rentulo-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Správa používateľov</h1>
-            <p className="mt-1 text-white/60">
-              Tu vieš pasovať používateľa za admina alebo mu admin rolu zobrať.
+          <div className="max-w-2xl">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo administrácia
+            </div>
+
+            <h1 className="mt-4 text-3xl font-semibold">Správa používateľov</h1>
+
+            <p className="mt-2 leading-7 text-white/70">
+              Tu vieš spravovať používateľské roly a pasovať používateľov za admina.
             </p>
           </div>
 
           <Link
-  href="/admin"
-  className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
->
-  Späť do administrácie
-</Link>
+            href="/admin"
+            className="rentulo-btn-secondary px-4 py-2.5 text-sm"
+          >
+            Späť do administrácie
+          </Link>
         </div>
-      </div>
+      </section>
 
-      {status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
-      ) : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Zobrazené</div>
           <div className="mt-2 text-3xl font-semibold">{rows.length}</div>
           <div className="mt-1 text-sm text-white/50">Počet na aktuálnej strane</div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Admini</div>
           <div className="mt-2 text-3xl font-semibold">{adminCount}</div>
           <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Používatelia</div>
           <div className="mt-2 text-3xl font-semibold">{userCount}</div>
           <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
         </div>
-      </div>
+      </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="rentulo-card p-5">
         <div>
           <h2 className="text-lg font-semibold">Vyhľadávanie a filtre</h2>
           <p className="mt-1 text-sm text-white/60">
@@ -210,7 +219,7 @@ export default function AdminUsersPage() {
             </label>
             <input
               id="admin-users-search"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white placeholder:text-white/40"
+              className="rentulo-input-dark mt-2 px-3 py-2 placeholder:text-white/40"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Meno, mesto alebo user ID"
@@ -223,7 +232,7 @@ export default function AdminUsersPage() {
             </label>
             <select
               id="admin-users-role"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white"
+              className="rentulo-input-dark mt-2 px-3 py-2"
               value={roleFilter}
               onChange={(e) => {
                 setRoleFilter(e.target.value);
@@ -242,7 +251,7 @@ export default function AdminUsersPage() {
             </label>
             <select
               id="admin-users-sort"
-              className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white"
+              className="rentulo-input-dark mt-2 px-3 py-2"
               value={sort}
               onChange={(e) => {
                 setSort(e.target.value);
@@ -256,7 +265,7 @@ export default function AdminUsersPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <section className="rentulo-card p-5">
         <div>
           <h2 className="text-lg font-semibold">Používatelia</h2>
           <p className="mt-1 text-sm text-white/60">
@@ -278,17 +287,25 @@ export default function AdminUsersPage() {
                 <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
-                      <div className="text-white/85">
-                        <span className="text-white/50">Meno:</span>{" "}
-                        <strong>{row.full_name || "Bez mena"}</strong>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-white/50">Používateľ</span>
+                        <strong className="text-base">{row.full_name || "Bez mena"}</strong>
+
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleBadge(
+                            row.role
+                          )}`}
+                        >
+                          {roleLabel(row.role)}
+                        </span>
                       </div>
 
-                      <div className="text-white/80">
+                      <div className="text-white/75">
                         <span className="text-white/50">Mesto:</span> {row.city || "-"}
                       </div>
 
-                      <div className="text-white/80">
-                        <span className="text-white/50">User ID:</span> {row.id}
+                      <div className="text-white/75">
+                        <span className="text-white/50">User ID:</span> {shortUserId(row.id)}
                       </div>
 
                       <div className="text-sm text-white/50">
@@ -296,46 +313,40 @@ export default function AdminUsersPage() {
                       </div>
 
                       {isSelf ? (
-                        <div className="text-sm text-white/60">
-                          Toto si ty.
-                        </div>
+                        <div className="text-sm text-white/60">Toto si ty.</div>
                       ) : null}
                     </div>
 
-                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${roleBadge(row.role)}`}>
-                      {roleLabel(row.role)}
-                    </span>
-                  </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!isAdmin ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-primary px-4 py-2 text-sm disabled:opacity-50"
+                          onClick={() => changeRole(row.id, "admin")}
+                          disabled={updatingId === row.id}
+                        >
+                          {updatingId === row.id ? "Ukladám..." : "Pasovať za admina"}
+                        </button>
+                      ) : null}
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {!isAdmin ? (
-                      <button
-                        type="button"
-                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                        onClick={() => changeRole(row.id, "admin")}
-                        disabled={updatingId === row.id}
+                      {isAdmin && !isSelf ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
+                          onClick={() => changeRole(row.id, "user")}
+                          disabled={updatingId === row.id}
+                        >
+                          {updatingId === row.id ? "Ukladám..." : "Zobrať admin rolu"}
+                        </button>
+                      ) : null}
+
+                      <Link
+                        href={`/profile/${row.id}`}
+                        className="rentulo-btn-secondary px-4 py-2 text-sm"
                       >
-                        {updatingId === row.id ? "Ukladám..." : "Pasovať za admina"}
-                      </button>
-                    ) : null}
-
-                    {isAdmin && !isSelf ? (
-                      <button
-                        type="button"
-                        className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                        onClick={() => changeRole(row.id, "user")}
-                        disabled={updatingId === row.id}
-                      >
-                        {updatingId === row.id ? "Ukladám..." : "Zobrať admin rolu"}
-                      </button>
-                    ) : null}
-
-                    <Link
-                      href={`/profile/${row.id}`}
-                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                    >
-                      Verejný profil
-                    </Link>
+                        Verejný profil
+                      </Link>
+                    </div>
                   </div>
                 </li>
               );
@@ -354,7 +365,7 @@ export default function AdminUsersPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
               >
@@ -363,7 +374,7 @@ export default function AdminUsersPage() {
 
               <button
                 type="button"
-                className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages}
               >
