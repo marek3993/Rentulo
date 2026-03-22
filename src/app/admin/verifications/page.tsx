@@ -193,11 +193,11 @@ export default function AdminVerificationsPage() {
           </div>
 
           <Link
-            href="/admin/items"
-            className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-          >
-            Späť do administrácie
-          </Link>
+  href="/admin"
+  className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
+>
+  Späť do administrácie
+</Link>
         </div>
       </div>
 
