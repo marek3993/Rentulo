@@ -50,6 +50,12 @@ function verificationLabel(status: string) {
   return "Neoverený profil";
 }
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("sk-SK");
+}
+
 export default function ItemDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -115,10 +121,12 @@ export default function ItemDetailPage() {
         setStatus("Chyba: " + itemErr.message);
         return;
       }
+
       if (!itemData) {
         setStatus("Nenájdené");
         return;
       }
+
       const typedItem = itemData as Item;
       setItem(typedItem);
 
@@ -141,7 +149,9 @@ export default function ItemDetailPage() {
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
-        .select("id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status")
+        .select(
+          "id,full_name,city,bio,avatar_path,instagram_url,facebook_url,linkedin_url,website_url,verification_status"
+        )
         .eq("id", typedItem.owner_id)
         .maybeSingle();
 
@@ -178,9 +188,13 @@ export default function ItemDetailPage() {
         .eq("item_id", itemId);
 
       if (itemAgg) {
-        const ratings = itemAgg.map((x: any) => Number(x.rating)).filter((n) => Number.isFinite(n));
+        const ratings = itemAgg
+          .map((x: any) => Number(x.rating))
+          .filter((n) => Number.isFinite(n));
         setItemReviewCount(ratings.length);
-        setItemReviewAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+        setItemReviewAvg(
+          ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
+        );
       } else {
         setItemReviewCount(0);
         setItemReviewAvg(null);
@@ -193,9 +207,13 @@ export default function ItemDetailPage() {
         .eq("reviewee_id", typedItem.owner_id);
 
       if (ownerAgg) {
-        const ratings = ownerAgg.map((x: any) => Number(x.rating)).filter((n) => Number.isFinite(n));
+        const ratings = ownerAgg
+          .map((x: any) => Number(x.rating))
+          .filter((n) => Number.isFinite(n));
         setOwnerReviewCount(ratings.length);
-        setOwnerReviewAvg(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null);
+        setOwnerReviewAvg(
+          ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null
+        );
       } else {
         setOwnerReviewCount(0);
         setOwnerReviewAvg(null);
@@ -209,7 +227,6 @@ export default function ItemDetailPage() {
         .order("id", { ascending: false });
 
       setReviews(((list ?? []) as any) as ReviewRow[]);
-
       setStatus("");
     };
 
@@ -358,46 +375,66 @@ export default function ItemDetailPage() {
 
   if (status === "Nenájdené") {
     return (
-      <main>
-        <Link className="underline" href="/items">
+      <main className="space-y-4">
+        <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href="/items">
           ← Späť na ponuky
         </Link>
-        <p className="mt-4">Položka neexistuje.</p>
+
+        <div className="rentulo-card p-8">
+          <div className="text-xl font-semibold">Položka neexistuje</div>
+          <div className="mt-2 text-white/70">Táto ponuka sa nenašla alebo už nie je dostupná.</div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main>
-      <Link className="underline" href="/items">
+    <main className="space-y-6">
+      <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href="/items">
         ← Späť na ponuky
       </Link>
 
-      {status ? <p className="mt-4">{status}</p> : null}
+      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
       {item ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          <div className="space-y-4 lg:col-span-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <h1 className="text-2xl font-semibold">{item.title}</h1>
-              <div className="mt-2 text-white/80">
-                <strong>{item.price_per_day} €</strong> <span className="text-white/60">/ deň</span>
-                {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <section className="rentulo-card p-6 md:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="max-w-3xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {item.city ? (
+                      <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
+                        {item.city}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <h1 className="mt-4 text-3xl font-semibold md:text-4xl">{item.title}</h1>
+
+                  <div className="mt-3 text-lg text-white/85">
+                    <strong className="text-white">{item.price_per_day} €</strong>
+                    <span className="ml-1 text-white/60">/ deň</span>
+                    {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+                  </div>
+                </div>
               </div>
 
               {item.description ? (
-                <p className="mt-4 whitespace-pre-wrap text-white/80">{item.description}</p>
+                <p className="mt-6 whitespace-pre-wrap leading-7 text-white/75">
+                  {item.description}
+                </p>
               ) : (
-                <p className="mt-4 text-white/60">Bez popisu.</p>
+                <p className="mt-6 text-white/55">Bez popisu.</p>
               )}
-            </div>
+            </section>
 
             {imageUrls.length > 0 ? (
-              <div className="space-y-3">
+              <section className="space-y-3">
                 <img
                   src={activeImage ?? imageUrls[0]}
                   alt="hlavná fotka"
-                  className="h-[420px] w-full rounded-2xl border border-white/10 object-cover"
+                  className="h-[440px] w-full rounded-2xl border border-white/10 object-cover"
                 />
 
                 <div className="flex flex-wrap gap-2">
@@ -406,80 +443,90 @@ export default function ItemDetailPage() {
                       key={u}
                       type="button"
                       onClick={() => setActiveImage(u)}
-                      className={`rounded-xl border p-0.5 ${
-                        (activeImage ?? imageUrls[0]) === u ? "border-white" : "border-white/10"
+                      className={`overflow-hidden rounded-xl border p-0.5 ${
+                        (activeImage ?? imageUrls[0]) === u
+                          ? "border-indigo-400"
+                          : "border-white/10"
                       }`}
                     >
                       <img src={u} alt="náhľad" className="h-20 w-28 rounded-lg object-cover" />
                     </button>
                   ))}
                 </div>
-              </div>
+              </section>
             ) : (
-              <div className="h-56 w-full rounded-2xl border border-white/10 bg-white/5" />
+              <div className="rentulo-card flex h-64 items-center justify-center text-white/40">
+                Bez fotiek
+              </div>
             )}
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
-              <div className="flex flex-wrap gap-8">
-                <div>
-                  <div className="text-sm text-white/70">Hodnotenie položky</div>
-                  <div className="font-semibold text-white/90">
-                    {itemReviewAvg !== null ? itemReviewAvg.toFixed(2) : "-"} ⭐{" "}
-                    <span className="font-normal text-white/60">({itemReviewCount})</span>
+            <section className="rentulo-card p-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-sm text-white/60">Hodnotenie položky</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {itemReviewAvg !== null ? itemReviewAvg.toFixed(2) : "-"} ⭐
                   </div>
+                  <div className="mt-1 text-sm text-white/55">{itemReviewCount} hodnotení</div>
                 </div>
 
-                <div>
-                  <div className="text-sm text-white/70">Hodnotenie prenajímateľa</div>
-                  <div className="font-semibold text-white/90">
-                    {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐{" "}
-                    <span className="font-normal text-white/60">({ownerReviewCount})</span>
+                <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="text-sm text-white/60">Hodnotenie prenajímateľa</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {ownerReviewAvg !== null ? ownerReviewAvg.toFixed(2) : "-"} ⭐
                   </div>
+                  <div className="mt-1 text-sm text-white/55">{ownerReviewCount} hodnotení</div>
                 </div>
               </div>
 
-              <div>
-                <div className="font-semibold">Recenzie</div>
+              <div className="mt-6">
+                <div className="text-xl font-semibold">Recenzie</div>
+
                 {reviews.length === 0 ? (
-                  <div className="mt-2 text-white/60">Zatiaľ bez recenzií.</div>
+                  <div className="mt-3 text-white/60">Zatiaľ bez recenzií.</div>
                 ) : (
-                  <ul className="mt-3 space-y-2">
+                  <ul className="mt-4 space-y-3">
                     {reviews.map((r) => (
-                      <li key={r.id} className="rounded-xl border border-white/10 p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">{r.rating} ⭐</div>
-                          <div className="text-sm text-white/60">
-                            {new Date(r.created_at).toISOString().slice(0, 10)}
-                          </div>
+                      <li key={r.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="font-medium text-white">{r.rating} ⭐</div>
+                          <div className="text-sm text-white/55">{formatDate(r.created_at)}</div>
                         </div>
-                        {r.comment ? <div className="mt-2 text-white/80">{r.comment}</div> : null}
+
+                        {r.comment ? (
+                          <div className="mt-2 leading-6 text-white/75">{r.comment}</div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-            </div>
+            </section>
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-              <div className="font-semibold">Prenajímateľ</div>
+            <section className="rentulo-card p-6">
+              <div className="text-xl font-semibold">Prenajímateľ</div>
 
-              <Link href={`/profile/${item.owner_id}`} className="mt-4 block rounded-xl hover:bg-white/5">
+              <Link
+                href={`/profile/${item.owner_id}`}
+                className="mt-4 block rounded-xl transition hover:bg-white/5"
+              >
                 <div className="flex items-center gap-3">
                   {ownerAvatarUrl ? (
                     <img
                       src={ownerAvatarUrl}
                       alt="avatar"
-                      className="h-12 w-12 rounded-full border border-white/10 object-cover"
+                      className="h-14 w-14 rounded-full border border-white/10 object-cover"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded-full border border-white/10 bg-white/5" />
+                    <div className="h-14 w-14 rounded-full border border-white/10 bg-white/5" />
                   )}
 
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="font-medium">{owner?.full_name ?? "Bez mena"}</div>
+
                       {owner?.verification_status ? (
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verificationBadgeClass(
@@ -490,43 +537,67 @@ export default function ItemDetailPage() {
                         </span>
                       ) : null}
                     </div>
+
                     <div className="text-sm text-white/60">{owner?.city ?? "Bez mesta"}</div>
                   </div>
                 </div>
 
-                <div className="mt-3 text-sm text-white/60">
-                  Zobraziť verejný profil prenajímateľa
-                </div>
+                <div className="mt-3 text-sm text-indigo-300">Zobraziť verejný profil →</div>
               </Link>
 
               {owner?.bio ? (
-                <div className="mt-3 whitespace-pre-wrap text-sm text-white/80">{owner.bio}</div>
+                <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-white/75">
+                  {owner.bio}
+                </div>
               ) : (
-                <div className="mt-3 text-sm text-white/60">Bez popisu profilu.</div>
+                <div className="mt-4 text-sm text-white/55">Bez popisu profilu.</div>
               )}
 
-              {(owner?.website_url ||
-                owner?.instagram_url ||
-                owner?.facebook_url ||
-                owner?.linkedin_url) ? (
-                <div className="mt-4 space-y-2 text-sm">
+              {owner?.website_url ||
+              owner?.instagram_url ||
+              owner?.facebook_url ||
+              owner?.linkedin_url ? (
+                <div className="mt-5 space-y-2 text-sm">
                   {owner.website_url ? (
-                    <a className="block underline text-white/80" href={owner.website_url} target="_blank" rel="noreferrer">
+                    <a
+                      className="block text-indigo-300 hover:text-indigo-200"
+                      href={owner.website_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Web
                     </a>
                   ) : null}
+
                   {owner.instagram_url ? (
-                    <a className="block underline text-white/80" href={owner.instagram_url} target="_blank" rel="noreferrer">
+                    <a
+                      className="block text-indigo-300 hover:text-indigo-200"
+                      href={owner.instagram_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Instagram
                     </a>
                   ) : null}
+
                   {owner.facebook_url ? (
-                    <a className="block underline text-white/80" href={owner.facebook_url} target="_blank" rel="noreferrer">
+                    <a
+                      className="block text-indigo-300 hover:text-indigo-200"
+                      href={owner.facebook_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Facebook
                     </a>
                   ) : null}
+
                   {owner.linkedin_url ? (
-                    <a className="block underline text-white/80" href={owner.linkedin_url} target="_blank" rel="noreferrer">
+                    <a
+                      className="block text-indigo-300 hover:text-indigo-200"
+                      href={owner.linkedin_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       LinkedIn
                     </a>
                   ) : null}
@@ -535,66 +606,74 @@ export default function ItemDetailPage() {
 
               <button
                 type="button"
-                className="mt-4 w-full rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+                className="rentulo-btn-secondary mt-5 w-full px-4 py-2.5 text-sm disabled:opacity-50"
                 onClick={startConversationWithOwner}
                 disabled={contactingOwner}
               >
                 {contactingOwner ? "Otváram chat..." : "Napísať prenajímateľovi"}
               </button>
-            </div>
+            </section>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
-              <div className="font-semibold">Rezervácia</div>
+            <section className="rentulo-card p-6 space-y-4">
+              <div>
+                <div className="text-xl font-semibold">Rezervácia</div>
+                <div className="mt-1 text-sm text-white/60">
+                  Vyber si voľný termín a potom dokončíš rezerváciu.
+                </div>
+              </div>
 
-              <DayPicker
-                mode="range"
-                selected={range}
-                onSelect={(r) => {
-                  setRange(r);
-                  const from = r?.from ? r.from.toISOString().slice(0, 10) : "";
-                  const to = r?.to ? r.to.toISOString().slice(0, 10) : "";
-                  setDateFrom(from);
-                  setDateTo(to);
-                }}
-                disabled={[...reservedRanges, { before: new Date() }]}
-                modifiers={{ reserved: reservedRanges }}
-                modifiersStyles={{
-                  reserved: { backgroundColor: "#7f1d1d", color: "white" },
-                  selected: { backgroundColor: "#ffffff", color: "black" },
-                }}
-              />
+              <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20 p-3">
+                <DayPicker
+                  mode="range"
+                  selected={range}
+                  onSelect={(r) => {
+                    setRange(r);
+                    const from = r?.from ? r.from.toISOString().slice(0, 10) : "";
+                    const to = r?.to ? r.to.toISOString().slice(0, 10) : "";
+                    setDateFrom(from);
+                    setDateTo(to);
+                  }}
+                  disabled={[...reservedRanges, { before: new Date() }]}
+                  modifiers={{ reserved: reservedRanges }}
+                  modifiersStyles={{
+                    reserved: { backgroundColor: "#7f1d1d", color: "white" },
+                    selected: { backgroundColor: "#ffffff", color: "black" },
+                  }}
+                />
+              </div>
 
-              <div className="text-white/80">
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/80">
                 <div>
                   Vybrané:{" "}
-                  <strong>
+                  <strong className="text-white">
                     {selectedFrom || "-"} → {selectedTo || "-"}
                   </strong>
                 </div>
-                <div className="mt-1 text-white/70">
-                  Dní: <strong>{days || "-"}</strong>
+
+                <div className="mt-2 text-sm text-white/65">
+                  Dní: <strong className="text-white">{days || "-"}</strong>
                   {estimatedTotal ? (
                     <>
                       {" "}
-                      · Odhad: <strong>{estimatedTotal} €</strong>
+                      · Odhad: <strong className="text-white">{estimatedTotal} €</strong>
                     </>
                   ) : null}
                 </div>
               </div>
 
               <button
-                className="w-full rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
                 onClick={reserve}
                 disabled={!range?.from || !range?.to}
                 type="button"
               >
-                Rezervovať (platba neskôr)
+                Rezervovať
               </button>
 
-              <div className="text-sm text-white/60">
+              <div className="text-sm text-white/55">
                 Rezervované dni sú červené a nedajú sa vybrať.
               </div>
-            </div>
+            </section>
           </div>
         </div>
       ) : null}
