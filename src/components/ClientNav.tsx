@@ -162,6 +162,8 @@ function MessagesNavLink() {
 export default function ClientNav() {
   const [hidden, setHidden] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -203,12 +205,16 @@ export default function ClientNav() {
   useEffect(() => {
     let active = true;
 
-    const loadRole = async () => {
+    const loadAuthState = async () => {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id;
 
+      if (!active) return;
+
+      setIsLoggedIn(!!userId);
+
       if (!userId) {
-        if (active) setIsAdmin(false);
+        setIsAdmin(false);
         return;
       }
 
@@ -228,12 +234,12 @@ export default function ClientNav() {
       setIsAdmin(data.role === "admin");
     };
 
-    loadRole();
+    loadAuthState();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadRole();
+      loadAuthState();
     });
 
     return () => {
@@ -241,6 +247,12 @@ export default function ClientNav() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
 
   return (
     <header
@@ -281,10 +293,23 @@ export default function ClientNav() {
           </nav>
 
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            <SecondaryNavLink href="/login">Prihlásiť</SecondaryNavLink>
-            <SecondaryNavLink href="/register" primary>
-              Registrovať
-            </SecondaryNavLink>
+            {isLoggedIn ? (
+              <button
+                type="button"
+                className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-white/90 disabled:opacity-50"
+                onClick={handleSignOut}
+                disabled={signingOut}
+              >
+                {signingOut ? "Odhlasujem..." : "Odhlásiť"}
+              </button>
+            ) : (
+              <>
+                <SecondaryNavLink href="/login">Prihlásiť</SecondaryNavLink>
+                <SecondaryNavLink href="/register" primary>
+                  Registrovať
+                </SecondaryNavLink>
+              </>
+            )}
           </div>
         </div>
       </div>
