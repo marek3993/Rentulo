@@ -30,6 +30,9 @@ function formatDate(dateStr: string) {
 export default function ProfilePage() {
   const router = useRouter();
 
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
   const [fullName, setFullName] = useState("");
   const [city, setCity] = useState("");
   const [bio, setBio] = useState("");
@@ -58,14 +61,20 @@ export default function ProfilePage() {
   }, [avatarPath]);
 
   useEffect(() => {
+    let active = true;
+
     const run = async () => {
       const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
+      const userId = sess.session?.user.id ?? null;
+
+      if (!active) return;
 
       if (!userId) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
+
+      setCurrentUserId(userId);
 
       const { data: prof, error } = await supabase
         .from("profiles")
@@ -75,8 +84,11 @@ export default function ProfilePage() {
         .eq("id", userId)
         .maybeSingle();
 
+      if (!active) return;
+
       if (error) {
         setStatus("Chyba: " + error.message);
+        setAuthChecked(true);
         return;
       }
 
@@ -96,9 +108,14 @@ export default function ProfilePage() {
       }
 
       setStatus("");
+      setAuthChecked(true);
     };
 
     run();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   const ensureProfileExists = async (userId: string) => {
@@ -125,25 +142,20 @@ export default function ProfilePage() {
 
   const uploadAvatar = async (file: File | null) => {
     if (!file) return;
+    if (!currentUserId) {
+      router.replace("/login");
+      return;
+    }
 
     setUploading(true);
     setStatus("Nahrávam fotku...");
 
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-
-      if (!userId) {
-        alert("Musíš byť prihlásený.");
-        router.push("/login");
-        return;
-      }
-
-      await ensureProfileExists(userId);
+      await ensureProfileExists(currentUserId);
 
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-      const path = `${userId}/${crypto.randomUUID()}.${safeExt}`;
+      const path = `${currentUserId}/${crypto.randomUUID()}.${safeExt}`;
 
       const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
         upsert: false,
@@ -158,7 +170,7 @@ export default function ProfilePage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_path: path })
-        .eq("id", userId);
+        .eq("id", currentUserId);
 
       if (updateError) {
         throw new Error(`Zápis do DB zlyhal: ${updateError.message}`);
@@ -178,20 +190,16 @@ export default function ProfilePage() {
   };
 
   const save = async () => {
+    if (!currentUserId) {
+      router.replace("/login");
+      return;
+    }
+
     setSaving(true);
     setStatus("Ukladám...");
 
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-
-      if (!userId) {
-        alert("Musíš byť prihlásený.");
-        router.push("/login");
-        return;
-      }
-
-      await ensureProfileExists(userId);
+      await ensureProfileExists(currentUserId);
 
       const { error } = await supabase
         .from("profiles")
@@ -204,7 +212,7 @@ export default function ProfilePage() {
           linkedin_url: linkedinUrl.trim() || null,
           website_url: websiteUrl.trim() || null,
         })
-        .eq("id", userId);
+        .eq("id", currentUserId);
 
       if (error) {
         throw new Error(error.message);
@@ -222,20 +230,16 @@ export default function ProfilePage() {
   };
 
   const requestVerification = async () => {
+    if (!currentUserId) {
+      router.replace("/login");
+      return;
+    }
+
     setRequestingVerification(true);
     setStatus("Odosielam žiadosť o overenie...");
 
     try {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-
-      if (!userId) {
-        alert("Musíš byť prihlásený.");
-        router.push("/login");
-        return;
-      }
-
-      await ensureProfileExists(userId);
+      await ensureProfileExists(currentUserId);
 
       const nowIso = new Date().toISOString();
 
@@ -246,7 +250,7 @@ export default function ProfilePage() {
           verification_note: null,
           verification_submitted_at: nowIso,
         })
-        .eq("id", userId);
+        .eq("id", currentUserId);
 
       if (error) {
         throw new Error(error.message);
@@ -266,6 +270,16 @@ export default function ProfilePage() {
       setRequestingVerification(false);
     }
   };
+
+  if (!authChecked) {
+    return (
+      <main className="space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          Načítavam...
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="space-y-6">
@@ -349,7 +363,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
           <div className="font-semibold">Profilová fotka</div>
 
           <div className="flex items-center gap-4">
@@ -387,7 +401,7 @@ export default function ProfilePage() {
           </label>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
           <div className="font-semibold">Základné údaje</div>
 
           <label className="block">
@@ -423,7 +437,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="font-semibold">Sociálne siete a web</div>
 
         <input
