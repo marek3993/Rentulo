@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -47,16 +47,21 @@ function SecondaryNavLink({
 
 function MessagesNavLink() {
   const [unreadCount, setUnreadCount] = useState(0);
+  const loadIdRef = useRef(0);
 
   useEffect(() => {
     let active = true;
 
     const loadUnreadCount = async () => {
+      const loadId = ++loadIdRef.current;
+
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id;
 
+      if (!active || loadId !== loadIdRef.current) return;
+
       if (!userId) {
-        if (active) setUnreadCount(0);
+        setUnreadCount(0);
         return;
       }
 
@@ -65,26 +70,46 @@ function MessagesNavLink() {
         .select("id")
         .or(`owner_id.eq.${userId},renter_id.eq.${userId}`);
 
+      if (!active || loadId !== loadIdRef.current) return;
+
       if (conversationsError || !conversations || conversations.length === 0) {
-        if (active) setUnreadCount(0);
+        setUnreadCount(0);
         return;
       }
 
-      const conversationIds = conversations.map((c: any) => c.id);
+      const conversationIds = conversations.map((c: { id: number }) => c.id);
 
-      const { data: messages } = await supabase
+      const { data: messages, error: messagesError } = await supabase
         .from("messages")
-        .select("id,sender_id,read_at")
+        .select("id")
         .in("conversation_id", conversationIds)
         .neq("sender_id", userId)
         .is("read_at", null);
 
-      if (active) {
-        setUnreadCount(messages?.length ?? 0);
+      if (!active || loadId !== loadIdRef.current) return;
+
+      if (messagesError) {
+        setUnreadCount(0);
+        return;
       }
+
+      setUnreadCount(messages?.length ?? 0);
     };
 
     loadUnreadCount();
+
+    const handleFocus = () => {
+      loadUnreadCount();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        loadUnreadCount();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const channel = supabase
       .channel("nav-messages-unread")
@@ -104,8 +129,17 @@ function MessagesNavLink() {
       )
       .subscribe();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadUnreadCount();
+    });
+
     return () => {
       active = false;
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, []);
@@ -239,7 +273,7 @@ export default function ClientNav() {
                 <NavLink href="/admin/items">Administrácia</NavLink>
                 <NavLink href="/admin/verifications">Overenia</NavLink>
                 <NavLink href="/admin/users">Používatelia</NavLink>
-                <NavLink href="/admin/actions">Audit log</NavLink>  
+                <NavLink href="/admin/actions">Audit log</NavLink>
               </>
             ) : null}
 
