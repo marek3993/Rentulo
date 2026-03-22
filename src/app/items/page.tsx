@@ -60,6 +60,7 @@ export default function ItemsPage() {
 
   const loadImages = async (rows: Item[]) => {
     const ids = rows.map((x) => x.id);
+
     if (ids.length === 0) {
       setImageMap({});
       return;
@@ -77,6 +78,7 @@ export default function ItemsPage() {
     }
 
     const map: Record<number, string> = {};
+
     for (const im of (imgs ?? []) as any[]) {
       if (!map[im.item_id]) {
         const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
@@ -226,35 +228,40 @@ export default function ItemsPage() {
 
   return (
     <main className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <section className="rentulo-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Ponuky</h1>
-            <p className="mt-1 text-white/60">
+          <div className="max-w-2xl">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo marketplace
+            </div>
+
+            <h1 className="mt-4 text-3xl font-semibold md:text-4xl">Ponuky</h1>
+
+            <p className="mt-2 leading-7 text-white/70">
               Hľadaj podľa mesta, PSČ, kategórie alebo podľa svojej aktuálnej polohy.
             </p>
           </div>
 
-          <Link
-            className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
-            href="/items/new"
-          >
+          <Link className="rentulo-btn-primary px-4 py-2.5 text-sm" href="/items/new">
             Pridať ponuku
           </Link>
         </div>
-      </div>
+      </section>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <h2 className="text-lg font-semibold">Vyhľadávanie podľa lokality</h2>
-        <p className="mt-1 text-sm text-white/60">
-          Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
-        </p>
+      <section className="rentulo-card p-5 md:p-6">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-semibold">Vyhľadávanie podľa lokality</h2>
+          <p className="text-sm leading-6 text-white/60">
+            Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
+          </p>
+        </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr] items-start">
+        <div className="mt-5 grid items-start gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           <div>
-            <div className="mb-1 text-sm text-white/70">Mesto alebo PSČ</div>
+            <div className="mb-2 text-sm text-white/75">Mesto alebo PSČ</div>
+
             <input
-              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
+              className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
               placeholder="napr. Trnava alebo 91701"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -265,13 +272,13 @@ export default function ItemsPage() {
             ) : null}
 
             {locationResults.length > 0 ? (
-              <div className="mt-2 rounded-xl border border-white/10 overflow-hidden">
+              <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
                 {locationResults.map((f, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => runSearchFromFeature(f)}
-                    className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10"
+                    className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm text-white/85 hover:bg-white/10 last:border-b-0"
                   >
                     {f.properties?.formatted ?? "Neznáma lokalita"}
                   </button>
@@ -281,9 +288,10 @@ export default function ItemsPage() {
           </div>
 
           <div>
-            <div className="mb-1 text-sm text-white/70">Okruh</div>
+            <div className="mb-2 text-sm text-white/75">Okruh</div>
+
             <select
-              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
+              className="rentulo-input-light h-12 px-3"
               value={radiusKm}
               onChange={(e) => setRadiusKm(e.target.value)}
             >
@@ -296,9 +304,10 @@ export default function ItemsPage() {
           </div>
 
           <div>
-            <div className="mb-1 text-sm text-white/70">Kategória</div>
+            <div className="mb-2 text-sm text-white/75">Kategória</div>
+
             <select
-              className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-black"
+              className="rentulo-input-light h-12 px-3"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -311,10 +320,11 @@ export default function ItemsPage() {
           </div>
 
           <div>
-            <div className="mb-1 text-sm text-white/70">Akcie</div>
+            <div className="mb-2 text-sm text-white/75">Akcie</div>
+
             <div className="grid gap-2">
               <button
-                className="h-12 rounded-xl bg-white px-4 font-medium text-black hover:bg-white/90"
+                className="rentulo-btn-primary h-12 px-4 text-sm"
                 type="button"
                 onClick={searchByTypedLocation}
               >
@@ -322,7 +332,7 @@ export default function ItemsPage() {
               </button>
 
               <button
-                className="h-12 rounded-xl border border-white/15 px-4 hover:bg-white/10"
+                className="rentulo-btn-secondary h-12 px-4 text-sm"
                 type="button"
                 onClick={useMyLocation}
               >
@@ -330,7 +340,7 @@ export default function ItemsPage() {
               </button>
 
               <button
-                className="h-12 rounded-xl border border-white/15 px-4 hover:bg-white/10"
+                className="rentulo-btn-secondary h-12 px-4 text-sm"
                 type="button"
                 onClick={resetSearch}
               >
@@ -341,7 +351,7 @@ export default function ItemsPage() {
         </div>
 
         {selectedLabel ? (
-          <div className="mt-4 text-sm text-white/70">
+          <div className="mt-5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3 text-sm text-white/80">
             Aktuálne hľadanie: <strong className="text-white">{selectedLabel}</strong> v okruhu{" "}
             <strong className="text-white">{radiusKm} km</strong>
             {categoryFilter !== "Všetky kategórie" ? (
@@ -351,53 +361,79 @@ export default function ItemsPage() {
             ) : null}
           </div>
         ) : null}
-      </div>
+      </section>
 
-      {status ? <p>{status}</p> : null}
+      {status ? (
+        <div className="rentulo-card p-4 text-white/80">{status}</div>
+      ) : null}
 
       {filteredItems.length === 0 && !status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-white/60">
+        <div className="rentulo-card p-8 text-center text-white/60">
           Nenašli sa žiadne ponuky.
         </div>
       ) : null}
 
-      <ul className="grid gap-4 md:grid-cols-2">
+      <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredItems.map((item) => (
-          <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <Link href={`/items/${item.id}`} className="block">
+          <li key={item.id}>
+            <Link
+              href={`/items/${item.id}`}
+              className="block h-full overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
+            >
               {imageMap[item.id] ? (
                 <img
                   src={imageMap[item.id]}
                   alt={item.title}
-                  className="mb-3 h-44 w-full rounded-xl border border-white/10 object-cover"
+                  className="h-52 w-full object-cover"
                 />
               ) : (
-                <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
-              )}
-
-              {item.category ? (
-                <div className="mb-2 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
-                  {item.category}
+                <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
+                  Bez fotky
                 </div>
-              ) : null}
-
-              <div className="text-lg font-semibold">{item.title}</div>
-
-              <div className="mt-1 text-white/80">
-                {item.price_per_day} € <span className="text-white/60">/ deň</span>
-                {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
-                {item.postal_code ? <span className="text-white/60"> · {item.postal_code}</span> : null}
-              </div>
-
-              {item.distance_km !== null && item.distance_km !== undefined ? (
-                <div className="mt-1 text-sm text-white/60">Vzdialenosť: {item.distance_km} km</div>
-              ) : null}
-
-              {item.description ? (
-                <div className="mt-2 line-clamp-2 text-white/70">{item.description}</div>
-              ) : (
-                <div className="mt-2 text-white/50">Bez popisu</div>
               )}
+
+              <div className="space-y-3 p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {item.category ? (
+                    <div className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
+                      {item.category}
+                    </div>
+                  ) : null}
+
+                  {item.distance_km !== null && item.distance_km !== undefined ? (
+                    <div className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">
+                      {item.distance_km} km
+                    </div>
+                  ) : null}
+                </div>
+
+                <div>
+                  <div className="text-lg font-semibold">{item.title}</div>
+
+                  <div className="mt-1 text-sm text-white/60">
+                    {item.city ? <span>{item.city}</span> : null}
+                    {item.city && item.postal_code ? <span> · </span> : null}
+                    {item.postal_code ? <span>{item.postal_code}</span> : null}
+                  </div>
+                </div>
+
+                <div className="text-base font-medium text-white">
+                  {item.price_per_day} €
+                  <span className="ml-1 text-sm font-normal text-white/60">/ deň</span>
+                </div>
+
+                {item.description ? (
+                  <div className="line-clamp-3 text-sm leading-6 text-white/70">
+                    {item.description}
+                  </div>
+                ) : (
+                  <div className="text-sm text-white/45">Bez popisu</div>
+                )}
+
+                <div className="pt-1 text-sm font-medium text-indigo-300">
+                  Otvoriť detail →
+                </div>
+              </div>
             </Link>
           </li>
         ))}
