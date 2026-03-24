@@ -10,6 +10,7 @@ type PlannedTask = {
   optional_tools: string[];
   safety_tips: string[];
   search_keywords: string[];
+  strict_keywords: boolean;
 };
 
 type ItemRow = {
@@ -34,13 +35,17 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
 }
 
+function includesAny(text: string, needles: string[]) {
+  return needles.some((needle) => text.includes(normalize(needle)));
+}
+
 function planTask(rawTask: string): PlannedTask {
   const task = normalize(rawTask);
 
-  if (task.includes("odtok") || task.includes("sifon") || task.includes("upchat")) {
+  if (includesAny(task, ["odtok", "sifon", "upchat", "upchaty odtok"])) {
     return {
       task_title: "Vyčistenie odtoku",
-      summary: "Jednoduchý postup na vyčistenie odtoku alebo sifónu bez zbytočného chaosu.",
+      summary: "Jednoduchý postup na vyčistenie odtoku alebo sifónu.",
       difficulty: "ľahké",
       steps: [
         "Priprav vedro a handru pod sifón alebo odtok.",
@@ -56,11 +61,12 @@ function planTask(rawTask: string): PlannedTask {
         "Pri chemickom čističi nemiešaj rôzne prípravky.",
         "Daj pozor na tesnenia pri skladaní."
       ],
-      search_keywords: ["siko kliešte", "špirála na potrubie", "inštalatérske náradie", "vedro", "sada náradia"]
+      search_keywords: ["siko kliešte", "špirála na potrubie", "inštalatérske náradie", "čistič odtoku"],
+      strict_keywords: true,
     };
   }
 
-  if (task.includes("polick") || task.includes("navrt") || task.includes("vrtat") || task.includes("vrtack")) {
+  if (includesAny(task, ["polick", "navrt", "vrtat", "vrtack"])) {
     return {
       task_title: "Navŕtanie poličky",
       summary: "Postup na uchytenie poličky rovno a bezpečne.",
@@ -79,11 +85,12 @@ function planTask(rawTask: string): PlannedTask {
         "Použi správny vrták na betón, tehlu alebo sadrokartón.",
         "Nedávaj príliš veľkú záťaž na slabé uchytenie."
       ],
-      search_keywords: ["vŕtačka", "aku skrutkovač", "vrtáky", "vodováha", "sada náradia"]
+      search_keywords: ["vŕtačka", "aku skrutkovač", "vrtáky", "vodováha"],
+      strict_keywords: true,
     };
   }
 
-  if (task.includes("trava") || task.includes("pokosit") || task.includes("kosit")) {
+  if (includesAny(task, ["trava", "pokosit", "kosit", "kosa"])) {
     return {
       task_title: "Pokosenie trávy",
       summary: "Krátky checklist na pokosenie trávnika a dočistenie okrajov.",
@@ -92,7 +99,7 @@ function planTask(rawTask: string): PlannedTask {
         "Skontroluj plochu a odprat z nej kamene alebo konáre.",
         "Nastav vhodnú výšku kosenia.",
         "Pokos trávnik po pásoch.",
-        "Dokonči okraje krovinorezom alebo vyžínačom.",
+        "Dokonči okraje vyžínačom.",
         "Vyčisti stroj a pracovné miesto."
       ],
       required_tools: ["Kosačka", "Predlžovací kábel alebo batéria", "Rukavice"],
@@ -102,14 +109,15 @@ function planTask(rawTask: string): PlannedTask {
         "Dávaj pozor na kamene a tvrdé predmety.",
         "Použi pevnú obuv."
       ],
-      search_keywords: ["kosačka", "vyžínač", "záhradné náradie", "fúkač lístia"]
+      search_keywords: ["kosačka", "vyžínač", "záhradné náradie", "fúkač lístia"],
+      strict_keywords: true,
     };
   }
 
-  if (task.includes("stenu") || task.includes("malovat") || task.includes("malba") || task.includes("natriet")) {
+  if (includesAny(task, ["stenu", "malovat", "malba", "natriet"])) {
     return {
       task_title: "Maľovanie steny",
-      summary: "Základný postup, aby si nezabudol na prípravu ani na dôležité pomôcky.",
+      summary: "Základný postup, aby si nezabudol na prípravu ani pomôcky.",
       difficulty: "stredné",
       steps: [
         "Zakry podlahu a nábytok.",
@@ -118,61 +126,92 @@ function planTask(rawTask: string): PlannedTask {
         "Nanášaj farbu valčekom a detaily štetcom.",
         "Nechaj zaschnúť a podľa potreby daj druhú vrstvu."
       ],
-      required_tools: ["Valček", "Štetec", "Maliarska páska", "Fólia", "Vedro alebo vanička"],
+      required_tools: ["Valček", "Štetec", "Maliarska páska", "Fólia", "Vanička"],
       optional_tools: ["Brúska", "Rebrík", "Miešadlo na farbu"],
       safety_tips: [
         "Vetraj miestnosť.",
         "Zakry zásuvky a citlivé povrchy.",
         "Na vyššie miesta používaj stabilný rebrík."
       ],
-      search_keywords: ["rebrík", "brúska", "maliarske náradie", "valček", "ručné náradie"]
+      search_keywords: ["rebrík", "brúska", "maliarske náradie", "valček"],
+      strict_keywords: true,
+    };
+  }
+
+  if (includesAny(task, ["3d model", "3d tlac", "3d tlaciaren", "vytlacit model", "vytlacit 3d", "tlaciaren"])) {
+    return {
+      task_title: "Vytlačenie 3D modelu",
+      summary: "Na 3D tlač potrebuješ hlavne 3D tlačiareň a vhodný materiál. Ak to v ponukách nie je, radšej neukážem zlý tool.",
+      difficulty: "stredné",
+      steps: [
+        "Priprav alebo skontroluj 3D model.",
+        "Nastav správny materiál a parametre tlače.",
+        "Skontroluj podložku a pripravenosť tlačiarne.",
+        "Spusť tlač a priebežne ju sleduj.",
+        "Po dotlačení model opatrne odober a dočisti."
+      ],
+      required_tools: ["3D tlačiareň", "Filament alebo resin", "Počítač so slicerom"],
+      optional_tools: ["Špachtľa", "Klieštiky", "Brúsny papier", "Kaliper"],
+      safety_tips: [
+        "Použi správny materiál pre typ tlačiarne.",
+        "Nedotýkaj sa horúcich častí tlačiarne.",
+        "Pri resin tlači použi rukavice a vetraj."
+      ],
+      search_keywords: ["3d tlačiareň", "3d printer", "filament", "resin printer", "sla tlačiareň"],
+      strict_keywords: true,
     };
   }
 
   return {
     task_title: "Návrh postupu pre tvoju úlohu",
-    summary: "Pripravil som univerzálny checklist a pokúsil som sa nájsť vhodné veci z ponúk.",
+    summary: "Postup som pripravil, ale vhodné ponuky ukážem len keď budú naozaj relevantné.",
     difficulty: "stredné",
     steps: [
       "Rozdeľ si úlohu na prípravu, realizáciu a dokončenie.",
-      "Skontroluj miesto práce a priprav si náradie dopredu.",
+      "Skontroluj miesto práce a priprav si veci dopredu.",
       "Vyber vhodné náradie podľa materiálu a typu práce.",
       "Po dokončení skontroluj výsledok a uprac pracovné miesto."
     ],
-    required_tools: ["Základná sada náradia", "Rukavice", "Meranie alebo kontrola roviny podľa potreby"],
-    optional_tools: ["Aku náradie", "Rebrík", "Ochranné pomôcky navyše"],
+    required_tools: ["Potrebné veci závisia od konkrétnej úlohy"],
+    optional_tools: ["Ochranné pomôcky podľa typu práce"],
     safety_tips: [
       "Použi vhodné ochranné pomôcky.",
-      "Pred prácou skontroluj stav náradia.",
-      "Pri elektrickom náradí dávaj pozor na káble a stabilitu."
+      "Pred prácou skontroluj stav náradia."
     ],
     search_keywords: uniqueStrings(
       rawTask
         .split(/[,.;]/)
         .flatMap((part) => part.split(" "))
         .map((part) => part.trim())
-        .filter((part) => part.length >= 3)
-        .concat(["sada náradia", "aku náradie", "ručné náradie"])
-    )
+        .filter((part) => part.length >= 4)
+    ),
+    strict_keywords: true,
   };
 }
 
 function scoreItem(item: ItemRow, keywords: string[]) {
-  const haystack = normalize(
-    [item.title, item.description, item.category, item.city].filter(Boolean).join(" ")
-  );
+  const title = normalize(item.title || "");
+  const description = normalize(item.description || "");
+  const category = normalize(item.category || "");
+  const city = normalize(item.city || "");
+  const full = `${title} ${description} ${category} ${city}`;
 
   let score = 0;
 
-  for (const keyword of keywords) {
-    const needle = normalize(keyword);
-    if (!needle) continue;
+  for (const keywordRaw of keywords) {
+    const keyword = normalize(keywordRaw);
+    if (!keyword) continue;
 
-    if (haystack.includes(needle)) score += 5;
+    if (title.includes(keyword)) score += 12;
+    if (category.includes(keyword)) score += 10;
+    if (description.includes(keyword)) score += 6;
 
-    const needleWords = needle.split(" ").filter(Boolean);
-    for (const word of needleWords) {
-      if (word.length >= 3 && haystack.includes(word)) score += 2;
+    const words = keyword.split(" ").filter((w) => w.length >= 3);
+    for (const word of words) {
+      if (title.includes(word)) score += 4;
+      if (category.includes(word)) score += 3;
+      if (description.includes(word)) score += 2;
+      if (full.includes(word)) score += 1;
     }
   }
 
@@ -199,13 +238,13 @@ export async function POST(req: Request) {
       .from("items")
       .select("id,title,description,price_per_day,city,category,is_active")
       .eq("is_active", true)
-      .limit(150);
+      .limit(300);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const items = ((data ?? []) as ItemRow[])
+    const scored = ((data ?? []) as ItemRow[])
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -214,13 +253,13 @@ export async function POST(req: Request) {
         category: item.category ?? null,
         score: scoreItem(item, planned.search_keywords),
       }))
-      .filter((item) => item.score > 0)
+      .filter((item) => item.score >= 10)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
 
     return NextResponse.json({
       ...planned,
-      suggested_items: items,
+      suggested_items: scored,
     });
   } catch {
     return NextResponse.json({ error: "Interná chyba." }, { status: 500 });
