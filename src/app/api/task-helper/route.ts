@@ -10,7 +10,6 @@ type PlannedTask = {
   optional_tools: string[];
   safety_tips: string[];
   search_keywords: string[];
-  strict_keywords: boolean;
 };
 
 type ItemRow = {
@@ -31,162 +30,8 @@ function normalize(text: string) {
     .trim();
 }
 
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
-}
-
 function includesAny(text: string, needles: string[]) {
   return needles.some((needle) => text.includes(normalize(needle)));
-}
-
-function planTask(rawTask: string): PlannedTask {
-  const task = normalize(rawTask);
-
-  if (includesAny(task, ["odtok", "sifon", "upchat", "upchaty odtok"])) {
-    return {
-      task_title: "Vyčistenie odtoku",
-      summary: "Jednoduchý postup na vyčistenie odtoku alebo sifónu.",
-      difficulty: "ľahké",
-      steps: [
-        "Priprav vedro a handru pod sifón alebo odtok.",
-        "Rozober sifón alebo otvor kryt odtoku.",
-        "Odstráň nánosy, vlasy a usadeniny.",
-        "Prepláchni diely vodou a skontroluj tesnenia.",
-        "Všetko zlož späť a otestuj odtok vodou."
-      ],
-      required_tools: ["Vedro", "Rukavice", "Handra", "Siko kliešte alebo kľúč"],
-      optional_tools: ["Špirála na potrubie", "Čistič odtoku", "Malá sada náradia"],
-      safety_tips: [
-        "Použi rukavice.",
-        "Pri chemickom čističi nemiešaj rôzne prípravky.",
-        "Daj pozor na tesnenia pri skladaní."
-      ],
-      search_keywords: ["siko kliešte", "špirála na potrubie", "inštalatérske náradie", "čistič odtoku"],
-      strict_keywords: true,
-    };
-  }
-
-  if (includesAny(task, ["polick", "navrt", "vrtat", "vrtack"])) {
-    return {
-      task_title: "Navŕtanie poličky",
-      summary: "Postup na uchytenie poličky rovno a bezpečne.",
-      difficulty: "stredné",
-      steps: [
-        "Zmeraj miesto a označ body na vŕtanie.",
-        "Skontroluj rovinu a správne rozostupy.",
-        "Vyber vhodný vrták podľa steny.",
-        "Navŕtaj otvory a vlož hmoždinky.",
-        "Pripevni držiaky alebo poličku a skontroluj pevnosť."
-      ],
-      required_tools: ["Vŕtačka", "Vrtáky", "Hmoždinky", "Skrutky", "Vodováha", "Meter"],
-      optional_tools: ["Aku skrutkovač", "Detektor káblov", "Ceruzka"],
-      safety_tips: [
-        "Pred vŕtaním si over, či v stene nie sú káble alebo potrubie.",
-        "Použi správny vrták na betón, tehlu alebo sadrokartón.",
-        "Nedávaj príliš veľkú záťaž na slabé uchytenie."
-      ],
-      search_keywords: ["vŕtačka", "aku skrutkovač", "vrtáky", "vodováha"],
-      strict_keywords: true,
-    };
-  }
-
-  if (includesAny(task, ["trava", "pokosit", "kosit", "kosa"])) {
-    return {
-      task_title: "Pokosenie trávy",
-      summary: "Krátky checklist na pokosenie trávnika a dočistenie okrajov.",
-      difficulty: "ľahké",
-      steps: [
-        "Skontroluj plochu a odprat z nej kamene alebo konáre.",
-        "Nastav vhodnú výšku kosenia.",
-        "Pokos trávnik po pásoch.",
-        "Dokonči okraje vyžínačom.",
-        "Vyčisti stroj a pracovné miesto."
-      ],
-      required_tools: ["Kosačka", "Predlžovací kábel alebo batéria", "Rukavice"],
-      optional_tools: ["Vyžínač", "Fúkač lístia", "Zberný kôš"],
-      safety_tips: [
-        "Nekos mokrú trávu, ak sa tomu dá vyhnúť.",
-        "Dávaj pozor na kamene a tvrdé predmety.",
-        "Použi pevnú obuv."
-      ],
-      search_keywords: ["kosačka", "vyžínač", "záhradné náradie", "fúkač lístia"],
-      strict_keywords: true,
-    };
-  }
-
-  if (includesAny(task, ["stenu", "malovat", "malba", "natriet"])) {
-    return {
-      task_title: "Maľovanie steny",
-      summary: "Základný postup, aby si nezabudol na prípravu ani pomôcky.",
-      difficulty: "stredné",
-      steps: [
-        "Zakry podlahu a nábytok.",
-        "Očisti stenu a oprav väčšie nerovnosti.",
-        "Oblep hrany páskou.",
-        "Nanášaj farbu valčekom a detaily štetcom.",
-        "Nechaj zaschnúť a podľa potreby daj druhú vrstvu."
-      ],
-      required_tools: ["Valček", "Štetec", "Maliarska páska", "Fólia", "Vanička"],
-      optional_tools: ["Brúska", "Rebrík", "Miešadlo na farbu"],
-      safety_tips: [
-        "Vetraj miestnosť.",
-        "Zakry zásuvky a citlivé povrchy.",
-        "Na vyššie miesta používaj stabilný rebrík."
-      ],
-      search_keywords: ["rebrík", "brúska", "maliarske náradie", "valček"],
-      strict_keywords: true,
-    };
-  }
-
-  if (includesAny(task, ["3d model", "3d tlac", "3d tlaciaren", "vytlacit model", "vytlacit 3d", "tlaciaren"])) {
-    return {
-      task_title: "Vytlačenie 3D modelu",
-      summary: "Na 3D tlač potrebuješ hlavne 3D tlačiareň a vhodný materiál. Ak to v ponukách nie je, radšej neukážem zlý tool.",
-      difficulty: "stredné",
-      steps: [
-        "Priprav alebo skontroluj 3D model.",
-        "Nastav správny materiál a parametre tlače.",
-        "Skontroluj podložku a pripravenosť tlačiarne.",
-        "Spusť tlač a priebežne ju sleduj.",
-        "Po dotlačení model opatrne odober a dočisti."
-      ],
-      required_tools: ["3D tlačiareň", "Filament alebo resin", "Počítač so slicerom"],
-      optional_tools: ["Špachtľa", "Klieštiky", "Brúsny papier", "Kaliper"],
-      safety_tips: [
-        "Použi správny materiál pre typ tlačiarne.",
-        "Nedotýkaj sa horúcich častí tlačiarne.",
-        "Pri resin tlači použi rukavice a vetraj."
-      ],
-      search_keywords: ["3d tlačiareň", "3d printer", "filament", "resin printer", "sla tlačiareň"],
-      strict_keywords: true,
-    };
-  }
-
-  return {
-    task_title: "Návrh postupu pre tvoju úlohu",
-    summary: "Postup som pripravil, ale vhodné ponuky ukážem len keď budú naozaj relevantné.",
-    difficulty: "stredné",
-    steps: [
-      "Rozdeľ si úlohu na prípravu, realizáciu a dokončenie.",
-      "Skontroluj miesto práce a priprav si veci dopredu.",
-      "Vyber vhodné náradie podľa materiálu a typu práce.",
-      "Po dokončení skontroluj výsledok a uprac pracovné miesto."
-    ],
-    required_tools: ["Potrebné veci závisia od konkrétnej úlohy"],
-    optional_tools: ["Ochranné pomôcky podľa typu práce"],
-    safety_tips: [
-      "Použi vhodné ochranné pomôcky.",
-      "Pred prácou skontroluj stav náradia."
-    ],
-    search_keywords: uniqueStrings(
-      rawTask
-        .split(/[,.;]/)
-        .flatMap((part) => part.split(" "))
-        .map((part) => part.trim())
-        .filter((part) => part.length >= 4)
-    ),
-    strict_keywords: true,
-  };
 }
 
 function scoreItem(item: ItemRow, keywords: string[]) {
@@ -218,6 +63,120 @@ function scoreItem(item: ItemRow, keywords: string[]) {
   return score;
 }
 
+function planTask(rawTask: string): PlannedTask {
+  const task = normalize(rawTask);
+
+  if (includesAny(task, ["odtok", "sifon", "upchat", "upchaty odtok"])) {
+    return {
+      task_title: "Vyčistenie odtoku",
+      summary: "Postup a veci, ktoré sa ti na to pravdepodobne zídu.",
+      difficulty: "ľahké",
+      steps: [
+        "Priprav vedro a handru pod sifón alebo odtok.",
+        "Rozober sifón alebo otvor kryt odtoku.",
+        "Odstráň nánosy, vlasy a usadeniny.",
+        "Prepláchni diely vodou a skontroluj tesnenia.",
+        "Všetko zlož späť a otestuj odtok vodou."
+      ],
+      required_tools: ["Vedro", "Rukavice", "Handra", "Siko kliešte alebo kľúč"],
+      optional_tools: ["Špirála na potrubie", "Čistič odtoku", "Malá sada náradia"],
+      safety_tips: ["Použi rukavice.", "Daj pozor na tesnenia pri skladaní."],
+      search_keywords: ["siko kliešte", "špirála na potrubie", "inštalatérske náradie", "čistič odtoku"],
+    };
+  }
+
+  if (includesAny(task, ["polick", "navrt", "vrtat", "vrtack"])) {
+    return {
+      task_title: "Navŕtanie poličky",
+      summary: "Základný postup a potrebné veci na uchytenie poličky.",
+      difficulty: "stredné",
+      steps: [
+        "Zmeraj miesto a označ body na vŕtanie.",
+        "Skontroluj rovinu a správne rozostupy.",
+        "Vyber vhodný vrták podľa steny.",
+        "Navŕtaj otvory a vlož hmoždinky.",
+        "Pripevni držiaky alebo poličku a skontroluj pevnosť."
+      ],
+      required_tools: ["Vŕtačka", "Vrtáky", "Hmoždinky", "Skrutky", "Vodováha", "Meter"],
+      optional_tools: ["Aku skrutkovač", "Detektor káblov", "Ceruzka"],
+      safety_tips: ["Pred vŕtaním si over, či v stene nie sú káble alebo potrubie."],
+      search_keywords: ["vŕtačka", "aku skrutkovač", "vrtáky", "vodováha"],
+    };
+  }
+
+  if (includesAny(task, ["trava", "pokosit", "kosit", "kosa"])) {
+    return {
+      task_title: "Pokosenie trávy",
+      summary: "Krátky checklist na pokosenie trávnika.",
+      difficulty: "ľahké",
+      steps: [
+        "Skontroluj plochu a odprat z nej kamene alebo konáre.",
+        "Nastav vhodnú výšku kosenia.",
+        "Pokos trávnik po pásoch.",
+        "Dokonči okraje vyžínačom.",
+        "Vyčisti stroj a pracovné miesto."
+      ],
+      required_tools: ["Kosačka", "Predlžovací kábel alebo batéria", "Rukavice"],
+      optional_tools: ["Vyžínač", "Fúkač lístia", "Zberný kôš"],
+      safety_tips: ["Použi pevnú obuv."],
+      search_keywords: ["kosačka", "vyžínač", "záhradné náradie", "fúkač lístia"],
+    };
+  }
+
+  if (includesAny(task, ["stenu", "malovat", "malba", "natriet"])) {
+    return {
+      task_title: "Maľovanie steny",
+      summary: "Základný postup a veci, ktoré si priprav.",
+      difficulty: "stredné",
+      steps: [
+        "Zakry podlahu a nábytok.",
+        "Očisti stenu a oprav väčšie nerovnosti.",
+        "Oblep hrany páskou.",
+        "Nanášaj farbu valčekom a detaily štetcom.",
+        "Nechaj zaschnúť a podľa potreby daj druhú vrstvu."
+      ],
+      required_tools: ["Valček", "Štetec", "Maliarska páska", "Fólia", "Vanička"],
+      optional_tools: ["Brúska", "Rebrík", "Miešadlo na farbu"],
+      safety_tips: ["Vetraj miestnosť."],
+      search_keywords: ["rebrík", "brúska", "maliarske náradie", "valček"],
+    };
+  }
+
+  if (includesAny(task, ["3d model", "3d tlac", "3d tlaciaren", "vytlacit model", "vytlacit 3d", "tlaciaren"])) {
+    return {
+      task_title: "Vytlačenie 3D modelu",
+      summary: "Na toto potrebuješ hlavne 3D tlačiareň a materiál. Keď v ponukách nič také nie je, nič neodporučím.",
+      difficulty: "stredné",
+      steps: [
+        "Priprav alebo skontroluj 3D model.",
+        "Nastav správny materiál a parametre tlače.",
+        "Skontroluj podložku a pripravenosť tlačiarne.",
+        "Spusť tlač a priebežne ju sleduj.",
+        "Po dotlačení model opatrne odober a dočisti."
+      ],
+      required_tools: ["3D tlačiareň", "Filament alebo resin", "Počítač so slicerom"],
+      optional_tools: ["Špachtľa", "Klieštiky", "Brúsny papier"],
+      safety_tips: ["Nedotýkaj sa horúcich častí tlačiarne."],
+      search_keywords: ["3d tlačiareň", "3d printer", "filament", "resin printer", "sla tlačiareň"],
+    };
+  }
+
+  return {
+    task_title: "Túto úlohu ešte nemám dobre naučenú",
+    summary: "Zatiaľ ti viem ukázať len relevantné ponuky, ak niečo naozaj sedí.",
+    difficulty: "",
+    steps: [],
+    required_tools: [],
+    optional_tools: [],
+    safety_tips: [],
+    search_keywords: rawTask
+      .split(/[,.;]/)
+      .flatMap((part) => part.split(" "))
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 4),
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -244,7 +203,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const scored = ((data ?? []) as ItemRow[])
+    const suggestedItems = ((data ?? []) as ItemRow[])
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -259,7 +218,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ...planned,
-      suggested_items: scored,
+      suggested_items: suggestedItems,
     });
   } catch {
     return NextResponse.json({ error: "Interná chyba." }, { status: 500 });
