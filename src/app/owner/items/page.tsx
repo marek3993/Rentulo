@@ -15,16 +15,32 @@ type Item = {
   is_active: boolean;
 };
 
+type ItemImageRow = {
+  id: number;
+  item_id: number;
+  path: string;
+};
+
+type ItemImageView = {
+  id: number;
+  item_id: number;
+  path: string;
+  publicUrl: string;
+};
+
 export default function OwnerItemsPage() {
   const router = useRouter();
 
   const [items, setItems] = useState<Item[]>([]);
-  const [imageMap, setImageMap] = useState<Record<number, string>>({});
+  const [imageMap, setImageMap] = useState<Record<number, ItemImageView[]>>({});
   const [status, setStatus] = useState("Načítavam...");
 
   const [q, setQ] = useState("");
   const [cityFilter, setCityFilter] = useState("");
   const [stateFilter, setStateFilter] = useState<"all" | "active" | "inactive">("all");
+
+  const [uploadingForItemId, setUploadingForItemId] = useState<number | null>(null);
+  const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let out = [...items];
@@ -85,21 +101,35 @@ export default function OwnerItemsPage() {
       return;
     }
 
-    const { data: imgs } = await supabase
+    const { data: imgs, error: imgsError } = await supabase
       .from("item_images")
-      .select("item_id,path")
+      .select("id,item_id,path")
       .in("item_id", ids)
       .order("id", { ascending: true });
 
-    const map: Record<number, string> = {};
-    for (const im of (imgs ?? []) as any[]) {
-      if (!map[im.item_id]) {
-        const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
-        map[im.item_id] = pub.publicUrl;
-      }
+    if (imgsError) {
+      setStatus("Chyba: " + imgsError.message);
+      return;
     }
 
-    setImageMap(map);
+    const nextMap: Record<number, ItemImageView[]> = {};
+
+    for (const im of (imgs ?? []) as ItemImageRow[]) {
+      const { data: pub } = supabase.storage.from("item-images").getPublicUrl(im.path);
+
+      if (!nextMap[im.item_id]) {
+        nextMap[im.item_id] = [];
+      }
+
+      nextMap[im.item_id].push({
+        id: im.id,
+        item_id: im.item_id,
+        path: im.path,
+        publicUrl: pub.publicUrl,
+      });
+    }
+
+    setImageMap(nextMap);
     setStatus("");
   };
 
@@ -124,6 +154,82 @@ export default function OwnerItemsPage() {
     await load();
   };
 
+  const uploadImages = async (itemId: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setUploadingForItemId(itemId);
+    setStatus("Nahrávam fotky...");
+
+    try {
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+        const filePath = `${itemId}/${crypto.randomUUID()}.${safeExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(filePath, file, {
+            upsert: false,
+            contentType: file.type || "image/jpeg",
+            cacheControl: "3600",
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const { error: insertError } = await supabase
+          .from("item_images")
+          .insert({ item_id: itemId, path: filePath });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+      }
+
+      setStatus("Fotky nahraté ✅");
+      await load();
+    } catch (e: any) {
+      setStatus("Chyba: " + (e?.message || "upload zlyhal"));
+    } finally {
+      setUploadingForItemId(null);
+    }
+  };
+
+  const deleteImage = async (imageId: number, path: string) => {
+    const ok = window.confirm("Naozaj chceš vymazať túto fotku?");
+    if (!ok) return;
+
+    setDeletingImageId(imageId);
+    setStatus("Mažem fotku...");
+
+    try {
+      const { error: dbError } = await supabase
+        .from("item_images")
+        .delete()
+        .eq("id", imageId);
+
+      if (dbError) {
+        throw new Error(dbError.message);
+      }
+
+      const { error: storageError } = await supabase.storage
+        .from("item-images")
+        .remove([path]);
+
+      if (storageError) {
+        throw new Error(storageError.message);
+      }
+
+      setStatus("Fotka vymazaná ✅");
+      await load();
+    } catch (e: any) {
+      setStatus("Chyba: " + (e?.message || "mazanie zlyhalo"));
+    } finally {
+      setDeletingImageId(null);
+    }
+  };
+
   return (
     <main className="space-y-6">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
@@ -131,7 +237,7 @@ export default function OwnerItemsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Moje ponuky</h1>
             <p className="mt-1 text-white/60">
-              Správa vlastných ponúk, ich viditeľnosti a rezervácií.
+              Správa vlastných ponúk, ich viditeľnosti, rezervácií a fotiek.
             </p>
           </div>
 
@@ -216,79 +322,142 @@ export default function OwnerItemsPage() {
         </div>
       ) : (
         <ul className="grid gap-4 md:grid-cols-2">
-          {filtered.map((item) => (
-            <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              {imageMap[item.id] ? (
-                <img
-                  src={imageMap[item.id]}
-                  alt={item.title}
-                  className="mb-3 h-44 w-full rounded-xl border border-white/10 object-cover"
-                />
-              ) : (
-                <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
-              )}
+          {filtered.map((item) => {
+            const images = imageMap[item.id] ?? [];
+            const cover = images[0];
 
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="text-lg font-semibold">{item.title}</div>
-                  <div className="mt-1 text-white/80">
-                    {item.price_per_day} € <span className="text-white/60">/ deň</span>
-                    {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+            return (
+              <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                {cover ? (
+                  <img
+                    src={cover.publicUrl}
+                    alt={item.title}
+                    className="mb-3 h-44 w-full rounded-xl border border-white/10 object-cover"
+                  />
+                ) : (
+                  <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
+                )}
+
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-lg font-semibold">{item.title}</div>
+                    <div className="mt-1 text-white/80">
+                      {item.price_per_day} € <span className="text-white/60">/ deň</span>
+                      {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+                    </div>
+                  </div>
+
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-medium ${
+                      item.is_active
+                        ? "bg-green-600/90 text-white"
+                        : "bg-red-600/90 text-white"
+                    }`}
+                  >
+                    {item.is_active ? "Aktívna" : "Vypnutá"}
+                  </span>
+                </div>
+
+                {item.description ? (
+                  <div className="mt-3 line-clamp-2 text-white/70">{item.description}</div>
+                ) : (
+                  <div className="mt-3 text-white/50">Bez popisu</div>
+                )}
+
+                <div className="mt-4">
+                  <div className="mb-2 text-sm text-white/70">Fotky</div>
+
+                  {images.length === 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/50">
+                      Zatiaľ bez fotiek.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {images.map((img) => (
+                        <div
+                          key={img.id}
+                          className="rounded-xl border border-white/10 bg-black/20 p-2"
+                        >
+                          <img
+                            src={img.publicUrl}
+                            alt="fotka ponuky"
+                            className="h-24 w-full rounded-lg object-cover"
+                          />
+                          <div className="mt-2 flex justify-between gap-2">
+                            <div className="text-xs text-white/50">
+                              {img.id === cover?.id ? "Hlavná" : "Fotka"}
+                            </div>
+                            <button
+                              type="button"
+                              className="text-xs text-red-300 hover:text-red-200 disabled:opacity-50"
+                              disabled={deletingImageId === img.id}
+                              onClick={() => deleteImage(img.id, img.path)}
+                            >
+                              {deletingImageId === img.id ? "Mažem..." : "Vymazať"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    <input
+                      id={`upload-${item.id}`}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => uploadImages(item.id, e.target.files)}
+                    />
+
+                    <label
+                      htmlFor={`upload-${item.id}`}
+                      className={`inline-flex cursor-pointer rounded border border-white/15 px-4 py-2 hover:bg-white/10 ${
+                        uploadingForItemId === item.id ? "pointer-events-none opacity-50" : ""
+                      }`}
+                    >
+                      {uploadingForItemId === item.id ? "Nahrávam..." : "Pridať / zmeniť fotky"}
+                    </label>
                   </div>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${
-                    item.is_active
-                      ? "bg-green-600/90 text-white"
-                      : "bg-red-600/90 text-white"
-                  }`}
-                >
-                  {item.is_active ? "Aktívna" : "Vypnutá"}
-                </span>
-              </div>
-
-              {item.description ? (
-                <div className="mt-3 line-clamp-2 text-white/70">{item.description}</div>
-              ) : (
-                <div className="mt-3 text-white/50">Bez popisu</div>
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href={`/items/${item.id}`}
-                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                >
-                  Detail
-                </Link>
-
-                <Link
-                  href={`/owner/reservations?item_id=${item.id}`}
-                  className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                >
-                  Rezervácie
-                </Link>
-
-                {item.is_active ? (
-                  <button
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    href={`/items/${item.id}`}
                     className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                    onClick={() => toggleActive(item.id, false)}
-                    type="button"
                   >
-                    Vypnúť
-                  </button>
-                ) : (
-                  <button
+                    Detail
+                  </Link>
+
+                  <Link
+                    href={`/owner/reservations?item_id=${item.id}`}
                     className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                    onClick={() => toggleActive(item.id, true)}
-                    type="button"
                   >
-                    Zapnúť
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
+                    Rezervácie
+                  </Link>
+
+                  {item.is_active ? (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => toggleActive(item.id, false)}
+                      type="button"
+                    >
+                      Vypnúť
+                    </button>
+                  ) : (
+                    <button
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                      onClick={() => toggleActive(item.id, true)}
+                      type="button"
+                    >
+                      Zapnúť
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>
