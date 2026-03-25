@@ -179,8 +179,12 @@ export default function OwnerItemsPage() {
         }
 
         const { error: insertError } = await supabase
-          .from("item_images")
-          .insert({ item_id: itemId, path: filePath });
+  .from("item_images")
+  .insert({
+    item_id: itemId,
+    owner_id: userId,
+    path: filePath,
+  });
 
         if (insertError) {
           throw new Error(insertError.message);
