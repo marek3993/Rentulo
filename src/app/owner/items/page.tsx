@@ -19,12 +19,14 @@ type ItemImageRow = {
   id: number;
   item_id: number;
   path: string;
+  is_primary: boolean;
 };
 
 type ItemImageView = {
   id: number;
   item_id: number;
   path: string;
+  is_primary: boolean;
   publicUrl: string;
 };
 
@@ -41,6 +43,7 @@ export default function OwnerItemsPage() {
 
   const [uploadingForItemId, setUploadingForItemId] = useState<number | null>(null);
   const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
+  const [settingPrimaryImageId, setSettingPrimaryImageId] = useState<number | null>(null);
 
   const filtered = useMemo(() => {
     let out = [...items];
@@ -103,8 +106,9 @@ export default function OwnerItemsPage() {
 
     const { data: imgs, error: imgsError } = await supabase
       .from("item_images")
-      .select("id,item_id,path")
+      .select("id,item_id,path,is_primary")
       .in("item_id", ids)
+      .order("is_primary", { ascending: false })
       .order("id", { ascending: true });
 
     if (imgsError) {
@@ -125,6 +129,7 @@ export default function OwnerItemsPage() {
         id: im.id,
         item_id: im.item_id,
         path: im.path,
+        is_primary: im.is_primary,
         publicUrl: pub.publicUrl,
       });
     }
@@ -154,61 +159,96 @@ export default function OwnerItemsPage() {
     await load();
   };
 
-const uploadImages = async (itemId: number, files: FileList | null) => {
-  if (!files || files.length === 0) return;
+  const uploadImages = async (itemId: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
 
-  setUploadingForItemId(itemId);
-  setStatus("Nahrávam fotky...");
+    setUploadingForItemId(itemId);
+    setStatus("Nahrávam fotky...");
 
-  try {
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
 
-    if (!userId) {
-      router.push("/login");
-      return;
-    }
-
-    for (const file of Array.from(files)) {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-      const filePath = `${itemId}/${crypto.randomUUID()}.${safeExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("item-images")
-        .upload(filePath, file, {
-          upsert: false,
-          contentType: file.type || "image/jpeg",
-          cacheControl: "3600",
-        });
-
-      if (uploadError) {
-        throw new Error(uploadError.message);
+      if (!userId) {
+        router.push("/login");
+        return;
       }
 
-      const { error: insertError } = await supabase
-        .from("item_images")
-        .insert({
-          item_id: itemId,
-          owner_id: userId,
-          path: filePath,
-        });
+      const currentImages = imageMap[itemId] ?? [];
+      const shouldMakeFirstPrimary = currentImages.length === 0;
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      let uploadedIndex = 0;
+
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+        const filePath = `${itemId}/${crypto.randomUUID()}.${safeExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(filePath, file, {
+            upsert: false,
+            contentType: file.type || "image/jpeg",
+            cacheControl: "3600",
+          });
+
+        if (uploadError) {
+          throw new Error(uploadError.message);
+        }
+
+        const { error: insertError } = await supabase
+          .from("item_images")
+          .insert({
+            item_id: itemId,
+            owner_id: userId,
+            path: filePath,
+            is_primary: shouldMakeFirstPrimary && uploadedIndex === 0,
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+
+        uploadedIndex += 1;
       }
+
+      setStatus("Fotky nahraté ✅");
+      await load();
+    } catch (e: any) {
+      setStatus("Chyba: " + (e?.message || "upload zlyhal"));
+    } finally {
+      setUploadingForItemId(null);
     }
+  };
 
-    setStatus("Fotky nahraté ✅");
-    await load();
-  } catch (e: any) {
-    setStatus("Chyba: " + (e?.message || "upload zlyhal"));
-  } finally {
-    setUploadingForItemId(null);
-  }
-};
+  const setPrimaryImage = async (itemId: number, imageId: number) => {
+    setSettingPrimaryImageId(imageId);
+    setStatus("Nastavujem hlavnú fotku...");
 
-  const deleteImage = async (imageId: number, path: string) => {
+    try {
+      const currentImages = imageMap[itemId] ?? [];
+
+      for (const img of currentImages) {
+        const { error } = await supabase
+          .from("item_images")
+          .update({ is_primary: img.id === imageId })
+          .eq("id", img.id);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      }
+
+      setStatus("Hlavná fotka uložená ✅");
+      await load();
+    } catch (e: any) {
+      setStatus("Chyba: " + (e?.message || "uloženie zlyhalo"));
+    } finally {
+      setSettingPrimaryImageId(null);
+    }
+  };
+
+  const deleteImage = async (itemId: number, imageId: number, path: string) => {
     const ok = window.confirm("Naozaj chceš vymazať túto fotku?");
     if (!ok) return;
 
@@ -216,6 +256,9 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
     setStatus("Mažem fotku...");
 
     try {
+      const currentImages = imageMap[itemId] ?? [];
+      const imageToDelete = currentImages.find((x) => x.id === imageId);
+
       const { error: dbError } = await supabase
         .from("item_images")
         .delete()
@@ -231,6 +274,20 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
 
       if (storageError) {
         throw new Error(storageError.message);
+      }
+
+      if (imageToDelete?.is_primary) {
+        const remaining = currentImages.filter((x) => x.id !== imageId);
+        if (remaining.length > 0) {
+          const { error: promoteError } = await supabase
+            .from("item_images")
+            .update({ is_primary: true })
+            .eq("id", remaining[0].id);
+
+          if (promoteError) {
+            throw new Error(promoteError.message);
+          }
+        }
       }
 
       setStatus("Fotka vymazaná ✅");
@@ -336,7 +393,7 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
         <ul className="grid gap-4 md:grid-cols-2">
           {filtered.map((item) => {
             const images = imageMap[item.id] ?? [];
-            const cover = images[0];
+            const cover = images.find((x) => x.is_primary) ?? images[0];
 
             return (
               <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -384,7 +441,7 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
                       Zatiaľ bez fotiek.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
                       {images.map((img) => (
                         <div
                           key={img.id}
@@ -395,15 +452,30 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
                             alt="fotka ponuky"
                             className="h-24 w-full rounded-lg object-cover"
                           />
-                          <div className="mt-2 flex justify-between gap-2">
-                            <div className="text-xs text-white/50">
-                              {img.id === cover?.id ? "Hlavná" : "Fotka"}
-                            </div>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {img.is_primary ? (
+                              <span className="rounded-full bg-green-600/90 px-2 py-1 text-xs text-white">
+                                Hlavná
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="text-xs text-white/70 hover:text-white disabled:opacity-50"
+                                disabled={settingPrimaryImageId === img.id}
+                                onClick={() => setPrimaryImage(item.id, img.id)}
+                              >
+                                {settingPrimaryImageId === img.id
+                                  ? "Ukladám..."
+                                  : "Nastaviť ako hlavnú"}
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               className="text-xs text-red-300 hover:text-red-200 disabled:opacity-50"
                               disabled={deletingImageId === img.id}
-                              onClick={() => deleteImage(img.id, img.path)}
+                              onClick={() => deleteImage(item.id, img.id, img.path)}
                             >
                               {deletingImageId === img.id ? "Mažem..." : "Vymazať"}
                             </button>
@@ -429,7 +501,7 @@ const uploadImages = async (itemId: number, files: FileList | null) => {
                         uploadingForItemId === item.id ? "pointer-events-none opacity-50" : ""
                       }`}
                     >
-                      {uploadingForItemId === item.id ? "Nahrávam..." : "Pridať / zmeniť fotky"}
+                      {uploadingForItemId === item.id ? "Nahrávam..." : "Pridať fotky"}
                     </label>
                   </div>
                 </div>
