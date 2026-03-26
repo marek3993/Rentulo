@@ -154,51 +154,59 @@ export default function OwnerItemsPage() {
     await load();
   };
 
-  const uploadImages = async (itemId: number, files: FileList | null) => {
-    if (!files || files.length === 0) return;
+const uploadImages = async (itemId: number, files: FileList | null) => {
+  if (!files || files.length === 0) return;
 
-    setUploadingForItemId(itemId);
-    setStatus("Nahrávam fotky...");
+  setUploadingForItemId(itemId);
+  setStatus("Nahrávam fotky...");
 
-    try {
-      for (const file of Array.from(files)) {
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-        const filePath = `${itemId}/${crypto.randomUUID()}.${safeExt}`;
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
 
-        const { error: uploadError } = await supabase.storage
-          .from("item-images")
-          .upload(filePath, file, {
-            upsert: false,
-            contentType: file.type || "image/jpeg",
-            cacheControl: "3600",
-          });
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
 
-        if (uploadError) {
-          throw new Error(uploadError.message);
-        }
+    for (const file of Array.from(files)) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+      const filePath = `${itemId}/${crypto.randomUUID()}.${safeExt}`;
 
-        const { error: insertError } = await supabase
-  .from("item_images")
-  .insert({
-    item_id: itemId,
-    owner_id: userId,
-    path: filePath,
-  });
+      const { error: uploadError } = await supabase.storage
+        .from("item-images")
+        .upload(filePath, file, {
+          upsert: false,
+          contentType: file.type || "image/jpeg",
+          cacheControl: "3600",
+        });
 
-        if (insertError) {
-          throw new Error(insertError.message);
-        }
+      if (uploadError) {
+        throw new Error(uploadError.message);
       }
 
-      setStatus("Fotky nahraté ✅");
-      await load();
-    } catch (e: any) {
-      setStatus("Chyba: " + (e?.message || "upload zlyhal"));
-    } finally {
-      setUploadingForItemId(null);
+      const { error: insertError } = await supabase
+        .from("item_images")
+        .insert({
+          item_id: itemId,
+          owner_id: userId,
+          path: filePath,
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
     }
-  };
+
+    setStatus("Fotky nahraté ✅");
+    await load();
+  } catch (e: any) {
+    setStatus("Chyba: " + (e?.message || "upload zlyhal"));
+  } finally {
+    setUploadingForItemId(null);
+  }
+};
 
   const deleteImage = async (imageId: number, path: string) => {
     const ok = window.confirm("Naozaj chceš vymazať túto fotku?");
