@@ -66,7 +66,7 @@ export default function PublicProfilePage() {
 
       const { data: imgs, error: imgErr } = await supabase
         .from("item_images")
-        .select("item_id,path")
+        .select("item_id,path,is_primary")
         .in("item_id", ids)
         .order("id", { ascending: true });
 
