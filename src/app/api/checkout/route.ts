@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, {
-      apiVersion: "2025-02-24.acacia",
+      apiVersion: "2026-01-28.clover",
     })
   : null;
 
