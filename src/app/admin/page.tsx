@@ -237,19 +237,22 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin/items" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-              Inzeráty
-            </Link>
-            <Link href="/admin/verifications" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-              Overenia
-            </Link>
-            <Link href="/admin/users" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-              Používatelia
-            </Link>
-            <Link href="/admin/actions" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-              Audit log
-            </Link>
-          </div>
+  <Link href="/admin/items" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+    Inzeráty
+  </Link>
+  <Link href="/admin/verifications" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+    Overenia
+  </Link>
+  <Link href="/admin/users" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+    Používatelia
+  </Link>
+  <Link href="/admin/disputes" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+    Spory
+  </Link>
+  <Link href="/admin/actions" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+    Audit log
+  </Link>
+</div>
         </div>
       </section>
 
@@ -407,7 +410,14 @@ export default function AdminDashboardPage() {
           <div className="mt-2 text-sm leading-6 text-white/70">
             Pasovanie za admina a správa používateľských rolí.
           </div>
-        </Link>
+        </Link> 
+
+        <Link href="/admin/disputes" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
+  <div className="text-lg font-semibold">Spory</div>
+  <div className="mt-2 text-sm leading-6 text-white/70">
+    Prehľad všetkých sporov a ich admin riešenie.
+  </div>
+</Link>
 
         <Link href="/admin/actions" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
           <div className="text-lg font-semibold">Audit log</div>

@@ -254,9 +254,12 @@ export default function MessagesPage() {
           return (
             <li key={conversation.id}>
               <Link
-                href={`/messages/${conversation.id}`}
-                className="block rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10"
-              >
+  href={`/messages/${conversation.id}`}
+  onClick={() => {
+    setUnreadCountMap((prev) => ({ ...prev, [conversation.id]: 0 }));
+  }}
+  className="block rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10"
+>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-4">
                     {avatarUrl ? (

@@ -73,28 +73,40 @@ export default function MessageDetailPage() {
   }, [otherProfile?.avatar_path]);
 
   const markConversationAsRead = async (userId: string) => {
-    const { data: unreadMessages, error: unreadError } = await supabase
-      .from("messages")
-      .select("id")
-      .eq("conversation_id", conversationId)
-      .neq("sender_id", userId)
-      .is("read_at", null);
+  const nowIso = new Date().toISOString();
 
-    if (unreadError) {
-      return;
-    }
+  const { data: unreadMessages, error: unreadError } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .neq("sender_id", userId)
+    .is("read_at", null);
 
-    const unreadIds = (unreadMessages ?? []).map((msg: { id: number }) => msg.id);
+  if (unreadError) {
+    return;
+  }
 
-    if (unreadIds.length === 0) {
-      return;
-    }
+  const unreadIds = (unreadMessages ?? []).map((msg: { id: number }) => msg.id);
 
-    await supabase
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .in("id", unreadIds);
-  };
+  if (unreadIds.length === 0) {
+    return;
+  }
+
+  const { error: updateError } = await supabase
+    .from("messages")
+    .update({ read_at: nowIso })
+    .in("id", unreadIds);
+
+  if (updateError) {
+    return;
+  }
+
+  setMessages((prev) =>
+    prev.map((msg) =>
+      unreadIds.includes(msg.id) ? { ...msg, read_at: nowIso } : msg
+    )
+  );
+};
 
   const loadConversation = async () => {
     const loadId = ++loadIdRef.current;
