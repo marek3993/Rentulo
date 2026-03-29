@@ -212,10 +212,9 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-indigo-400/20 bg-indigo-500/10 p-4 text-sm text-indigo-100/90">
-                Chýbalo tu: <span className="font-semibold">kategórie + jasné vysvetlenie flow</span>.
-                Nižšie ich máš rovno pridané.
-              </div>
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/75">
+  Prenajmi si vec presne na čas, keď ju potrebuješ. Rýchlo, lokálne a bez zbytočného nakupovania.
+</div>
             </div>
           </div>
         </div>
@@ -226,8 +225,8 @@ export default function Home() {
           <div>
             <h2 className="text-2xl font-semibold">Najčastejšie kategórie</h2>
             <p className="mt-2 text-white/65">
-              Toto na homepage malo byť. Ľudia sa musia vedieť chytiť hneď.
-            </p>
+  Vyber si kategóriu a prejdi rovno na ponuky, ktoré ťa zaujímajú.
+</p>
           </div>
 
           <Link href="/items" className="text-sm text-indigo-300 hover:text-indigo-200">
@@ -495,10 +494,10 @@ export default function Home() {
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-lg font-semibold">Jednoduchý štart</div>
-          <p className="mt-3 leading-7 text-white/70">
-            Homepage konečne hneď ukazuje, čo tu viem spraviť.
-          </p>
+          <div className="text-lg font-semibold">Rýchly štart</div>
+<p className="mt-3 leading-7 text-white/70">
+  Začni prehliadaním ponúk alebo pridaj vlastnú vec na prenájom.
+</p>
         </div>
       </section>
 
