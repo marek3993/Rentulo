@@ -16,6 +16,13 @@ type Item = {
   distance_km?: number | null;
 };
 
+type ReservationRow = {
+  item_id: number;
+  start_date: string;
+  end_date: string;
+  status: string | null;
+};
+
 type GeoapifyFeature = {
   properties?: {
     formatted?: string;
@@ -38,26 +45,76 @@ const CATEGORIES = [
   "Ostatné",
 ];
 
+const NON_BLOCKING_RESERVATION_STATUSES = new Set([
+  "cancelled",
+  "canceled",
+  "rejected",
+  "completed",
+  "returned",
+  "expired",
+  "zrusene",
+  "zamietnute",
+  "ukoncene",
+  "vratene",
+]);
+
 export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
   const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
   const [status, setStatus] = useState("Načítavam...");
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [textQuery, setTextQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
   const [radiusKm, setRadiusKm] = useState("20");
   const [categoryFilter, setCategoryFilter] = useState("Všetky kategórie");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
-
   const [selectedLabel, setSelectedLabel] = useState("");
+
+  const [unavailableItemIds, setUnavailableItemIds] = useState<number[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
 
+  const hasValidDateRange = Boolean(dateFrom && dateTo && dateFrom <= dateTo);
+  const hasInvalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+
   const filteredItems = useMemo(() => {
-    if (categoryFilter === "Všetky kategórie") return items;
-    return items.filter((item) => item.category === categoryFilter);
-  }, [items, categoryFilter]);
+    const normalizedText = textQuery.trim().toLowerCase();
+    const unavailableSet = new Set(unavailableItemIds);
+
+    return items.filter((item) => {
+      if (categoryFilter !== "Všetky kategórie" && item.category !== categoryFilter) {
+        return false;
+      }
+
+      if (normalizedText) {
+        const haystack = [
+          item.title,
+          item.description ?? "",
+          item.city ?? "",
+          item.postal_code ?? "",
+          item.category ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        if (!haystack.includes(normalizedText)) {
+          return false;
+        }
+      }
+
+      if (hasValidDateRange && unavailableSet.has(item.id)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [items, categoryFilter, textQuery, unavailableItemIds, hasValidDateRange]);
 
   const loadImages = async (rows: Item[]) => {
     const ids = rows.map((x) => x.id);
@@ -69,63 +126,54 @@ export default function ItemsPage() {
     }
 
     const { data: imgs, error: imgErr } = await supabase
-  .from("item_images")
-  .select("item_id,path,is_primary,position,id")
-  .in("item_id", ids)
-  .order("is_primary", { ascending: false })
-  .order("position", { ascending: true })
-  .order("id", { ascending: true });
+      .from("item_images")
+      .select("item_id,path,is_primary,position,id")
+      .in("item_id", ids)
+      .order("is_primary", { ascending: false })
+      .order("position", { ascending: true })
+      .order("id", { ascending: true });
 
-if (imgErr) {
-  setImageMap({});
-  setActiveImageIndexMap({});
-  return;
-}
+    if (imgErr) {
+      setImageMap({});
+      setActiveImageIndexMap({});
+      return;
+    }
 
-const map: Record<number, string[]> = {};
-const nextActiveMap: Record<number, number> = {};
-const grouped: Record<number, any[]> = {};
+    const grouped: Record<number, any[]> = {};
+    const nextMap: Record<number, string[]> = {};
+    const nextActiveMap: Record<number, number> = {};
 
-for (const raw of (imgs ?? []) as any[]) {
-  if (!grouped[raw.item_id]) grouped[raw.item_id] = [];
-  grouped[raw.item_id].push(raw);
-}
+    for (const raw of (imgs ?? []) as any[]) {
+      if (!grouped[raw.item_id]) grouped[raw.item_id] = [];
+      grouped[raw.item_id].push(raw);
+    }
 
-for (const itemId in grouped) {
-  const sorted = grouped[itemId].sort((a, b) => {
-    if (!!a.is_primary !== !!b.is_primary) return a.is_primary ? -1 : 1;
+    for (const itemId of Object.keys(grouped)) {
+      const numericItemId = Number(itemId);
 
-    const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
-    const bPos = Number.isFinite(Number(b.position)) ? Number(b.position) : 999999;
-    if (aPos !== bPos) return aPos - bPos;
+      const sorted = grouped[numericItemId].sort((a, b) => {
+        if (!!a.is_primary !== !!b.is_primary) return a.is_primary ? -1 : 1;
 
-    return Number(a.id) - Number(b.id);
-  });
+        const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
+        const bPos = Number.isFinite(Number(b.position)) ? Number(b.position) : 999999;
+        if (aPos !== bPos) return aPos - bPos;
 
-  map[Number(itemId)] = sorted.map((img) =>
-    supabase.storage.from("item-images").getPublicUrl(img.path).data.publicUrl
-  );
-}
+        return Number(a.id) - Number(b.id);
+      });
 
-for (const itemId in grouped) {
-  const sorted = grouped[itemId].sort((a, b) => {
-    if (a.is_primary) return -1;
-    if (b.is_primary) return 1;
-    return 0;
-  });
+      nextMap[numericItemId] = sorted.map(
+        (img) => supabase.storage.from("item-images").getPublicUrl(img.path).data.publicUrl
+      );
+      nextActiveMap[numericItemId] = 0;
+    }
 
-  map[itemId] = sorted.map((img) =>
-    supabase.storage.from("item-images").getPublicUrl(img.path).data.publicUrl
-  );
-}
-
-    setImageMap(map);
+    setImageMap(nextMap);
     setActiveImageIndexMap((prev) => {
-      const merged = { ...nextActiveMap };
+      const merged: Record<number, number> = {};
 
       for (const row of rows) {
         const currentIndex = prev[row.id] ?? 0;
-        const count = map[row.id]?.length ?? 0;
+        const count = nextMap[row.id]?.length ?? 0;
         merged[row.id] = count > 0 ? Math.min(currentIndex, count - 1) : 0;
       }
 
@@ -181,7 +229,7 @@ for (const itemId in grouped) {
   }, []);
 
   useEffect(() => {
-    const q = searchQuery.trim();
+    const q = locationQuery.trim();
 
     if (!geoKey || q.length < 2) {
       setLocationResults([]);
@@ -211,7 +259,57 @@ for (const itemId in grouped) {
     }, 350);
 
     return () => clearTimeout(t);
-  }, [searchQuery, geoKey]);
+  }, [locationQuery, geoKey]);
+
+  useEffect(() => {
+    const itemIds = items.map((item) => item.id);
+
+    if (!hasValidDateRange || itemIds.length === 0) {
+      setUnavailableItemIds([]);
+      setAvailabilityLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadUnavailableItems = async () => {
+      setAvailabilityLoading(true);
+
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("item_id,start_date,end_date,status")
+        .in("item_id", itemIds)
+        .lte("start_date", dateTo)
+        .gte("end_date", dateFrom);
+
+      if (cancelled) return;
+
+      if (error) {
+        setUnavailableItemIds([]);
+        setAvailabilityLoading(false);
+        return;
+      }
+
+      const blocked = new Set<number>();
+
+      for (const reservation of (data ?? []) as ReservationRow[]) {
+        const normalizedStatus = (reservation.status ?? "").trim().toLowerCase();
+
+        if (!NON_BLOCKING_RESERVATION_STATUSES.has(normalizedStatus)) {
+          blocked.add(reservation.item_id);
+        }
+      }
+
+      setUnavailableItemIds(Array.from(blocked));
+      setAvailabilityLoading(false);
+    };
+
+    loadUnavailableItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, dateFrom, dateTo, hasValidDateRange]);
 
   const runSearchFromFeature = async (feature: GeoapifyFeature) => {
     const p = feature.properties ?? {};
@@ -224,7 +322,7 @@ for (const itemId in grouped) {
       return;
     }
 
-    setSearchQuery(label);
+    setLocationQuery(label);
     setLocationResults([]);
     await loadNearbyItems(lat, lng, label);
   };
@@ -264,9 +362,14 @@ for (const itemId in grouped) {
   };
 
   const resetSearch = async () => {
-    setSearchQuery("");
+    setTextQuery("");
+    setLocationQuery("");
     setLocationResults([]);
+    setRadiusKm("20");
     setCategoryFilter("Všetky kategórie");
+    setDateFrom("");
+    setDateTo("");
+    setUnavailableItemIds([]);
     await loadDefaultItems();
   };
 
@@ -307,7 +410,7 @@ for (const itemId in grouped) {
             <h1 className="mt-4 text-3xl font-semibold md:text-4xl">Ponuky</h1>
 
             <p className="mt-2 leading-7 text-white/70">
-              Hľadaj podľa mesta, PSČ, kategórie alebo podľa svojej aktuálnej polohy.
+              Hľadaj podľa názvu, popisu, kategórie, lokality a dostupnosti v dátume.
             </p>
           </div>
 
@@ -319,21 +422,69 @@ for (const itemId in grouped) {
 
       <section className="rentulo-card p-5 md:p-6">
         <div className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">Vyhľadávanie podľa lokality</h2>
+          <h2 className="text-xl font-semibold">Filtre a lokalita</h2>
           <p className="text-sm leading-6 text-white/60">
-            Napíš mesto alebo PSČ, vyber lokalitu z návrhov a potom spusti hľadanie.
+            Vyfiltruj si ponuky rýchlo a rovno aj podľa voľného termínu.
           </p>
         </div>
 
-        <div className="mt-5 grid items-start gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <div className="mb-2 text-sm text-white/75">Textové vyhľadávanie</div>
+            <input
+              className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
+              placeholder="napr. vŕtačka, Kärcher, Trnava"
+              value={textQuery}
+              onChange={(e) => setTextQuery(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm text-white/75">Kategória</div>
+            <select
+              className="rentulo-input-light h-12 px-3"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm text-white/75">Dátum od</div>
+            <input
+              type="date"
+              className="rentulo-input-light h-12 px-3"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm text-white/75">Dátum do</div>
+            <input
+              type="date"
+              className="rentulo-input-light h-12 px-3"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 grid items-start gap-3 lg:grid-cols-[2fr_1fr_1fr]">
           <div>
             <div className="mb-2 text-sm text-white/75">Mesto alebo PSČ</div>
 
             <input
               className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
               placeholder="napr. Trnava alebo 91701"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
             />
 
             {searchingLocation ? (
@@ -373,22 +524,6 @@ for (const itemId in grouped) {
           </div>
 
           <div>
-            <div className="mb-2 text-sm text-white/75">Kategória</div>
-
-            <select
-              className="rentulo-input-light h-12 px-3"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <div className="mb-2 text-sm text-white/75">Akcie</div>
 
             <div className="grid gap-2">
@@ -413,24 +548,48 @@ for (const itemId in grouped) {
                 type="button"
                 onClick={resetSearch}
               >
-                Zrušiť filter
+                Zrušiť filtre
               </button>
             </div>
           </div>
         </div>
 
-        {selectedLabel ? (
-          <div className="mt-5 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3 text-sm text-white/80">
-            Aktuálne hľadanie: <strong className="text-white">{selectedLabel}</strong> v okruhu{" "}
-            <strong className="text-white">{radiusKm} km</strong>
-            {categoryFilter !== "Všetky kategórie" ? (
-              <>
-                {" "}
-                · kategória <strong className="text-white">{categoryFilter}</strong>
-              </>
-            ) : null}
+        {hasInvalidDateRange ? (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            Dátum od musí byť menší alebo rovný dátumu do.
           </div>
         ) : null}
+
+        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
+          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
+            Výsledky: <strong className="text-white">{filteredItems.length}</strong>
+          </div>
+
+          {selectedLabel ? (
+            <div className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-white/80">
+              Lokalita: <strong className="text-white">{selectedLabel}</strong> · {radiusKm} km
+            </div>
+          ) : null}
+
+          {categoryFilter !== "Všetky kategórie" ? (
+            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
+              Kategória: <strong className="text-white">{categoryFilter}</strong>
+            </div>
+          ) : null}
+
+          {hasValidDateRange ? (
+            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-white/80">
+              Dostupné medzi: <strong className="text-white">{dateFrom}</strong> –{" "}
+              <strong className="text-white">{dateTo}</strong>
+            </div>
+          ) : null}
+
+          {availabilityLoading ? (
+            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60">
+              Kontrolujem dostupnosť...
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
@@ -454,11 +613,7 @@ for (const itemId in grouped) {
             >
               <div className="relative">
                 {activeImage ? (
-                  <img
-                    src={activeImage}
-                    alt={item.title}
-                    className="h-52 w-full object-cover"
-                  />
+                  <img src={activeImage} alt={item.title} className="h-52 w-full object-cover" />
                 ) : (
                   <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
                     Bez fotky
