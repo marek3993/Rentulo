@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
-type SelectedImage = { file: File; previewUrl: string };
+type SelectedImage = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
 
 type GeoapifyFeature = {
   properties?: {
@@ -29,6 +33,8 @@ const CATEGORIES = [
   "Ostatné",
 ];
 
+const MAX_IMAGES = 5;
+
 export default function NewItemPage() {
   const router = useRouter();
 
@@ -52,19 +58,26 @@ export default function NewItemPage() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
+  const imagesRef = useRef<SelectedImage[]>([]);
+  const dragIndexRef = useRef<number | null>(null);
+
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
   useEffect(() => {
     const guard = async () => {
       const { data } = await supabase.auth.getSession();
       if (!data.session) router.push("/login");
     };
+
     guard();
 
     return () => {
-      images.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      imagesRef.current.forEach((i) => URL.revokeObjectURL(i.previewUrl));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   useEffect(() => {
@@ -121,12 +134,19 @@ export default function NewItemPage() {
   const onPickImages = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const remaining = Math.max(5 - images.length, 0);
-    const picked = Array.from(files).slice(0, remaining);
+    const remaining = Math.max(MAX_IMAGES - images.length, 0);
+    if (remaining <= 0) return;
 
-    const next: SelectedImage[] = picked.map((f) => ({
-      file: f,
-      previewUrl: URL.createObjectURL(f),
+    const picked = Array.from(files)
+      .filter((file) => file.type.startsWith("image/"))
+      .slice(0, remaining);
+
+    if (picked.length === 0) return;
+
+    const next: SelectedImage[] = picked.map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
     }));
 
     setImages((prev) => [...prev, ...next]);
@@ -139,6 +159,31 @@ export default function NewItemPage() {
       if (removed) URL.revokeObjectURL(removed.previewUrl);
       return copy;
     });
+  };
+
+  const moveImage = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+
+    setImages((prev) => {
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= prev.length ||
+        toIndex >= prev.length
+      ) {
+        return prev;
+      }
+
+      const copy = [...prev];
+      const [moved] = copy.splice(fromIndex, 1);
+      if (!moved) return prev;
+      copy.splice(toIndex, 0, moved);
+      return copy;
+    });
+  };
+
+  const setPrimaryImage = (idx: number) => {
+    moveImage(idx, 0);
   };
 
   const selectAddress = (feature: GeoapifyFeature) => {
@@ -174,6 +219,8 @@ export default function NewItemPage() {
         item_id: itemId,
         owner_id: userId,
         path,
+        position: i,
+        is_primary: i === 0,
       });
 
       if (dbErr) throw new Error(dbErr.message);
@@ -190,6 +237,7 @@ export default function NewItemPage() {
       const userId = sessionData.session?.user.id;
       if (!userId) throw new Error("Nie ste prihlásený.");
 
+      if (!title.trim()) throw new Error("Chýba názov.");
       if (!city.trim()) throw new Error("Vyber mesto z adresy.");
       if (!postalCode.trim()) throw new Error("Chýba PSČ.");
       if (!streetAddress.trim()) throw new Error("Chýba ulica a číslo.");
@@ -252,7 +300,7 @@ export default function NewItemPage() {
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="font-semibold">Základné údaje</div>
 
             <label className="block">
@@ -313,7 +361,7 @@ export default function NewItemPage() {
             </label>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="font-semibold">Adresa</div>
             <div className="text-sm text-white/60">
               Presná adresa sa nezobrazuje verejne. Zákazníci uvidia len mesto a PSČ.
@@ -335,13 +383,13 @@ export default function NewItemPage() {
             ) : null}
 
             {addressResults.length > 0 ? (
-              <div className="rounded-xl border border-white/10 overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-white/10">
                 {addressResults.map((f, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => selectAddress(f)}
-                    className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10"
+                    className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10 last:border-b-0"
                   >
                     {f.properties?.formatted ?? "Neznáma adresa"}
                   </button>
@@ -397,9 +445,9 @@ export default function NewItemPage() {
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="font-semibold">Fotky (max. 5)</div>
+            <div className="font-semibold">Fotky (max. {MAX_IMAGES})</div>
             <div className="mt-1 text-sm text-white/70">
-              Odporúčané: 1× celok, 1× detail, 1× príslušenstvo.
+              1. fotka je hlavná. Potiahni dlaždice pre zmenu poradia.
             </div>
 
             <input
@@ -407,27 +455,70 @@ export default function NewItemPage() {
               type="file"
               accept="image/*"
               multiple
-              disabled={saving || images.length >= 5}
-              onChange={(e) => onPickImages(e.target.files)}
+              disabled={saving || images.length >= MAX_IMAGES}
+              onChange={(e) => {
+                onPickImages(e.target.files);
+                e.currentTarget.value = "";
+              }}
             />
 
             {images.length > 0 ? (
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
                 {images.map((img, idx) => (
-                  <div key={img.previewUrl} className="relative">
+                  <div
+                    key={img.id}
+                    draggable={!saving}
+                    onDragStart={() => {
+                      dragIndexRef.current = idx;
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={() => {
+                      const fromIndex = dragIndexRef.current;
+                      dragIndexRef.current = null;
+                      if (fromIndex === null) return;
+                      moveImage(fromIndex, idx);
+                    }}
+                    className={`relative overflow-hidden rounded-xl border ${
+                      idx === 0 ? "border-indigo-400" : "border-white/10"
+                    } bg-black/20`}
+                  >
                     <img
                       src={img.previewUrl}
-                      alt="preview"
-                      className="h-24 w-full rounded object-cover border border-white/10"
+                      alt={`preview ${idx + 1}`}
+                      className="h-28 w-full object-cover"
                     />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="absolute right-1 top-1 rounded bg-black/70 px-2 py-1 text-xs hover:bg-black"
-                      disabled={saving}
-                    >
-                      X
-                    </button>
+
+                    <div className="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-[11px] text-white">
+                      {idx === 0 ? "Hlavná" : `#${idx + 1}`}
+                    </div>
+
+                    <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-[11px] text-white">
+                      Potiahni
+                    </div>
+
+                    <div className="absolute right-2 top-2 flex gap-1">
+                      {idx !== 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setPrimaryImage(idx)}
+                          className="rounded bg-indigo-600/90 px-2 py-1 text-[11px] text-white hover:bg-indigo-500"
+                          disabled={saving}
+                        >
+                          Nastaviť hlavnú
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="rounded bg-black/70 px-2 py-1 text-[11px] text-white hover:bg-black"
+                        disabled={saving}
+                      >
+                        X
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -436,7 +527,7 @@ export default function NewItemPage() {
             )}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-3">
+          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="font-semibold">Zhrnutie</div>
 
             <div className="text-sm text-white/70">
@@ -446,6 +537,7 @@ export default function NewItemPage() {
               <div>PSČ: <strong className="text-white">{postalCode || "-"}</strong></div>
               <div>Cena: <strong className="text-white">{pricePerDay || "0"} € / deň</strong></div>
               <div>Fotky: <strong className="text-white">{images.length}</strong></div>
+              <div>Hlavná: <strong className="text-white">{images[0]?.file.name ?? "-"}</strong></div>
             </div>
 
             <button

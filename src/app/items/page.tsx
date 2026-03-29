@@ -69,25 +69,42 @@ export default function ItemsPage() {
     }
 
     const { data: imgs, error: imgErr } = await supabase
-      .from("item_images")
-      .select("item_id,path,is_primary")
-      .in("item_id", ids)
-      .order("id", { ascending: true });
+  .from("item_images")
+  .select("item_id,path,is_primary,position,id")
+  .in("item_id", ids)
+  .order("is_primary", { ascending: false })
+  .order("position", { ascending: true })
+  .order("id", { ascending: true });
 
-    if (imgErr) {
-      setImageMap({});
-      setActiveImageIndexMap({});
-      return;
-    }
+if (imgErr) {
+  setImageMap({});
+  setActiveImageIndexMap({});
+  return;
+}
 
-    const map: Record<number, string[]> = {};
-    const nextActiveMap: Record<number, number> = {};
-
-   const grouped: Record<number, any[]> = {};
+const map: Record<number, string[]> = {};
+const nextActiveMap: Record<number, number> = {};
+const grouped: Record<number, any[]> = {};
 
 for (const raw of (imgs ?? []) as any[]) {
   if (!grouped[raw.item_id]) grouped[raw.item_id] = [];
   grouped[raw.item_id].push(raw);
+}
+
+for (const itemId in grouped) {
+  const sorted = grouped[itemId].sort((a, b) => {
+    if (!!a.is_primary !== !!b.is_primary) return a.is_primary ? -1 : 1;
+
+    const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
+    const bPos = Number.isFinite(Number(b.position)) ? Number(b.position) : 999999;
+    if (aPos !== bPos) return aPos - bPos;
+
+    return Number(a.id) - Number(b.id);
+  });
+
+  map[Number(itemId)] = sorted.map((img) =>
+    supabase.storage.from("item-images").getPublicUrl(img.path).data.publicUrl
+  );
 }
 
 for (const itemId in grouped) {

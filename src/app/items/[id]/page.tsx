@@ -133,21 +133,34 @@ export default function ItemDetailPage() {
       setItem(typedItem);
 
       const { data: imgs, error: imgErr } = await supabase
-        .from("item_images")
-        .select("path")
-        .eq("item_id", itemId)
-        .order("id", { ascending: true });
+  .from("item_images")
+  .select("path,is_primary,position,id")
+  .eq("item_id", itemId)
+  .order("is_primary", { ascending: false })
+  .order("position", { ascending: true })
+  .order("id", { ascending: true });
 
-      if (!imgErr && imgs) {
-        const urls = (imgs as any[]).map(
-          (x) => supabase.storage.from("item-images").getPublicUrl(x.path).data.publicUrl
-        );
-        setImageUrls(urls);
-        setActiveImageIndex(0);
-      } else {
-        setImageUrls([]);
-        setActiveImageIndex(0);
-      }
+if (!imgErr && imgs) {
+  const sorted = [...(imgs as any[])].sort((a, b) => {
+    if (!!a.is_primary !== !!b.is_primary) return a.is_primary ? -1 : 1;
+
+    const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
+    const bPos = Number.isFinite(Number(b.position)) ? Number(b.position) : 999999;
+    if (aPos !== bPos) return aPos - bPos;
+
+    return Number(a.id) - Number(b.id);
+  });
+
+  const urls = sorted.map(
+    (x) => supabase.storage.from("item-images").getPublicUrl(x.path).data.publicUrl
+  );
+
+  setImageUrls(urls);
+  setActiveImageIndex(0);
+} else {
+  setImageUrls([]);
+  setActiveImageIndex(0);
+}
 
       const { data: prof, error: profErr } = await supabase
         .from("profiles")
