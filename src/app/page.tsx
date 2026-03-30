@@ -212,8 +212,11 @@ export default function Home() {
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/75">
-  Prenajmi si vec presne na čas, keď ju potrebuješ. Rýchlo, lokálne a bez zbytočného nakupovania.
+              <div className="mt-5 flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/75">
+  <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-indigo-400" />
+  <div>
+    Prenajmi si vec presne na čas, keď ju potrebuješ. Rýchlo, lokálne a bez zbytočného nakupovania.
+  </div>
 </div>
             </div>
           </div>
