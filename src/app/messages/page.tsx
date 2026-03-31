@@ -57,6 +57,7 @@ export default function MessagesPage() {
 
   const loadIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConversations = async () => {
     const loadId = ++loadIdRef.current;
@@ -123,19 +124,19 @@ export default function MessagesPage() {
     if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
     const nextItemMap: Record<number, ItemRow> = {};
-    for (const item of (itemData ?? []) as ItemRow[]) {
-      nextItemMap[item.id] = item;
+    for (const row of (itemData ?? []) as ItemRow[]) {
+      nextItemMap[row.id] = row;
     }
 
     const nextProfileMap: Record<string, ProfileRow> = {};
     const nextAvatarUrlMap: Record<string, string> = {};
 
-    for (const profile of (profileData ?? []) as ProfileRow[]) {
-      nextProfileMap[profile.id] = profile;
+    for (const row of (profileData ?? []) as ProfileRow[]) {
+      nextProfileMap[row.id] = row;
 
-      if (profile.avatar_path) {
-        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(profile.avatar_path);
-        nextAvatarUrlMap[profile.id] = pub.publicUrl;
+      if (row.avatar_path) {
+        const { data: pub } = supabase.storage.from("avatars").getPublicUrl(row.avatar_path);
+        nextAvatarUrlMap[row.id] = pub.publicUrl;
       }
     }
 
@@ -166,22 +167,36 @@ export default function MessagesPage() {
     setStatus("");
   };
 
+  const scheduleLoadConversations = () => {
+    if (reloadTimerRef.current) {
+      clearTimeout(reloadTimerRef.current);
+    }
+
+    reloadTimerRef.current = setTimeout(() => {
+      void loadConversations();
+    }, 150);
+  };
+
   useEffect(() => {
     mountedRef.current = true;
-
-    loadConversations();
+    void loadConversations();
 
     const handleFocus = () => {
-      loadConversations();
+      scheduleLoadConversations();
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        loadConversations();
+        scheduleLoadConversations();
       }
     };
 
+    const handleMessagesRefresh = () => {
+      scheduleLoadConversations();
+    };
+
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const channel = supabase
@@ -190,22 +205,35 @@ export default function MessagesPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
         () => {
-          loadConversations();
+          scheduleLoadConversations();
         }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },
         () => {
-          loadConversations();
+          scheduleLoadConversations();
         }
       )
       .subscribe();
 
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      scheduleLoadConversations();
+    });
+
     return () => {
       mountedRef.current = false;
+
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+      }
+
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,12 +282,12 @@ export default function MessagesPage() {
           return (
             <li key={conversation.id}>
               <Link
-  href={`/messages/${conversation.id}`}
-  onClick={() => {
-    setUnreadCountMap((prev) => ({ ...prev, [conversation.id]: 0 }));
-  }}
-  className="block rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10"
->
+                href={`/messages/${conversation.id}`}
+                onClick={() => {
+                  setUnreadCountMap((prev) => ({ ...prev, [conversation.id]: 0 }));
+                }}
+                className="block rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-4">
                     {avatarUrl ? (

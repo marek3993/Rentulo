@@ -48,67 +48,73 @@ function SecondaryNavLink({
 function MessagesNavLink() {
   const [unreadCount, setUnreadCount] = useState(0);
   const loadIdRef = useRef(0);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadUnreadCount = async () => {
+    const loadId = ++loadIdRef.current;
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
+
+    if (loadId !== loadIdRef.current) return;
+
+    if (!userId) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("messages")
+      .select("id,conversations!inner(owner_id,renter_id)", { count: "exact", head: true })
+      .neq("sender_id", userId)
+      .is("read_at", null)
+      .or(`owner_id.eq.${userId},renter_id.eq.${userId}`, { foreignTable: "conversations" });
+
+    if (loadId !== loadIdRef.current) return;
+
+    if (error) {
+      setUnreadCount(0);
+      return;
+    }
+
+    setUnreadCount(count ?? 0);
+  };
+
+  const scheduleLoadUnreadCount = () => {
+    if (reloadTimerRef.current) {
+      clearTimeout(reloadTimerRef.current);
+    }
+
+    reloadTimerRef.current = setTimeout(() => {
+      void loadUnreadCount();
+    }, 150);
+  };
 
   useEffect(() => {
     let active = true;
 
-    const loadUnreadCount = async () => {
-      const loadId = ++loadIdRef.current;
-
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-
-      if (!active || loadId !== loadIdRef.current) return;
-
-      if (!userId) {
-        setUnreadCount(0);
-        return;
-      }
-
-      const { data: conversations, error: conversationsError } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(`owner_id.eq.${userId},renter_id.eq.${userId}`);
-
-      if (!active || loadId !== loadIdRef.current) return;
-
-      if (conversationsError || !conversations || conversations.length === 0) {
-        setUnreadCount(0);
-        return;
-      }
-
-      const conversationIds = conversations.map((c: { id: number }) => c.id);
-
-      const { data: messages, error: messagesError } = await supabase
-        .from("messages")
-        .select("id")
-        .in("conversation_id", conversationIds)
-        .neq("sender_id", userId)
-        .is("read_at", null);
-
-      if (!active || loadId !== loadIdRef.current) return;
-
-      if (messagesError) {
-        setUnreadCount(0);
-        return;
-      }
-
-      setUnreadCount(messages?.length ?? 0);
-    };
-
-    loadUnreadCount();
+    void loadUnreadCount();
 
     const handleFocus = () => {
-      loadUnreadCount();
+      if (!active) return;
+      scheduleLoadUnreadCount();
     };
 
     const handleVisibilityChange = () => {
+      if (!active) return;
+
       if (document.visibilityState === "visible") {
-        loadUnreadCount();
+        scheduleLoadUnreadCount();
       }
     };
 
+    const handleMessagesRefresh = () => {
+      if (!active) return;
+      scheduleLoadUnreadCount();
+    };
+
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const channel = supabase
@@ -117,14 +123,7 @@ function MessagesNavLink() {
         "postgres_changes",
         { event: "*", schema: "public", table: "messages" },
         () => {
-          loadUnreadCount();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "conversations" },
-        () => {
-          loadUnreadCount();
+          scheduleLoadUnreadCount();
         }
       )
       .subscribe();
@@ -132,12 +131,18 @@ function MessagesNavLink() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadUnreadCount();
+      scheduleLoadUnreadCount();
     });
 
     return () => {
       active = false;
+
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+      }
+
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       subscription.unsubscribe();
       supabase.removeChannel(channel);
@@ -234,12 +239,12 @@ export default function ClientNav() {
       setIsAdmin(data.role === "admin");
     };
 
-    loadAuthState();
+    void loadAuthState();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadAuthState();
+      void loadAuthState();
     });
 
     return () => {

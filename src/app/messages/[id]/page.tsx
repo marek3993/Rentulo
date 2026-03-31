@@ -61,6 +61,8 @@ export default function MessageDetailPage() {
 
   const loadIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const markReadInFlightRef = useRef(false);
+  const pendingReadIdsRef = useRef<number[]>([]);
 
   const otherProfile = useMemo(() => {
     if (!conversation || !currentUserId) return null;
@@ -72,41 +74,81 @@ export default function MessageDetailPage() {
     return supabase.storage.from("avatars").getPublicUrl(otherProfile.avatar_path).data.publicUrl;
   }, [otherProfile?.avatar_path]);
 
-  const markConversationAsRead = async (userId: string) => {
-  const nowIso = new Date().toISOString();
+  const upsertMessage = (message: MessageRow) => {
+    setMessages((prev) => {
+      const index = prev.findIndex((m) => m.id === message.id);
 
-  const { data: unreadMessages, error: unreadError } = await supabase
-    .from("messages")
-    .select("id")
-    .eq("conversation_id", conversationId)
-    .neq("sender_id", userId)
-    .is("read_at", null);
+      if (index >= 0) {
+        const next = [...prev];
+        next[index] = { ...next[index], ...message };
+        return next;
+      }
 
-  if (unreadError) {
-    return;
-  }
+      return [...prev, message].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+    });
+  };
 
-  const unreadIds = (unreadMessages ?? []).map((msg: { id: number }) => msg.id);
+  const flushReadQueue = async (userId: string) => {
+    if (markReadInFlightRef.current) return;
 
-  if (unreadIds.length === 0) {
-    return;
-  }
+    const unreadIds = Array.from(new Set(pendingReadIdsRef.current));
 
-  const { error: updateError } = await supabase
-    .from("messages")
-    .update({ read_at: nowIso })
-    .in("id", unreadIds);
+    if (unreadIds.length === 0) return;
 
-  if (updateError) {
-    return;
-  }
+    pendingReadIdsRef.current = [];
+    markReadInFlightRef.current = true;
 
-  setMessages((prev) =>
-    prev.map((msg) =>
-      unreadIds.includes(msg.id) ? { ...msg, read_at: nowIso } : msg
-    )
-  );
-};
+    const nowIso = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("messages")
+      .update({ read_at: nowIso })
+      .in("id", unreadIds);
+
+    markReadInFlightRef.current = false;
+
+    if (!error) {
+      setMessages((prev) =>
+        prev.map((msg) => (unreadIds.includes(msg.id) ? { ...msg, read_at: nowIso } : msg))
+      );
+
+      window.dispatchEvent(new Event("rentulo:messages-unread-refresh"));
+    }
+
+    if (pendingReadIdsRef.current.length > 0) {
+      void flushReadQueue(userId);
+    }
+  };
+
+  const markConversationAsRead = async (userId: string, explicitIds?: number[]) => {
+    if (explicitIds && explicitIds.length > 0) {
+      pendingReadIdsRef.current.push(...explicitIds);
+      void flushReadQueue(userId);
+      return;
+    }
+
+    const { data: unreadMessages, error } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    if (error) {
+      return;
+    }
+
+    const unreadIds = (unreadMessages ?? []).map((msg: { id: number }) => msg.id);
+
+    if (unreadIds.length === 0) {
+      return;
+    }
+
+    pendingReadIdsRef.current.push(...unreadIds);
+    void flushReadQueue(userId);
+  };
 
   const loadConversation = async () => {
     const loadId = ++loadIdRef.current;
@@ -150,7 +192,12 @@ export default function MessageDetailPage() {
       return;
     }
 
-    const [{ data: itemData }, { data: ownerData }, { data: renterData }] = await Promise.all([
+    const [
+      { data: itemData },
+      { data: ownerData },
+      { data: renterData },
+      { data: messageData, error: messageError },
+    ] = await Promise.all([
       supabase.from("items").select("id,title").eq("id", conversationRow.item_id).maybeSingle(),
       supabase
         .from("profiles")
@@ -162,24 +209,12 @@ export default function MessageDetailPage() {
         .select("id,full_name,city,avatar_path")
         .eq("id", conversationRow.renter_id)
         .maybeSingle(),
+      supabase
+        .from("messages")
+        .select("id,conversation_id,sender_id,body,created_at,read_at")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true }),
     ]);
-
-    if (!mountedRef.current || loadId !== loadIdRef.current) return;
-
-    setConversation(conversationRow);
-    setItem((itemData ?? null) as ItemRow | null);
-    setOwnerProfile((ownerData ?? null) as ProfileRow | null);
-    setRenterProfile((renterData ?? null) as ProfileRow | null);
-
-    await markConversationAsRead(userId);
-
-    if (!mountedRef.current || loadId !== loadIdRef.current) return;
-
-    const { data: messageData, error: messageError } = await supabase
-      .from("messages")
-      .select("id,conversation_id,sender_id,body,created_at,read_at")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
 
     if (!mountedRef.current || loadId !== loadIdRef.current) return;
 
@@ -188,38 +223,85 @@ export default function MessageDetailPage() {
       return;
     }
 
+    setConversation(conversationRow);
+    setItem((itemData ?? null) as ItemRow | null);
+    setOwnerProfile((ownerData ?? null) as ProfileRow | null);
+    setRenterProfile((renterData ?? null) as ProfileRow | null);
     setMessages((messageData ?? []) as MessageRow[]);
     setStatus("");
+
+    void markConversationAsRead(userId);
   };
 
   useEffect(() => {
     if (!Number.isFinite(conversationId)) return;
 
     mountedRef.current = true;
-    loadConversation();
+    void loadConversation();
+
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, router]);
+
+  useEffect(() => {
+    if (!Number.isFinite(conversationId) || !currentUserId) return;
 
     const channel = supabase
       .channel(`messages-detail-${conversationId}`)
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        () => {
-          loadConversation();
+        (payload) => {
+          const nextMessage = payload.new as MessageRow;
+          upsertMessage(nextMessage);
+
+          if (nextMessage.sender_id !== currentUserId) {
+            void markConversationAsRead(currentUserId, [nextMessage.id]);
+          }
+
+          window.dispatchEvent(new Event("rentulo:messages-unread-refresh"));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          upsertMessage(payload.new as MessageRow);
+          window.dispatchEvent(new Event("rentulo:messages-unread-refresh"));
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const deletedId = (payload.old as { id: number }).id;
+          setMessages((prev) => prev.filter((msg) => msg.id !== deletedId));
+          window.dispatchEvent(new Event("rentulo:messages-unread-refresh"));
         }
       )
       .subscribe();
 
     return () => {
-      mountedRef.current = false;
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, router]);
+  }, [conversationId, currentUserId]);
 
   const sendMessage = async () => {
     const body = newMessage.trim();
@@ -237,18 +319,26 @@ export default function MessageDetailPage() {
     setSending(true);
 
     try {
-      const { error } = await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        sender_id: currentUserId,
-        body,
-      });
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          body,
+        })
+        .select("id,conversation_id,sender_id,body,created_at,read_at")
+        .single();
 
       if (error) {
         throw new Error(error.message);
       }
 
+      if (data) {
+        upsertMessage(data as MessageRow);
+      }
+
       setNewMessage("");
-      await loadConversation();
+      window.dispatchEvent(new Event("rentulo:messages-unread-refresh"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Neznáma chyba pri odoslaní správy.";
       alert(message);
