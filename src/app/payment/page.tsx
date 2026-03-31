@@ -26,12 +26,10 @@ function PaymentInner() {
 
   const reservationIdRaw = sp.get("reservation_id");
   const reservationId = reservationIdRaw ? Number(reservationIdRaw) : NaN;
-  const success = sp.get("success");
-  const cancel = sp.get("cancel");
 
-  const [status, setStatus] = useState("Pripravujem platbu...");
-  const [mode, setMode] = useState<"loading" | "stripe" | "demo">("loading");
+  const [status, setStatus] = useState("Načítavam platbu...");
   const [reservation, setReservation] = useState<ReservationRow | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const loadReservation = async () => {
     if (!Number.isFinite(reservationId)) return null;
@@ -84,78 +82,36 @@ function PaymentInner() {
     const run = async () => {
       if (!Number.isFinite(reservationId)) {
         setStatus("Chýba reservation_id.");
-        setMode("demo");
         return;
       }
 
       const row = await loadReservation();
 
-      if (row?.status === "cancelled" && row?.payment_status === "failed") {
-        setStatus("Táto platba už expirovala alebo zlyhala.");
-        setMode("demo");
+      if (!row) {
+        setStatus("Rezervácia neexistuje.");
         return;
       }
 
-      if (row?.payment_status === "paid") {
+      if (row.payment_status === "paid") {
         setStatus("Táto rezervácia je už zaplatená ✅");
-        setMode("demo");
         return;
       }
 
-      if (success === "1") {
-        setStatus("Platba prebehla. Kontrolujem stav...");
-        if (row?.payment_status === "paid") {
-          setStatus("Platba úspešná ✅");
-          setTimeout(() => router.push("/reservations"), 1000);
-          return;
-        }
-
-        setStatus("Platba prebehla, ale potvrdenie ešte nedobehol.");
-        setMode("stripe");
+      if (row.status === "cancelled" && row.payment_status === "failed") {
+        setStatus("Táto platba už expirovala alebo zlyhala.");
         return;
       }
 
-      if (cancel === "1") {
-        setStatus("Platba bola zrušená.");
-        setMode("stripe");
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reservation_id: reservationId }),
-        });
-
-        if (res.status === 501) {
-          setStatus("Demo režim: Stripe nie je nastavený.");
-          setMode("demo");
-          return;
-        }
-
-        const json = await res.json();
-
-        if (json?.url) {
-          setMode("stripe");
-          window.location.href = json.url;
-          return;
-        }
-
-        setStatus(json?.error || "Chyba platby.");
-        setMode("demo");
-      } catch {
-        setStatus("Demo režim: platobná brána nie je dostupná.");
-        setMode("demo");
-      }
+      setStatus("Demo režim: vyber výsledok platby.");
     };
 
     run();
-  }, [reservationId, router, success, cancel]);
+  }, [reservationId]);
 
   const markPaidDemo = async () => {
-    if (!Number.isFinite(reservationId)) return;
+    if (!Number.isFinite(reservationId) || busy) return;
 
+    setBusy(true);
     setStatus("Označujem ako zaplatené (demo)...");
 
     const { data: sess } = await supabase.auth.getSession();
@@ -169,6 +125,7 @@ function PaymentInner() {
     const currentReservation = await loadReservation();
     if (!currentReservation) {
       setStatus("Chyba: rezervácia neexistuje.");
+      setBusy(false);
       return;
     }
 
@@ -183,6 +140,7 @@ function PaymentInner() {
 
     if (error) {
       setStatus("Chyba: " + error.message);
+      setBusy(false);
       return;
     }
 
@@ -215,12 +173,13 @@ function PaymentInner() {
     );
 
     setStatus("Platba úspešná ✅ (demo)");
-    router.push("/reservations");
+    router.replace("/reservations");
   };
 
   const markFailedDemo = async () => {
-    if (!Number.isFinite(reservationId)) return;
+    if (!Number.isFinite(reservationId) || busy) return;
 
+    setBusy(true);
     setStatus("Simulujem zlyhanie platby...");
 
     const { data: sess } = await supabase.auth.getSession();
@@ -242,6 +201,7 @@ function PaymentInner() {
 
     if (error) {
       setStatus("Chyba: " + error.message);
+      setBusy(false);
       return;
     }
 
@@ -259,8 +219,14 @@ function PaymentInner() {
     );
 
     setStatus("Platba zlyhala (demo)");
-    router.push("/reservations");
+    router.replace("/reservations");
   };
+
+  const showActions =
+    Number.isFinite(reservationId) &&
+    !!reservation &&
+    reservation.payment_status !== "paid" &&
+    !(reservation.status === "cancelled" && reservation.payment_status === "failed");
 
   return (
     <main className="max-w-xl">
@@ -273,35 +239,38 @@ function PaymentInner() {
       {reservation?.payment_due_at ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
           Platbu treba dokončiť do:{" "}
-          <strong className="text-white">{formatDateTime(reservation.payment_due_at)}</strong>
+          <strong className="text-white">
+            {formatDateTime(reservation.payment_due_at)}
+          </strong>
         </div>
       ) : null}
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
         <p className="font-medium">{status}</p>
 
-        {mode === "demo" ? (
-          <div className="mt-4 space-y-3">
-            <div className="text-sm text-white/70">Toto je testovací režim.</div>
+        <div className="mt-4 text-sm text-white/70">
+          Aktívny je iba demo payment flow. Stripe sa bude riešiť neskôr.
+        </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90"
-                onClick={markPaidDemo}
-                type="button"
-                disabled={reservation?.payment_status === "paid"}
-              >
-                Simulovať úspešnú platbu
-              </button>
+        {showActions ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={markPaidDemo}
+              type="button"
+              disabled={busy}
+            >
+              Simulovať úspešnú platbu
+            </button>
 
-              <button
-                className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                onClick={markFailedDemo}
-                type="button"
-              >
-                Simulovať zlyhanie
-              </button>
-            </div>
+            <button
+              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={markFailedDemo}
+              type="button"
+              disabled={busy}
+            >
+              Simulovať zlyhanie
+            </button>
           </div>
         ) : null}
       </div>
