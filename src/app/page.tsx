@@ -90,13 +90,6 @@ const howItWorks = [
   },
 ];
 
-const benefits = [
-  "lokálny prenájom bez zbytočného obiehania",
-  "prehľad rezervácií, správ a stavu na jednom mieste",
-  "vhodné aj pre ľudí, ktorí chcú zarábať na veciach doma",
-  "prenájom presne na čas, keď to potrebuješ",
-];
-
 const exampleTasks = [
   "vyčistiť odtok",
   "navŕtať poličku",
@@ -107,7 +100,13 @@ const exampleTasks = [
 function IconBadge({ icon }: { icon: IconName }) {
   if (icon === "tool") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M14 6l4 4" />
         <path d="M5 19l6-6" />
         <path d="M13 5l6 6" />
@@ -119,7 +118,13 @@ function IconBadge({ icon }: { icon: IconName }) {
 
   if (icon === "leaf") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M19 5c-6 0-11 4-11 10 0 2.5 1.5 4 4 4 6 0 10-5 10-11 0-2-1-3-3-3z" />
         <path d="M8 19c0-4 4-8 9-10" />
       </svg>
@@ -136,7 +141,13 @@ function IconBadge({ icon }: { icon: IconName }) {
 
   if (icon === "home") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M3 11.5L12 4l9 7.5" />
         <path d="M5.5 10.5V20h13V10.5" />
         <path d="M10 20v-5h4v5" />
@@ -146,7 +157,13 @@ function IconBadge({ icon }: { icon: IconName }) {
 
   if (icon === "pin") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M12 21s6-5.5 6-11a6 6 0 10-12 0c0 5.5 6 11 6 11z" />
         <circle cx="12" cy="10" r="2.2" />
       </svg>
@@ -155,7 +172,13 @@ function IconBadge({ icon }: { icon: IconName }) {
 
   if (icon === "chat") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M5 18l-1 4 4-2h9a5 5 0 005-5V9a5 5 0 00-5-5H7a5 5 0 00-5 5v4a5 5 0 003 5z" />
       </svg>
     );
@@ -163,7 +186,13 @@ function IconBadge({ icon }: { icon: IconName }) {
 
   if (icon === "shield") {
     return (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
         <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z" />
         <path d="M9.5 12l1.8 1.8L15 10" />
       </svg>
@@ -171,7 +200,13 @@ function IconBadge({ icon }: { icon: IconName }) {
   }
 
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <circle cx="12" cy="12" r="8" />
       <path d="M12 8v4l2.5 2.5" />
     </svg>
@@ -192,7 +227,6 @@ function MiniInfoCard({
       <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
         <IconBadge icon={icon} />
       </div>
-
       <div className="text-xs uppercase tracking-wide text-white/45">{label}</div>
       <div className="mt-2 text-sm font-medium text-white/85">{text}</div>
     </div>
@@ -320,7 +354,9 @@ export default function Home() {
                 </div>
                 <div>
                   <div className="text-xs text-white/45">Lokalita</div>
-                  <div className="text-sm font-medium text-white/85">Trnava a okolie</div>
+                  <div className="text-sm font-medium text-white/85">
+                    Trnava a okolie
+                  </div>
                 </div>
               </div>
             </div>
@@ -332,7 +368,9 @@ export default function Home() {
                 </div>
                 <div>
                   <div className="text-xs text-white/45">Rýchlo</div>
-                  <div className="text-sm font-medium text-white/85">Rezervácia za pár klikov</div>
+                  <div className="text-sm font-medium text-white/85">
+                    Rezervácia za pár klikov
+                  </div>
                 </div>
               </div>
             </div>
@@ -341,134 +379,118 @@ export default function Home() {
       </section>
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
-  <div className="space-y-4">
-    <div className="flex items-end justify-between gap-4">
-      <div>
-        <div className="text-sm text-white/45">Kategórie</div>
-        <h2 className="mt-2 text-2xl font-semibold">Najčastejšie kategórie</h2>
-        <p className="mt-2 text-white/65">
-          Vyber si kategóriu a prejdi rovno na ponuky, ktoré ťa zaujímajú.
-        </p>
-      </div>
+        <div className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-sm text-white/45">Kategórie</div>
+              <h2 className="mt-2 text-2xl font-semibold">Najčastejšie kategórie</h2>
+              <p className="mt-2 text-white/65">
+                Vyber si kategóriu a prejdi rovno na ponuky, ktoré ťa zaujímajú.
+              </p>
+            </div>
 
-      <Link
-        href="/items"
-        className="text-sm text-indigo-300 hover:text-indigo-200"
-      >
-        Všetky ponuky →
-      </Link>
-    </div>
-
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {categories.map((category) => (
-        <Link
-          key={category.title}
-          href={category.href}
-          className="group rounded-3xl border border-white/10 bg-black/20 p-5 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]"
-        >
-          <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-            <IconBadge icon={category.icon} />
+            <Link
+              href="/items"
+              className="text-sm text-indigo-300 hover:text-indigo-200"
+            >
+              Všetky ponuky →
+            </Link>
           </div>
 
-          <div className="mt-4 text-lg font-semibold">{category.title}</div>
-          <div className="mt-2 text-sm leading-6 text-white/65">
-            {category.description}
-          </div>
-          <div className="mt-4 text-sm font-medium text-indigo-300 transition group-hover:translate-x-0.5">
-            Pozrieť ponuky
-          </div>
-        </Link>
-      ))}
-    </div>
-  </div>
-</section>
-
-      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
-          <div className="text-sm text-white/50">Prečo to dáva zmysel</div>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {benefits.map((benefit) => (
-              <div
-                key={benefit}
-                className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {categories.map((category) => (
+              <Link
+                key={category.title}
+                href={category.href}
+                className="group rounded-3xl border border-white/10 bg-black/20 p-5 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]"
               >
-                <div className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-300">
-                  <div className="h-2.5 w-2.5 rounded-full bg-indigo-400" />
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                  <IconBadge icon={category.icon} />
                 </div>
-                <div className="text-sm leading-6 text-white/80">{benefit}</div>
-              </div>
+
+                <div className="mt-4 text-lg font-semibold">{category.title}</div>
+                <div className="mt-2 text-sm leading-6 text-white/65">
+                  {category.description}
+                </div>
+                <div className="mt-4 text-sm font-medium text-indigo-300 transition group-hover:translate-x-0.5">
+                  Pozrieť ponuky
+                </div>
+              </Link>
             ))}
           </div>
         </div>
+      </section>
 
-        <section className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/[0.08] via-white/[0.03] to-transparent p-6 md:p-8">
-  <div className="max-w-2xl">
-    <div className="text-sm text-indigo-300">Dôležité hneď na prvý pohľad</div>
-    <h2 className="mt-2 text-2xl font-semibold">Jasné, rýchle, bez chaosu</h2>
-    <p className="mt-2 leading-7 text-white/70">
-      Nájdeš vhodnú vec, rezervuješ termín a všetko dôležité sleduješ na jednom mieste.
-    </p>
-  </div>
-
-  <div className="mt-6 grid gap-4 md:grid-cols-3">
-    <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-      <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-        <IconBadge icon="shield" />
-      </div>
-      <div className="text-lg font-semibold">Prehľadný flow</div>
-      <p className="mt-2 text-sm leading-6 text-white/70">
-        Rezervácie, komunikácia a ďalšie kroky máš pokope.
-      </p>
-    </div>
-
-    <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-      <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-        <IconBadge icon="tool" />
-      </div>
-      <div className="text-lg font-semibold">Vhodné aj pre majiteľov</div>
-      <p className="mt-2 text-sm leading-6 text-white/70">
-        Pridáš ponuku a zarábaš na veciach, ktoré už máš doma.
-      </p>
-    </div>
-
-    <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-      <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-        <IconBadge icon="clock" />
-      </div>
-      <div className="text-lg font-semibold">Rýchly štart</div>
-      <p className="mt-2 text-sm leading-6 text-white/70">
-        Začni prehliadaním ponúk alebo rovno pridaj vlastnú vec.
-      </p>
-    </div>
-  </div>
-</section>
-
-      <section className="rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
-  <div className="mb-6">
-    <div className="text-sm text-fuchsia-300">Ako to funguje</div>
-    <h2 className="mt-2 text-2xl font-semibold">Tri jednoduché kroky</h2>
-  </div>
-
-  <div className="grid gap-4 lg:grid-cols-3">
-    {howItWorks.map((item) => (
-      <div
-        key={item.step}
-        className="rounded-3xl border border-white/10 bg-black/20 p-6"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold text-fuchsia-300">{item.step}</div>
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300">
-            <IconBadge icon={item.icon} />
-          </div>
+      <section className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/[0.08] via-white/[0.03] to-transparent p-6 md:p-8">
+        <div className="max-w-2xl">
+          <div className="text-sm text-indigo-300">Dôležité hneď na prvý pohľad</div>
+          <h2 className="mt-2 text-2xl font-semibold">Jasné, rýchle, bez chaosu</h2>
+          <p className="mt-2 leading-7 text-white/70">
+            Nájdeš vhodnú vec, rezervuješ termín a všetko dôležité sleduješ na
+            jednom mieste.
+          </p>
         </div>
 
-        <div className="mt-4 text-xl font-semibold">{item.title}</div>
-        <p className="mt-3 leading-7 text-white/70">{item.description}</p>
-      </div>
-    ))}
-  </div>
-</section>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="shield" />
+            </div>
+            <div className="text-lg font-semibold">Prehľadný flow</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              Rezervácie, komunikácia a ďalšie kroky máš pokope.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="tool" />
+            </div>
+            <div className="text-lg font-semibold">Vhodné aj pre majiteľov</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              Pridáš ponuku a zarábaš na veciach, ktoré už máš doma.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="clock" />
+            </div>
+            <div className="text-lg font-semibold">Rýchly štart</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              Začni prehliadaním ponúk alebo rovno pridaj vlastnú vec.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
+        <div className="mb-6">
+          <div className="text-sm text-fuchsia-300">Ako to funguje</div>
+          <h2 className="mt-2 text-2xl font-semibold">Tri jednoduché kroky</h2>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {howItWorks.map((item) => (
+            <div
+              key={item.step}
+              className="rounded-3xl border border-white/10 bg-black/20 p-6"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-fuchsia-300">
+                  {item.step}
+                </div>
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300">
+                  <IconBadge icon={item.icon} />
+                </div>
+              </div>
+
+              <div className="mt-4 text-xl font-semibold">{item.title}</div>
+              <p className="mt-3 leading-7 text-white/70">{item.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="rounded-3xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
