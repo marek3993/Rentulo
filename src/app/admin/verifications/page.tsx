@@ -71,7 +71,7 @@ export default function AdminVerificationsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const load = async () => {
+  const load = async (nextPage = page, nextQuery = query.trim()) => {
     setStatus("Načítavam...");
 
     const { data: sess } = await supabase.auth.getSession();
@@ -104,18 +104,15 @@ export default function AdminVerificationsPage() {
       req = req.eq("status", statusFilter);
     }
 
-    const trimmed = query.trim();
-    if (trimmed) {
+    if (nextQuery) {
       req = req.or(
-        `full_name.ilike.%${trimmed}%,company_name.ilike.%${trimmed}%,ico.ilike.%${trimmed}%,note.ilike.%${trimmed}%`
+        `full_name.ilike.%${nextQuery}%,company_name.ilike.%${nextQuery}%,ico.ilike.%${nextQuery}%,note.ilike.%${nextQuery}%`
       );
     }
 
-    req = req.order(sort === "oldest" ? "id" : "id", {
-      ascending: sort === "oldest",
-    });
+    req = req.order("created_at", { ascending: sort === "oldest" });
 
-    const from = (page - 1) * PAGE_SIZE;
+    const from = (nextPage - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
     const { data, error, count } = await req.range(from, to);
@@ -138,7 +135,7 @@ export default function AdminVerificationsPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       setPage(1);
-      load();
+      load(1, query.trim());
     }, 250);
 
     return () => clearTimeout(t);
@@ -179,7 +176,6 @@ export default function AdminVerificationsPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Neznáma chyba pri ukladaní.";
       setStatus("Chyba: " + message);
-      alert(message);
     } finally {
       setUpdatingId(null);
     }
@@ -201,10 +197,7 @@ export default function AdminVerificationsPage() {
             </p>
           </div>
 
-          <Link
-            href="/admin"
-            className="rentulo-btn-secondary px-4 py-2.5 text-sm"
-          >
+          <Link href="/admin" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
             Späť do administrácie
           </Link>
         </div>
@@ -310,15 +303,8 @@ export default function AdminVerificationsPage() {
         ) : (
           <ul className="mt-4 space-y-3">
             {rows.map((row) => {
-              const canApprove =
-                row.status === "pending" ||
-                row.status === "not_submitted" ||
-                row.status === "rejected";
-
-              const canReject =
-                row.status === "pending" ||
-                row.status === "not_submitted" ||
-                row.status === "approved";
+              const canApprove = row.status === "pending" || row.status === "rejected";
+              const canReject = row.status === "pending" || row.status === "approved";
 
               return (
                 <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
@@ -366,7 +352,8 @@ export default function AdminVerificationsPage() {
                       </div>
 
                       <div className="text-sm text-white/50">
-                        Skontrolované: {formatDate(row.reviewed_at)}
+                        Skontrolované: {formatDate(row.reviewed_at)} · Admin:{" "}
+                        {row.reviewed_by ? shortUserId(row.reviewed_by) : "-"}
                       </div>
                     </div>
 
@@ -393,10 +380,7 @@ export default function AdminVerificationsPage() {
                         </button>
                       ) : null}
 
-                      <Link
-                        href={`/profile/${row.user_id}`}
-                        className="rentulo-btn-secondary px-4 py-2 text-sm"
-                      >
+                      <Link href={`/profile/${row.user_id}`} className="rentulo-btn-secondary px-4 py-2 text-sm">
                         Verejný profil
                       </Link>
                     </div>

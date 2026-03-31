@@ -58,7 +58,7 @@ export default function AdminUsersPage() {
   const adminCount = useMemo(() => rows.filter((r) => r.role === "admin").length, [rows]);
   const userCount = useMemo(() => rows.filter((r) => r.role !== "admin").length, [rows]);
 
-  const load = async () => {
+  const load = async (nextPage = page, nextQuery = query.trim()) => {
     setStatus("Načítavam...");
 
     const { data: sess } = await supabase.auth.getSession();
@@ -95,14 +95,13 @@ export default function AdminUsersPage() {
       req = req.eq("role", roleFilter);
     }
 
-    const q = query.trim();
-    if (q) {
-      req = req.or(`full_name.ilike.%${q}%,city.ilike.%${q}%,id.ilike.%${q}%`);
+    if (nextQuery) {
+      req = req.or(`full_name.ilike.%${nextQuery}%,city.ilike.%${nextQuery}%,id.ilike.%${nextQuery}%`);
     }
 
     req = req.order("created_at", { ascending: sort === "oldest" });
 
-    const from = (page - 1) * PAGE_SIZE;
+    const from = (nextPage - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
     const { data, error, count } = await req.range(from, to);
@@ -125,7 +124,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       setPage(1);
-      load();
+      load(1, query.trim());
     }, 250);
 
     return () => clearTimeout(t);
@@ -151,7 +150,6 @@ export default function AdminUsersPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Neznáma chyba pri zmene roly.";
       setStatus("Chyba: " + message);
-      alert(message);
     } finally {
       setUpdatingId(null);
     }
@@ -173,10 +171,7 @@ export default function AdminUsersPage() {
             </p>
           </div>
 
-          <Link
-            href="/admin"
-            className="rentulo-btn-secondary px-4 py-2.5 text-sm"
-          >
+          <Link href="/admin" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
             Späť do administrácie
           </Link>
         </div>
@@ -312,9 +307,7 @@ export default function AdminUsersPage() {
                         Vytvorené: {formatDate(row.created_at)}
                       </div>
 
-                      {isSelf ? (
-                        <div className="text-sm text-white/60">Toto si ty.</div>
-                      ) : null}
+                      {isSelf ? <div className="text-sm text-white/60">Toto si ty.</div> : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
@@ -340,10 +333,7 @@ export default function AdminUsersPage() {
                         </button>
                       ) : null}
 
-                      <Link
-                        href={`/profile/${row.id}`}
-                        className="rentulo-btn-secondary px-4 py-2 text-sm"
-                      >
+                      <Link href={`/profile/${row.id}`} className="rentulo-btn-secondary px-4 py-2 text-sm">
                         Verejný profil
                       </Link>
                     </div>

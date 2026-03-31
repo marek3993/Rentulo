@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type Stats = {
-  totalItems: number;
-  activeItems: number;
-  inactiveItems: number;
   pendingVerifications: number;
   approvedVerifications: number;
   rejectedVerifications: number;
@@ -105,9 +102,6 @@ export default function AdminDashboardPage() {
 
   const [status, setStatus] = useState("Načítavam...");
   const [stats, setStats] = useState<Stats>({
-    totalItems: 0,
-    activeItems: 0,
-    inactiveItems: 0,
     pendingVerifications: 0,
     approvedVerifications: 0,
     rejectedVerifications: 0,
@@ -148,7 +142,6 @@ export default function AdminDashboardPage() {
     }
 
     const [
-      itemsRes,
       pendingVerRes,
       approvedVerRes,
       rejectedVerRes,
@@ -159,7 +152,6 @@ export default function AdminDashboardPage() {
       latestUsersRes,
       latestActionsRes,
     ] = await Promise.all([
-      supabase.from("items").select("id,is_active", { count: "exact" }),
       supabase
         .from("user_verifications")
         .select("id", { count: "exact" })
@@ -178,7 +170,7 @@ export default function AdminDashboardPage() {
       supabase
         .from("user_verifications")
         .select("id,user_id,status,full_name,company_name,created_at")
-        .order("id", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(5),
       supabase
         .from("profiles")
@@ -192,12 +184,23 @@ export default function AdminDashboardPage() {
         .limit(5),
     ]);
 
-    const itemRows = (itemsRes.data ?? []) as { id: number; is_active: boolean }[];
+    const firstError =
+      pendingVerRes.error ||
+      approvedVerRes.error ||
+      rejectedVerRes.error ||
+      usersRes.error ||
+      adminsRes.error ||
+      auditRes.error ||
+      latestVerRes.error ||
+      latestUsersRes.error ||
+      latestActionsRes.error;
+
+    if (firstError) {
+      setStatus("Chyba: " + firstError.message);
+      return;
+    }
 
     setStats({
-      totalItems: itemsRes.count ?? itemRows.length,
-      activeItems: itemRows.filter((x) => x.is_active).length,
-      inactiveItems: itemRows.filter((x) => !x.is_active).length,
       pendingVerifications: pendingVerRes.count ?? 0,
       approvedVerifications: approvedVerRes.count ?? 0,
       rejectedVerifications: rejectedVerRes.count ?? 0,
@@ -218,8 +221,6 @@ export default function AdminDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const inactiveItemsCount = useMemo(() => stats.inactiveItems, [stats.inactiveItems]);
-
   return (
     <main className="space-y-6">
       <section className="rentulo-card p-6 md:p-8">
@@ -232,27 +233,24 @@ export default function AdminDashboardPage() {
             <h1 className="mt-4 text-3xl font-semibold">Admin dashboard</h1>
 
             <p className="mt-2 leading-7 text-white/70">
-              Jedno miesto pre správu inzerátov, overení používateľov, rolí a audit logu.
+              Prehľad používateľov, overení, audit logu a admin odkazov.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
-  <Link href="/admin/items" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-    Inzeráty
-  </Link>
-  <Link href="/admin/verifications" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-    Overenia
-  </Link>
-  <Link href="/admin/users" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-    Používatelia
-  </Link>
-  <Link href="/admin/disputes" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-    Spory
-  </Link>
-  <Link href="/admin/actions" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-    Audit log
-  </Link>
-</div>
+            <Link href="/admin/verifications" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+              Overenia
+            </Link>
+            <Link href="/admin/users" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+              Používatelia
+            </Link>
+            <Link href="/admin/disputes" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+              Spory
+            </Link>
+            <Link href="/admin/actions" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+              Audit log
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -260,12 +258,7 @@ export default function AdminDashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Inzeráty"
-          value={stats.totalItems}
-          subtitle={`${stats.activeItems} aktívnych · ${inactiveItemsCount} vypnutých`}
-        />
-        <StatCard
-          title="Overenia čakajúce"
+          title="Čakajúce overenia"
           value={stats.pendingVerifications}
           subtitle={`${stats.approvedVerifications} schválených · ${stats.rejectedVerifications} zamietnutých`}
         />
@@ -279,6 +272,23 @@ export default function AdminDashboardPage() {
           value={stats.totalAuditLogs}
           subtitle="Administrátorské zásahy"
         />
+        <div className="rentulo-card p-5">
+          <div className="text-sm text-white/60">Rýchle odkazy</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/admin/verifications" className="rentulo-btn-secondary px-3 py-2 text-sm">
+              Overenia
+            </Link>
+            <Link href="/admin/users" className="rentulo-btn-secondary px-3 py-2 text-sm">
+              Používatelia
+            </Link>
+            <Link href="/admin/actions" className="rentulo-btn-secondary px-3 py-2 text-sm">
+              Audit
+            </Link>
+            <Link href="/admin/disputes" className="rentulo-btn-secondary px-3 py-2 text-sm">
+              Spory
+            </Link>
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-3">
@@ -324,7 +334,7 @@ export default function AdminDashboardPage() {
         <div className="rentulo-card p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Poslední používatelia</h2>
+              <h2 className="text-lg font-semibold">Najnovší používatelia</h2>
               <p className="mt-1 text-sm text-white/60">Nové účty a ich roly.</p>
             </div>
 
@@ -391,13 +401,6 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Link href="/admin/items" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
-          <div className="text-lg font-semibold">Správa inzerátov</div>
-          <div className="mt-2 text-sm leading-6 text-white/70">
-            Zapínanie, vypínanie a prehľad všetkých ponúk.
-          </div>
-        </Link>
-
         <Link href="/admin/verifications" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
           <div className="text-lg font-semibold">Overenia profilov</div>
           <div className="mt-2 text-sm leading-6 text-white/70">
@@ -410,14 +413,14 @@ export default function AdminDashboardPage() {
           <div className="mt-2 text-sm leading-6 text-white/70">
             Pasovanie za admina a správa používateľských rolí.
           </div>
-        </Link> 
+        </Link>
 
         <Link href="/admin/disputes" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
-  <div className="text-lg font-semibold">Spory</div>
-  <div className="mt-2 text-sm leading-6 text-white/70">
-    Prehľad všetkých sporov a ich admin riešenie.
-  </div>
-</Link>
+          <div className="text-lg font-semibold">Spory</div>
+          <div className="mt-2 text-sm leading-6 text-white/70">
+            Prechod na admin spory.
+          </div>
+        </Link>
 
         <Link href="/admin/actions" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
           <div className="text-lg font-semibold">Audit log</div>
