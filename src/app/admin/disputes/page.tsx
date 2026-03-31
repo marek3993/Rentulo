@@ -1,18 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import {
-  Badge,
-  KpiCard,
-  Notice,
-  Pagination,
-  Section,
-  SelectField,
-  TextField,
-} from "@/components/owner/OwnerUI";
 
 type DisputeStatus = "open" | "under_review" | "resolved" | "closed" | string;
 
@@ -35,7 +26,7 @@ type ReservationRow = {
   date_from: string;
   date_to: string;
   status: string;
-  payment_status: string;
+  payment_status: string | null;
 };
 
 type ItemRow = {
@@ -47,6 +38,11 @@ type ProfileRow = {
   id: string;
   full_name: string | null;
   city: string | null;
+};
+
+type CurrentUserRow = {
+  id: string;
+  role: string | null;
 };
 
 const PAGE_SIZE = 12;
@@ -71,18 +67,22 @@ function disputeLabel(status: DisputeStatus) {
   return status;
 }
 
-function disputeTone(status: DisputeStatus) {
-  if (status === "open") return "danger";
-  if (status === "under_review") return "warning";
-  if (status === "resolved") return "success";
-  if (status === "closed") return "neutral";
-  return "neutral";
+function disputeBadgeClass(status: DisputeStatus) {
+  if (status === "open") return "bg-red-600/90 text-white";
+  if (status === "under_review") return "bg-yellow-400 text-black";
+  if (status === "resolved") return "bg-emerald-600/90 text-white";
+  if (status === "closed") return "bg-white/10 text-white";
+  return "bg-white/10 text-white";
+}
+
+function pageCount(total: number) {
+  return Math.max(1, Math.ceil(total / PAGE_SIZE));
 }
 
 export default function AdminDisputesPage() {
   const router = useRouter();
 
-  const [status, setStatus] = useState("Načítavam...");
+  const [statusText, setStatusText] = useState("Načítavam...");
   const [rows, setRows] = useState<DisputeRow[]>([]);
   const [total, setTotal] = useState(0);
 
@@ -92,19 +92,29 @@ export default function AdminDisputesPage() {
 
   const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState("newest");
 
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  const load = async () => {
-    setStatus("Načítavam...");
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(1);
+      setDebouncedQ(q.trim());
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const load = useCallback(async () => {
+    setStatusText("Načítavam...");
 
     const { data: sess } = await supabase.auth.getSession();
     const userId = sess.session?.user.id;
 
     if (!userId) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
 
@@ -115,11 +125,13 @@ export default function AdminDisputesPage() {
       .maybeSingle();
 
     if (meError) {
-      setStatus("Chyba: " + meError.message);
+      setStatusText("Chyba: " + meError.message);
       return;
     }
 
-    if (!me || me.role !== "admin") {
+    const meRow = me as CurrentUserRow | null;
+
+    if (!meRow || meRow.role !== "admin") {
       router.replace("/");
       return;
     }
@@ -135,7 +147,8 @@ export default function AdminDisputesPage() {
       req = req.eq("status", statusFilter);
     }
 
-    const queryText = q.trim();
+    const queryText = debouncedQ.replace(/,/g, " ").trim();
+
     if (queryText) {
       if (/^\d+$/.test(queryText)) {
         req = req.or(
@@ -156,7 +169,7 @@ export default function AdminDisputesPage() {
     const { data, error, count } = await req.range(from, to);
 
     if (error) {
-      setStatus("Chyba: " + error.message);
+      setStatusText("Chyba: " + error.message);
       return;
     }
 
@@ -171,11 +184,7 @@ export default function AdminDisputesPage() {
     );
 
     if (itemIds.length > 0) {
-      const { data: itemsData } = await supabase
-        .from("items")
-        .select("id,title")
-        .in("id", itemIds);
-
+      const { data: itemsData } = await supabase.from("items").select("id,title").in("id", itemIds);
       const nextItemMap: Record<number, string> = {};
       for (const item of (itemsData ?? []) as ItemRow[]) {
         nextItemMap[item.id] = item.title;
@@ -215,40 +224,19 @@ export default function AdminDisputesPage() {
       setProfileMap({});
     }
 
-    setStatus("");
-  };
+    setStatusText("");
+  }, [debouncedQ, page, router, sort, statusFilter]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, sort]);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setPage(1);
-      load();
-    }, 250);
-
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
-
-  const openCount = useMemo(() => rows.filter((r) => r.status === "open").length, [rows]);
-  const reviewCount = useMemo(
-    () => rows.filter((r) => r.status === "under_review").length,
-    [rows]
-  );
-  const closedCount = useMemo(
-    () => rows.filter((r) => r.status === "resolved" || r.status === "closed").length,
-    [rows]
-  );
+  }, [load]);
 
   const changeDisputeStatus = async (
-    id: number,
+    disputeId: number,
     nextStatus: "under_review" | "resolved" | "closed"
   ) => {
-    setUpdatingId(id);
-    setStatus("Ukladám zmenu...");
+    setUpdatingId(disputeId);
+    setStatusText("Ukladám zmenu...");
 
     const { error } = await supabase
       .from("disputes")
@@ -256,82 +244,144 @@ export default function AdminDisputesPage() {
         status: nextStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", disputeId);
 
     if (error) {
       setUpdatingId(null);
-      setStatus("Chyba: " + error.message);
+      setStatusText("Chyba: " + error.message);
       alert(error.message);
       return;
     }
 
     setUpdatingId(null);
-    setStatus("Stav sporu bol uložený ✅");
+    setStatusText("Stav sporu bol uložený ✅");
     await load();
   };
 
+  const openCount = useMemo(() => rows.filter((r) => r.status === "open").length, [rows]);
+  const reviewCount = useMemo(
+    () => rows.filter((r) => r.status === "under_review").length,
+    [rows]
+  );
+  const resolvedCount = useMemo(
+    () => rows.filter((r) => r.status === "resolved" || r.status === "closed").length,
+    [rows]
+  );
+
+  const totalPages = pageCount(total);
+
   return (
     <main className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">Admin · Spory</h2>
-        <p className="mt-1 text-white/60">Prehľad všetkých sporov v systéme.</p>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Admin · Spory</h1>
+            <p className="mt-1 text-white/60">Prehľad všetkých sporov v systéme.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">
+              Spolu: <strong className="text-white">{total}</strong>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/70">
+              Strana: <strong className="text-white">{page}</strong> / {totalPages}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {status ? <Notice text={status} /> : null}
+      {statusText ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{statusText}</div>
+      ) : null}
+
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="block">
+            <div className="mb-1 text-sm text-white/70">Hľadať</div>
+            <input
+              className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none placeholder:text-white/35"
+              placeholder="ID, dôvod alebo detail"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </label>
+
+          <label className="block">
+            <div className="mb-1 text-sm text-white/70">Stav</div>
+            <select
+              className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all" className="text-black">
+                Všetky
+              </option>
+              <option value="open" className="text-black">
+                Otvorené
+              </option>
+              <option value="under_review" className="text-black">
+                V riešení
+              </option>
+              <option value="resolved" className="text-black">
+                Vyriešené
+              </option>
+              <option value="closed" className="text-black">
+                Uzavreté
+              </option>
+            </select>
+          </label>
+
+          <label className="block">
+            <div className="mb-1 text-sm text-white/70">Triedenie</div>
+            <select
+              className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="newest" className="text-black">
+                Najnovšie
+              </option>
+              <option value="oldest" className="text-black">
+                Najstaršie
+              </option>
+            </select>
+          </label>
+        </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <KpiCard title="Zobrazené" value={rows.length} hint="Počet v aktuálnom zozname" />
-        <KpiCard title="Otvorené" value={openCount} hint="Na aktuálnej strane" />
-        <KpiCard title="V riešení" value={reviewCount} hint="Na aktuálnej strane" />
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-white/60">Otvorené</div>
+          <div className="mt-2 text-2xl font-semibold">{openCount}</div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-white/60">V riešení</div>
+          <div className="mt-2 text-2xl font-semibold">{reviewCount}</div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm text-white/60">Vyriešené / uzavreté</div>
+          <div className="mt-2 text-2xl font-semibold">{resolvedCount}</div>
+        </div>
       </div>
 
-      <Section
-        title="Vyhľadávanie a filtre"
-        subtitle="Filtruj podľa stavu alebo hľadaj podľa ID, dôvodu a detailov."
-      >
-        <div className="grid gap-3 md:grid-cols-3">
-          <TextField
-            id="admin-dispute-search"
-            label="Hľadať"
-            value={q}
-            onChange={setQ}
-            placeholder="ID, dôvod alebo detail"
-          />
-
-          <SelectField
-            id="admin-dispute-status"
-            label="Stav"
-            value={statusFilter}
-            onChange={(v) => {
-              setStatusFilter(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "all", label: "Všetky" },
-              { value: "open", label: "Otvorené" },
-              { value: "under_review", label: "V riešení" },
-              { value: "resolved", label: "Vyriešené" },
-              { value: "closed", label: "Uzavreté" },
-            ]}
-          />
-
-          <SelectField
-            id="admin-dispute-sort"
-            label="Triedenie"
-            value={sort}
-            onChange={(v) => {
-              setSort(v);
-              setPage(1);
-            }}
-            options={[
-              { value: "newest", label: "Najnovšie" },
-              { value: "oldest", label: "Najstaršie" },
-            ]}
-          />
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Zoznam sporov</h2>
+            <p className="mt-1 text-sm text-white/60">
+              Zobrazené: {rows.length} z {total}
+            </p>
+          </div>
         </div>
-      </Section>
 
-      <Section title="Zoznam sporov" subtitle={`Zobrazené: ${rows.length} z ${total}`}>
         {rows.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
             Žiadne spory podľa zvolených filtrov.
@@ -357,6 +407,13 @@ export default function AdminDisputesPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm text-white/50">Spor</span>
                         <strong className="text-base">#{row.id}</strong>
+                        <span
+                          className={`rounded-full px-3 py-1 text-sm font-medium ${disputeBadgeClass(
+                            row.status
+                          )}`}
+                        >
+                          {disputeLabel(row.status)}
+                        </span>
                       </div>
 
                       <div className="text-white/85">
@@ -369,10 +426,24 @@ export default function AdminDisputesPage() {
                       </div>
 
                       {reservation ? (
-                        <div className="text-white/80">
-                          <span className="text-white/50">Termín:</span>{" "}
-                          {formatDate(reservation.date_from)} → {formatDate(reservation.date_to)}
-                        </div>
+                        <>
+                          <div className="text-white/80">
+                            <span className="text-white/50">Termín:</span>{" "}
+                            {formatDate(reservation.date_from)} → {formatDate(reservation.date_to)}
+                          </div>
+
+                          <div className="text-white/80">
+                            <span className="text-white/50">Stav rezervácie:</span>{" "}
+                            {reservation.status}
+                          </div>
+
+                          {reservation.payment_status ? (
+                            <div className="text-white/80">
+                              <span className="text-white/50">Platba:</span>{" "}
+                              {reservation.payment_status}
+                            </div>
+                          ) : null}
+                        </>
                       ) : null}
 
                       <div className="text-white/80">
@@ -392,7 +463,7 @@ export default function AdminDisputesPage() {
                       </div>
 
                       {row.details ? (
-                        <div className="max-w-3xl whitespace-pre-wrap text-sm text-white/70">
+                        <div className="max-w-4xl whitespace-pre-wrap text-sm text-white/70">
                           {row.details}
                         </div>
                       ) : null}
@@ -402,8 +473,6 @@ export default function AdminDisputesPage() {
                         {formatDate(row.updated_at)}
                       </div>
                     </div>
-
-                    <Badge tone={disputeTone(row.status)}>{disputeLabel(row.status)}</Badge>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -441,8 +510,15 @@ export default function AdminDisputesPage() {
                     ) : null}
 
                     <Link
+                      href={`/admin/disputes/${row.id}`}
                       className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
+                    >
+                      Detail sporu
+                    </Link>
+
+                    <Link
                       href={`/items/${row.item_id}`}
+                      className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
                     >
                       Detail ponuky
                     </Link>
@@ -453,16 +529,30 @@ export default function AdminDisputesPage() {
           </ul>
         )}
 
-        <div className="mt-4">
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
-        </div>
-      </Section>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Predchádzajúca
+          </button>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <KpiCard title="Uzavreté / vyriešené" value={closedCount} hint="Na aktuálnej strane" />
-        <KpiCard title="Strana" value={page} hint="Aktuálna strana" />
-        <KpiCard title="Spolu" value={total} hint="Počet sporov podľa filtra" />
-      </div>
+          <div className="text-sm text-white/60">
+            Strana {page} z {totalPages}
+          </div>
+
+          <button
+            type="button"
+            className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Ďalšia
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
