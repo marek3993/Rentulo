@@ -1,82 +1,152 @@
 ﻿{
-  "version": 1,
+  "version": 2,
   "last_updated_by": "RENTULO MASTER",
-  "registry_status": "partial_bootstrap",
+  "registry_status": "partially_verified_from_real_rentulo_repo",
   "notes": [
-    "This file is intentionally usable before full repo mapping.",
-    "Replace unknown paths only after real repo read.",
-    "Keep keys stable once downstream chats start depending on them."
+    "Filled from real local repo tree at C:\\Projects\\rentulo.",
+    "Confirmed Next.js app router structure under src/app.",
+    "Confirmed shared UI components under src/components.",
+    "Confirmed shared libs under src/lib.",
+    "No standalone supabase directory was present in the provided local output.",
+    "No standalone jobs or worker directory was confirmed from the provided local output.",
+    "Anything not confirmed from local output remains explicit unknown."
   ],
   "paths": {
     "app_root": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO APP",
-      "purpose": "Main application root"
+      "purpose": "Main Next.js app router root"
     },
     "shared_components": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/components",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO APP",
       "purpose": "Shared UI/components"
     },
+    "shared_lib": {
+      "path": "src/lib",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Shared client/server helper modules"
+    },
     "feature_routes": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO APP",
       "purpose": "User-facing route surfaces"
     },
+    "api_routes": {
+      "path": "src/app/api",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Route handlers for checkout, maintenance, helpers, and webhooks"
+    },
     "supabase_sql": {
       "path": "unknown",
-      "status": "not_yet_verified",
+      "status": "not_found_in_local_output",
       "owner": "RENTULO DATA",
       "purpose": "SQL migrations, policies, functions, views"
     },
     "schema_docs": {
       "path": "source_of_truth",
-      "status": "active",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO DATA",
       "purpose": "Truth documentation for schema-related understanding"
     },
     "automation_jobs": {
       "path": "unknown",
-      "status": "not_yet_verified",
+      "status": "not_confirmed_from_local_output",
       "owner": "RENTULO AUTOMATION",
       "purpose": "Cron jobs, background workers, schedulers"
     },
     "webhook_handlers": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app/api/stripe/webhook",
+      "status": "confirmed_directory_from_local_output",
       "owner": "RENTULO AUTOMATION",
-      "purpose": "Webhook receivers and processors"
+      "purpose": "Stripe webhook receiver"
+    },
+    "maintenance_routes": {
+      "path": "src/app/api/maintenance",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Maintenance-triggered route handlers"
+    },
+    "checkout_route": {
+      "path": "src/app/api/checkout/route.ts",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO PLATBY",
+      "purpose": "Checkout route handler"
     },
     "payments_module": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app/payment",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO PLATBY",
-      "purpose": "Payment-related feature implementation"
+      "purpose": "Payment-related feature surface"
     },
     "messages_module": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app/messages",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
-      "purpose": "Messaging and notifications feature implementation"
+      "purpose": "Messaging feature surface"
+    },
+    "notifications_module": {
+      "path": "src/app/notifications",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "purpose": "Notifications feature surface"
     },
     "disputes_module": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app/disputes",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO SPORY A REKLAMÁCIE",
-      "purpose": "Disputes and complaints implementation"
+      "purpose": "Disputes feature surface"
+    },
+    "owner_disputes_module": {
+      "path": "src/app/owner/disputes",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPORY A REKLAMÁCIE",
+      "purpose": "Owner disputes feature surface"
     },
     "listings_module": {
-      "path": "unknown",
-      "status": "not_yet_verified",
+      "path": "src/app/items",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO INZERÁTY A FOTKY",
-      "purpose": "Listings and media feature implementation"
+      "purpose": "Listings feature surface"
+    },
+    "owner_items_module": {
+      "path": "src/app/owner/items",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO INZERÁTY A FOTKY",
+      "purpose": "Owner listings feature surface"
+    },
+    "reservations_module": {
+      "path": "src/app/reservations",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "User reservations surface"
+    },
+    "owner_reservations_module": {
+      "path": "src/app/owner/reservations",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Owner reservations surface"
+    },
+    "profile_module": {
+      "path": "src/app/profile",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Profile feature surface"
+    },
+    "admin_module": {
+      "path": "src/app/admin",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO MASTER",
+      "purpose": "Admin feature surface"
     },
     "source_of_truth_root": {
       "path": "source_of_truth",
-      "status": "active",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO MASTER",
       "purpose": "Central truth layer for project governance"
     }

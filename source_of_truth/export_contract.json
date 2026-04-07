@@ -1,104 +1,183 @@
 ﻿{
-  "version": 1,
-  "status": "partial_not_yet_formalized",
+  "version": 2,
+  "status": "partially_verified_from_real_rentulo_repo",
   "owner": "RENTULO APP",
   "purpose": "Defines app-facing truth surfaces that UI can rely on.",
   "notes": [
-    "This is an initial bootstrap contract, not a full audited contract.",
-    "Only formalize fields here after repo/path validation.",
-    "Unknown items must remain explicit until verified."
+    "Filled from real local repo tree at C:\\Projects\\rentulo.",
+    "Surface presence is confirmed from route/component paths only.",
+    "Inputs and outputs remain unknown until deeper repo audit.",
+    "No standalone Supabase schema/migrations directory was confirmed from the provided local output."
   ],
   "surfaces": {
     "homepage": {
-      "status": "not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Homepage contract not yet audited."
+      "notes": "Homepage route file confirmed."
     },
     "items_list": {
-      "status": "not_yet_formalized",
-      "source_owner": "RENTULO APP",
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/items/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Items listing contract not yet audited."
+      "notes": "Items listing route confirmed."
     },
     "item_detail": {
-      "status": "not_yet_formalized",
-      "source_owner": "RENTULO APP",
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/items/[id]/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Item detail contract not yet audited."
+      "notes": "Item detail route confirmed."
+    },
+    "item_create": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/items/new/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Item creation route confirmed."
     },
     "profile": {
-      "status": "not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/profile/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Profile contract not yet audited."
+      "notes": "Profile route confirmed."
+    },
+    "profile_public": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/profile/[id]/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Public profile route confirmed."
     },
     "reservations_ui": {
-      "status": "not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/reservations/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Reservations surface contract not yet audited."
+      "notes": "Reservations route confirmed."
     },
     "owner_items": {
-      "status": "not_yet_formalized",
-      "source_owner": "RENTULO APP",
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/owner/items/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Owner items contract not yet audited."
+      "notes": "Owner items route confirmed."
     },
     "owner_reservations": {
-      "status": "not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
+      "path": "src/app/owner/reservations/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Owner reservations contract not yet audited."
+      "notes": "Owner reservations route confirmed."
     },
     "messages_notifications": {
-      "status": "not_yet_formalized",
+      "status": "routes_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/messages/page.tsx",
+        "src/app/messages/[id]/page.tsx",
+        "src/app/notifications/page.tsx",
+        "src/components/NotificationBell.tsx",
+        "src/components/NotificationToaster.tsx"
+      ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Split ownership: product surface vs runtime delivery."
+      "notes": "Messaging and notification surfaces/components confirmed."
     },
     "payments_surfaces": {
-      "status": "not_yet_formalized",
+      "status": "routes_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO PLATBY",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/payment/page.tsx",
+        "src/app/api/checkout/route.ts",
+        "src/app/api/stripe/webhook"
+      ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Split ownership between payment product, data truth, and runtime events."
+      "notes": "Payment page and related API/webhook paths confirmed."
     },
     "disputes_surfaces": {
-      "status": "not_yet_formalized",
+      "status": "routes_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO SPORY A REKLAMÁCIE",
       "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/disputes/page.tsx",
+        "src/app/disputes/new/page.tsx",
+        "src/app/owner/disputes/page.tsx"
+      ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Disputes surface contract not yet audited."
+      "notes": "Disputes routes confirmed."
     },
     "listings_media_surfaces": {
-      "status": "not_yet_formalized",
+      "status": "routes_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO INZERÁTY A FOTKY",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/items/page.tsx",
+        "src/app/items/new/page.tsx",
+        "src/app/items/[id]/page.tsx",
+        "src/app/owner/items/page.tsx"
+      ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Listings/media contract not yet audited."
+      "notes": "Listings routes confirmed. No separate media-processing path confirmed yet."
+    },
+    "auth_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/login/page.tsx",
+        "src/app/register/page.tsx",
+        "src/app/verification/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Auth-related routes confirmed."
+    },
+    "admin_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO MASTER",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/admin/page.tsx",
+        "src/app/admin/actions/page.tsx",
+        "src/app/admin/disputes/page.tsx",
+        "src/app/admin/items/page.tsx",
+        "src/app/admin/reservations/page.tsx",
+        "src/app/admin/users/page.tsx",
+        "src/app/admin/verifications/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Admin routes confirmed. Detailed admin contract not yet formalized."
     }
   }
 }
