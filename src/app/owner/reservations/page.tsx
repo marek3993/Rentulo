@@ -70,6 +70,15 @@ type PaymentEvent = {
   created_at: string;
 };
 
+type RenterProfileRow = {
+  id: string;
+  full_name: string | null;
+  city: string | null;
+  verification_status: RenterProfileMeta["verification_status"];
+};
+
+type ConditionPhotoRow = Omit<ConditionPhoto, "signed_url">;
+
 function verificationBadgeClass(status: string) {
   if (status === "verified") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
@@ -229,91 +238,109 @@ export default function OwnerReservationsPage() {
     const renterIds = Array.from(
       new Set(reservationRows.map((r) => r.renter_id).filter(Boolean))
     );
-
-    if (renterIds.length > 0) {
-      const { data: renterProfiles } = await supabase
-        .from("profiles")
-        .select("id,full_name,city,verification_status")
-        .in("id", renterIds);
-
-      const nextRenterMap: Record<string, RenterProfileMeta> = {};
-      for (const p of (renterProfiles ?? []) as any[]) {
-        nextRenterMap[p.id] = {
-          full_name: p.full_name ?? null,
-          city: p.city ?? null,
-          verification_status: p.verification_status ?? "unverified",
-        };
-      }
-
-      setRenterProfileMap(nextRenterMap);
-    } else {
-      setRenterProfileMap({});
-    }
-
-    const { data: conversationsData } = await supabase
-      .from("conversations")
-      .select("id,item_id,owner_id,renter_id,reservation_id")
-      .eq("owner_id", userId)
-      .in("item_id", itemIds);
-
-    const nextConversationMap: Record<number, number> = {};
-    for (const reservation of reservationRows) {
-      const match = ((conversationsData ?? []) as ConversationRow[]).find(
-        (c) => c.item_id === reservation.item_id && c.renter_id === reservation.renter_id
-      );
-
-      if (match) {
-        nextConversationMap[reservation.id] = match.id;
-      }
-    }
-    setConversationMap(nextConversationMap);
-
     const reservationIds = reservationRows.map((r) => r.id);
+
     if (reservationIds.length === 0) {
+      setRenterProfileMap({});
+      setConversationMap({});
       setPhotoMap({});
       setPaymentEventMap({});
       setStatus("");
       return;
     }
 
-    const { data: paymentEventsData } = await supabase
-      .from("payment_events")
-      .select("id,reservation_id,event_type,provider,note,created_at")
-      .in("reservation_id", reservationIds)
-      .order("created_at", { ascending: false });
+    const [renterProfilesResult, conversationsResult, paymentEventsResult, photosResult] =
+      await Promise.all([
+        renterIds.length > 0
+          ? supabase
+              .from("profiles")
+              .select("id,full_name,city,verification_status")
+              .in("id", renterIds)
+          : Promise.resolve({ data: [] as RenterProfileRow[], error: null }),
+        supabase
+          .from("conversations")
+          .select("id,item_id,owner_id,renter_id,reservation_id")
+          .eq("owner_id", userId)
+          .in("item_id", itemIds),
+        supabase
+          .from("payment_events")
+          .select("id,reservation_id,event_type,provider,note,created_at")
+          .in("reservation_id", reservationIds)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("rental_condition_photos")
+          .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
+          .in("reservation_id", reservationIds)
+          .order("created_at", { ascending: false }),
+      ]);
+
+    const nextRenterMap: Record<string, RenterProfileMeta> = {};
+    if (!renterProfilesResult.error) {
+      for (const profile of (renterProfilesResult.data ?? []) as RenterProfileRow[]) {
+        nextRenterMap[profile.id] = {
+          full_name: profile.full_name ?? null,
+          city: profile.city ?? null,
+          verification_status: profile.verification_status ?? "unverified",
+        };
+      }
+    }
+    setRenterProfileMap(nextRenterMap);
+
+    const conversationLookup = new Map<string, number>();
+    if (!conversationsResult.error) {
+      for (const conversation of (conversationsResult.data ?? []) as ConversationRow[]) {
+        conversationLookup.set(`${conversation.item_id}:${conversation.renter_id}`, conversation.id);
+      }
+    }
+
+    const nextConversationMap: Record<number, number> = {};
+    for (const reservation of reservationRows) {
+      const conversationId = conversationLookup.get(
+        `${reservation.item_id}:${reservation.renter_id}`
+      );
+
+      if (conversationId) {
+        nextConversationMap[reservation.id] = conversationId;
+      }
+    }
+    setConversationMap(nextConversationMap);
 
     const nextPaymentEventMap: Record<number, PaymentEvent[]> = {};
-    for (const ev of (paymentEventsData ?? []) as PaymentEvent[]) {
-      if (!nextPaymentEventMap[ev.reservation_id]) {
-        nextPaymentEventMap[ev.reservation_id] = [];
+    if (!paymentEventsResult.error) {
+      for (const event of (paymentEventsResult.data ?? []) as PaymentEvent[]) {
+        if (!nextPaymentEventMap[event.reservation_id]) {
+          nextPaymentEventMap[event.reservation_id] = [];
+        }
+        nextPaymentEventMap[event.reservation_id].push(event);
       }
-      nextPaymentEventMap[ev.reservation_id].push(ev);
     }
     setPaymentEventMap(nextPaymentEventMap);
 
-    const { data: photosData, error: photosErr } = await supabase
-      .from("rental_condition_photos")
-      .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
-      .in("reservation_id", reservationIds)
-      .order("created_at", { ascending: false });
-
-    if (photosErr) {
+    if (photosResult.error) {
       setPhotoMap({});
       setStatus("");
       return;
     }
 
-    const map: Record<number, ConditionPhoto[]> = {};
+    const photoRows = (photosResult.data ?? []) as ConditionPhotoRow[];
+    const photoPaths = Array.from(
+      new Set(photoRows.map((photo) => photo.path).filter((path): path is string => !!path))
+    );
+    const signedUrlMap = new Map<string, string | null>();
 
-    for (const raw of (photosData ?? []) as any[]) {
-      let signedUrl: string | null = null;
-
-      const { data: signed } = await supabase.storage
+    if (photoPaths.length > 0) {
+      const { data: signedUrls } = await supabase.storage
         .from("rental-condition-photos")
-        .createSignedUrl(raw.path, 60 * 60);
+        .createSignedUrls(photoPaths, 60 * 60);
 
-      signedUrl = signed?.signedUrl ?? null;
+      for (const signed of signedUrls ?? []) {
+        signedUrlMap.set(signed.path, signed.signedUrl ?? null);
+      }
+    }
 
+    const nextPhotoMap: Record<number, ConditionPhoto[]> = {};
+
+    for (const raw of photoRows) {
       const photo: ConditionPhoto = {
         id: raw.id,
         reservation_id: raw.reservation_id,
@@ -323,16 +350,16 @@ export default function OwnerReservationsPage() {
         path: raw.path,
         note: raw.note,
         created_at: raw.created_at,
-        signed_url: signedUrl,
+        signed_url: signedUrlMap.get(raw.path) ?? null,
       };
 
-      if (!map[photo.reservation_id]) {
-        map[photo.reservation_id] = [];
+      if (!nextPhotoMap[photo.reservation_id]) {
+        nextPhotoMap[photo.reservation_id] = [];
       }
-      map[photo.reservation_id].push(photo);
+      nextPhotoMap[photo.reservation_id].push(photo);
     }
 
-    setPhotoMap(map);
+    setPhotoMap(nextPhotoMap);
     setStatus("");
   };
 
