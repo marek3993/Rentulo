@@ -1,0 +1,2026 @@
+﻿===== source_of_truth\master_state.md =====
+# Rentulo Master State
+
+## Project
+- Name: Rentulo
+- Stack: Next.js + TypeScript + Supabase + Vercel
+- Operating mode: segmented chat system with MASTER governance
+
+## Current chat system
+- MASTER = orchestration, approvals, routing, truth governance
+- APP = app surfaces, shared UX, app-facing export contract
+- DATA = SQL, schema, RLS, migrations, upstream/source truth
+- AUTOMATION = cron, background jobs, webhooks, retries, runtime health
+- ENGINEERING HYGIENE = low-risk cleanup without behavior change
+- Domain chats remain active for product-specific implementation
+
+## Current known domain chats
+- RENTULO SPRÁVY A NOTIFIKÁCIE
+- RENTULO SPORY A REKLAMÁCIE
+- RENTULO INZERÁTY A FOTKY
+- RENTULO PLATBY
+
+## Current truth status
+- Chat operating system: active
+- Source-of-truth repo layer: bootstrapped
+- Repo path registry: partial / to be filled from real repo structure
+- Export contract: partial / not yet formalized
+- Issue registry: initialized, no confirmed issues recorded in this file yet
+
+## Master routing rule
+1. Najprv rozhodni owner chat
+2. Nemixuj scope bez dôvodu
+3. Ak je task cross-cutting, MASTER rozseká workflow
+4. Ak ďalší krok patrí tomu istému ownerovi, nepíš prompt sám sebe
+5. Ak ďalší krok patrí inému segmentu, urob presný handoff
+
+## Immediate operating priority
+1. používať tieto truth súbory pri každom väčšom tasku
+2. doplniť reálne repo paths do `paths_registry.json`
+3. doplniť reálny export contract do `export_contract.json`
+4. priebežne aktualizovať `current_issues.md`
+
+
+===== source_of_truth\chat_roles.md =====
+# Rentulo Chat Roles
+
+## RENTULO MASTER
+Rieši:
+- official truth pre celý projekt
+- routing medzi chatmi
+- approvals a next best step
+- handoff prompty
+- governance nad scope hranicami
+- operating system práce
+
+Nerieši:
+- deep implementation
+- detailný debugging
+- dlhé multi-file feature patchovanie mimo routing role
+
+Posiela ďalej:
+- RENTULO APP
+- RENTULO DATA
+- RENTULO AUTOMATION
+- RENTULO ENGINEERING HYGIENE
+- RENTULO SPRÁVY A NOTIFIKÁCIE
+- RENTULO SPORY A REKLAMÁCIE
+- RENTULO INZERÁTY A FOTKY
+- RENTULO PLATBY
+
+---
+
+## RENTULO APP
+Rieši:
+- homepage
+- items
+- item detail
+- profile
+- reservations UI
+- owner items
+- owner reservations
+- shared app shell a UX
+- app export contract
+- status presentation a read-only observability v appke
+
+Nerieši:
+- DB root cause a upstream chain
+- cron/job/webhook runtime
+- payment core
+- dispute core
+
+Posiela ďalej:
+- RENTULO DATA
+- RENTULO AUTOMATION
+- RENTULO PLATBY
+- RENTULO MASTER
+
+---
+
+## RENTULO DATA
+Rieši:
+- SQL
+- schema
+- migrations
+- RLS
+- views
+- RPC
+- source truth
+- producer chains
+- first broken stage
+- upstream root cause
+
+Nerieši:
+- page UX
+- runtime scheduler orchestration
+- visual polish
+- general product decisions
+
+Posiela ďalej:
+- RENTULO APP
+- RENTULO AUTOMATION
+- RENTULO MASTER
+
+---
+
+## RENTULO AUTOMATION
+Rieši:
+- cron jobs
+- scheduled tasks
+- background processing
+- retries
+- webhook orchestration
+- runtime health
+- canary proof
+- kill-switch
+- evidence/log discipline
+
+Nerieši:
+- app UX
+- DB design mimo runtime chain
+- broad cleanup
+- payment/dispute product decisions
+
+Posiela ďalej:
+- RENTULO DATA
+- RENTULO APP
+- RENTULO MASTER
+- RENTULO SPRÁVY A NOTIFIKÁCIE pri messaging product scope
+
+---
+
+## RENTULO ENGINEERING HYGIENE
+Rieši:
+- low-risk cleanup
+- dedup
+- naming cleanup
+- split by role
+- forensic readability
+- contract cleanup bez zmeny správania
+
+Nerieši:
+- nové feature rozhodnutia
+- risky refactor
+- runtime orchestration
+- product scope ownership
+
+Posiela ďalej:
+- owner segment
+- RENTULO MASTER
+
+---
+
+## RENTULO SPRÁVY A NOTIFIKÁCIE
+Rieši:
+- messages/inbox UI
+- notification UX
+- unread states
+- messaging-related user flows
+- notification copy a product behavior
+
+Nerieši:
+- generic scheduler/runtime infra
+- payment flows
+- dispute flows
+- generic shared shell mimo messaging potrieb
+
+Posiela ďalej:
+- RENTULO AUTOMATION
+- RENTULO DATA
+- RENTULO APP
+- RENTULO MASTER
+
+---
+
+## RENTULO SPORY A REKLAMÁCIE
+Rieši:
+- disputes
+- complaints
+- evidence flows
+- resolution states
+- dispute-related user/admin actions
+
+Nerieši:
+- payment engine mimo dispute scope
+- generic app shell
+- generic runtime infra
+
+Posiela ďalej:
+- RENTULO PLATBY
+- RENTULO DATA
+- RENTULO APP
+- RENTULO MASTER
+
+---
+
+## RENTULO INZERÁTY A FOTKY
+Rieši:
+- listing creation/edit
+- listing owner workflows
+- photo/media upload flows
+- galleries
+- listing presentation
+
+Nerieši:
+- payment flows
+- dispute flows
+- generic app shell mimo listing scope
+- general scheduler ownership
+
+Posiela ďalej:
+- RENTULO DATA
+- RENTULO APP
+- RENTULO AUTOMATION
+- RENTULO MASTER
+
+---
+
+## RENTULO PLATBY
+Rieši:
+- payment flows
+- billing state
+- checkout
+- payout/refund-related product logic
+- payment truth pre app surfaces
+
+Nerieši:
+- generic UI shell
+- non-payment domains
+- general cleanup ownership
+
+Posiela ďalej:
+- RENTULO DATA
+- RENTULO AUTOMATION
+- RENTULO APP
+- RENTULO SPORY A REKLAMÁCIE
+- RENTULO MASTER
+
+
+===== source_of_truth\paths_registry.json =====
+{
+  "version": 2,
+  "last_updated_by": "RENTULO MASTER",
+  "registry_status": "partially_verified_from_real_rentulo_repo",
+  "notes": [
+    "Filled from real local repo tree at C:\\Projects\\rentulo.",
+    "Confirmed Next.js app router structure under src/app.",
+    "Confirmed shared UI components under src/components.",
+    "Confirmed shared libs under src/lib.",
+    "No standalone supabase directory was present in the provided local output.",
+    "No standalone jobs or worker directory was confirmed from the provided local output.",
+    "Anything not confirmed from local output remains explicit unknown."
+  ],
+  "paths": {
+    "app_root": {
+      "path": "src/app",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Main Next.js app router root"
+    },
+    "shared_components": {
+      "path": "src/components",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Shared UI/components"
+    },
+    "shared_lib": {
+      "path": "src/lib",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Shared client/server helper modules"
+    },
+    "feature_routes": {
+      "path": "src/app",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "User-facing route surfaces"
+    },
+    "api_routes": {
+      "path": "src/app/api",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Route handlers for checkout, maintenance, helpers, and webhooks"
+    },
+    "supabase_sql": {
+      "path": "unknown",
+      "status": "not_found_in_local_output",
+      "owner": "RENTULO DATA",
+      "purpose": "SQL migrations, policies, functions, views"
+    },
+    "schema_docs": {
+      "path": "source_of_truth",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO DATA",
+      "purpose": "Truth documentation for schema-related understanding"
+    },
+    "automation_jobs": {
+      "path": "unknown",
+      "status": "not_confirmed_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Cron jobs, background workers, schedulers"
+    },
+    "webhook_handlers": {
+      "path": "src/app/api/stripe/webhook",
+      "status": "confirmed_directory_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Stripe webhook receiver"
+    },
+    "maintenance_routes": {
+      "path": "src/app/api/maintenance",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Maintenance-triggered route handlers"
+    },
+    "checkout_route": {
+      "path": "src/app/api/checkout/route.ts",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO PLATBY",
+      "purpose": "Checkout route handler"
+    },
+    "payments_module": {
+      "path": "src/app/payment",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO PLATBY",
+      "purpose": "Payment-related feature surface"
+    },
+    "messages_module": {
+      "path": "src/app/messages",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "purpose": "Messaging feature surface"
+    },
+    "notifications_module": {
+      "path": "src/app/notifications",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "purpose": "Notifications feature surface"
+    },
+    "disputes_module": {
+      "path": "src/app/disputes",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPORY A REKLAMÁCIE",
+      "purpose": "Disputes feature surface"
+    },
+    "owner_disputes_module": {
+      "path": "src/app/owner/disputes",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO SPORY A REKLAMÁCIE",
+      "purpose": "Owner disputes feature surface"
+    },
+    "listings_module": {
+      "path": "src/app/items",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO INZERÁTY A FOTKY",
+      "purpose": "Listings feature surface"
+    },
+    "owner_items_module": {
+      "path": "src/app/owner/items",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO INZERÁTY A FOTKY",
+      "purpose": "Owner listings feature surface"
+    },
+    "reservations_module": {
+      "path": "src/app/reservations",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "User reservations surface"
+    },
+    "owner_reservations_module": {
+      "path": "src/app/owner/reservations",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Owner reservations surface"
+    },
+    "profile_module": {
+      "path": "src/app/profile",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO APP",
+      "purpose": "Profile feature surface"
+    },
+    "admin_module": {
+      "path": "src/app/admin",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO MASTER",
+      "purpose": "Admin feature surface"
+    },
+    "source_of_truth_root": {
+      "path": "source_of_truth",
+      "status": "confirmed_from_local_output",
+      "owner": "RENTULO MASTER",
+      "purpose": "Central truth layer for project governance"
+    }
+  }
+}
+
+
+===== source_of_truth\export_contract.json =====
+{
+  "version": 2,
+  "status": "partially_verified_from_real_rentulo_repo",
+  "owner": "RENTULO APP",
+  "purpose": "Defines app-facing truth surfaces that UI can rely on.",
+  "notes": [
+    "Filled from real local repo tree at C:\\Projects\\rentulo.",
+    "Surface presence is confirmed from route/component paths only.",
+    "Inputs and outputs remain unknown until deeper repo audit.",
+    "No standalone Supabase schema/migrations directory was confirmed from the provided local output."
+  ],
+  "surfaces": {
+    "homepage": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Homepage route file confirmed."
+    },
+    "items_list": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/items/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Items listing route confirmed."
+    },
+    "item_detail": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/items/[id]/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Item detail route confirmed."
+    },
+    "item_create": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/items/new/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Item creation route confirmed."
+    },
+    "profile": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/profile/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Profile route confirmed."
+    },
+    "profile_public": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/profile/[id]/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Public profile route confirmed."
+    },
+    "reservations_ui": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/reservations/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Reservations route confirmed."
+    },
+    "owner_items": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/owner/items/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Owner items route confirmed."
+    },
+    "owner_reservations": {
+      "status": "route_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/owner/reservations/page.tsx",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Owner reservations route confirmed."
+    },
+    "messages_notifications": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/messages/page.tsx",
+        "src/app/messages/[id]/page.tsx",
+        "src/app/notifications/page.tsx",
+        "src/components/NotificationBell.tsx",
+        "src/components/NotificationToaster.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Messaging and notification surfaces/components confirmed."
+    },
+    "payments_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO PLATBY",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/payment/page.tsx",
+        "src/app/api/checkout/route.ts",
+        "src/app/api/stripe/webhook"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Payment page and related API/webhook paths confirmed."
+    },
+    "disputes_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO SPORY A REKLAMÁCIE",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/disputes/page.tsx",
+        "src/app/disputes/new/page.tsx",
+        "src/app/owner/disputes/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Disputes routes confirmed."
+    },
+    "listings_media_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "paths": [
+        "src/app/items/page.tsx",
+        "src/app/items/new/page.tsx",
+        "src/app/items/[id]/page.tsx",
+        "src/app/owner/items/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Listings routes confirmed. No separate media-processing path confirmed yet."
+    },
+    "auth_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/login/page.tsx",
+        "src/app/register/page.tsx",
+        "src/app/verification/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Auth-related routes confirmed."
+    },
+    "admin_surfaces": {
+      "status": "routes_confirmed_contract_not_yet_formalized",
+      "source_owner": "RENTULO MASTER",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/admin/page.tsx",
+        "src/app/admin/actions/page.tsx",
+        "src/app/admin/disputes/page.tsx",
+        "src/app/admin/items/page.tsx",
+        "src/app/admin/reservations/page.tsx",
+        "src/app/admin/users/page.tsx",
+        "src/app/admin/verifications/page.tsx"
+      ],
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Admin routes confirmed. Detailed admin contract not yet formalized."
+    }
+  }
+}
+
+
+===== src\app\layout.tsx =====
+import "./globals.css";
+import ClientNav from "@/components/ClientNav";
+import NotificationToaster from "@/components/NotificationToaster";
+
+
+export const metadata = {
+  title: "Rentulo",
+  description: "Peer-to-peer rentals",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="sk">
+      <body className="min-h-screen bg-neutral-950 text-white">
+        <ClientNav />
+        <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      </body>
+    </html>
+  );
+}
+
+===== src\app\page.tsx =====
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+
+type SuggestedItem = {
+  id: number;
+  title: string;
+  price_per_day: number | null;
+  city: string | null;
+  category: string | null;
+  score: number;
+};
+
+type TaskHelperResponse = {
+  task_title: string;
+  summary: string;
+  difficulty: string;
+  steps: string[];
+  required_tools: string[];
+  optional_tools: string[];
+  safety_tips: string[];
+  search_keywords: string[];
+  suggested_items: SuggestedItem[];
+};
+
+type IconName =
+  | "tool"
+  | "leaf"
+  | "spark"
+  | "home"
+  | "pin"
+  | "chat"
+  | "shield"
+  | "clock";
+
+const categories: {
+  title: string;
+  description: string;
+  href: string;
+  icon: IconName;
+}[] = [
+  {
+    title: "NĂˇradie",
+    description: "VĹ•taÄŤky, brĂşsky, pĂ­ly, rezaÄŤky, hobby aj profi kusy.",
+    href: "/items",
+    icon: "tool",
+  },
+  {
+    title: "ZĂˇhrada",
+    description: "KosaÄŤky, plotostrihy, krovinorezy, vysĂˇvaÄŤe lĂ­stia.",
+    href: "/items",
+    icon: "leaf",
+  },
+  {
+    title: "ÄŚistenie",
+    description: "TepovaÄŤe, wapky, priemyselnĂ© vysĂˇvaÄŤe, odvlhÄŤovaÄŤe.",
+    href: "/items",
+    icon: "spark",
+  },
+  {
+    title: "Dom a dielĹa",
+    description: "RebrĂ­ky, vozĂ­ky, mieĹˇaÄŤky, ohrievaÄŤe, drobnĂˇ technika.",
+    href: "/items",
+    icon: "home",
+  },
+];
+
+const howItWorks = [
+  {
+    step: "01",
+    title: "NĂˇjdi sprĂˇvnu vec",
+    description:
+      "PozrieĹˇ ponuky, otvorĂ­Ĺˇ detail a vyberieĹˇ termĂ­n, ktorĂ˝ ti sedĂ­.",
+    icon: "pin" as IconName,
+  },
+  {
+    step: "02",
+    title: "Rezervuj bez chaosu",
+    description:
+      "VidĂ­Ĺˇ stav rezervĂˇcie, komunikĂˇciu aj ÄŹalĹˇie kroky na jednom mieste.",
+    icon: "clock" as IconName,
+  },
+  {
+    step: "03",
+    title: "PouĹľi a vrĂˇĹĄ",
+    description:
+      "Odovzdanie, vrĂˇtenie a potvrdenie prebehnĂş cez jasnĂ˝ flow v aplikĂˇcii.",
+    icon: "shield" as IconName,
+  },
+];
+
+const exampleTasks = [
+  "vyÄŤistiĹĄ odtok",
+  "navĹ•taĹĄ poliÄŤku",
+  "pokosiĹĄ trĂˇvu",
+  "vytepovaĹĄ sedaÄŤku",
+];
+
+function IconBadge({ icon }: { icon: IconName }) {
+  if (icon === "tool") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M14 6l4 4" />
+        <path d="M5 19l6-6" />
+        <path d="M13 5l6 6" />
+        <path d="M11 7l6 6" />
+        <path d="M4 20l3-1 9-9-2-2-9 9-1 3z" />
+      </svg>
+    );
+  }
+
+  if (icon === "leaf") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M19 5c-6 0-11 4-11 10 0 2.5 1.5 4 4 4 6 0 10-5 10-11 0-2-1-3-3-3z" />
+        <path d="M8 19c0-4 4-8 9-10" />
+      </svg>
+    );
+  }
+
+  if (icon === "spark") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+        <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      </svg>
+    );
+  }
+
+  if (icon === "home") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M3 11.5L12 4l9 7.5" />
+        <path d="M5.5 10.5V20h13V10.5" />
+        <path d="M10 20v-5h4v5" />
+      </svg>
+    );
+  }
+
+  if (icon === "pin") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M12 21s6-5.5 6-11a6 6 0 10-12 0c0 5.5 6 11 6 11z" />
+        <circle cx="12" cy="10" r="2.2" />
+      </svg>
+    );
+  }
+
+  if (icon === "chat") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M5 18l-1 4 4-2h9a5 5 0 005-5V9a5 5 0 00-5-5H7a5 5 0 00-5 5v4a5 5 0 003 5z" />
+      </svg>
+    );
+  }
+
+  if (icon === "shield") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      >
+        <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z" />
+        <path d="M9.5 12l1.8 1.8L15 10" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l2.5 2.5" />
+    </svg>
+  );
+}
+
+function MiniInfoCard({
+  label,
+  text,
+  icon,
+}: {
+  label: string;
+  text: string;
+  icon: IconName;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+        <IconBadge icon={icon} />
+      </div>
+      <div className="text-xs uppercase tracking-wide text-white/45">{label}</div>
+      <div className="mt-2 text-sm font-medium text-white/85">{text}</div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const [task, setTask] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<TaskHelperResponse | null>(null);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    const trimmed = task.trim();
+
+    if (!trimmed) {
+      setError("NapĂ­Ĺˇ ÄŤo chceĹˇ spraviĹĄ.");
+      setResult(null);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/task-helper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: trimmed }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setError(json?.error || "Chyba pri spracovanĂ­.");
+        return;
+      }
+
+      setResult(json as TaskHelperResponse);
+    } catch {
+      setError("Chyba pri spracovanĂ­.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-indigo-500/10 p-6 md:p-8 lg:p-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.18),transparent_35%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.05),transparent_30%)]" />
+
+        <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div className="space-y-6">
+            <div className="inline-flex rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo Â· prenĂˇjom vecĂ­ jednoducho
+            </div>
+
+            <div className="space-y-4">
+              <h1 className="max-w-4xl text-4xl font-semibold leading-tight md:text-5xl lg:text-6xl">
+                PoĹľiÄŤaj si vec na pĂˇr dnĂ­.
+                <br />
+                ZarĂˇbaj na tom,
+                <br />
+                ÄŤo doma len stojĂ­.
+              </h1>
+
+              <p className="max-w-2xl text-base leading-7 text-white/75 md:text-lg">
+                LokĂˇlny marketplace pre nĂˇradie a techniku. Ponuky, rezervĂˇcie,
+                sprĂˇvy a priebeh prenĂˇjmu mĂˇĹˇ na jednom mieste.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/items"
+                className="rentulo-btn-primary inline-flex px-5 py-3 text-sm"
+              >
+                ZobraziĹĄ ponuky
+              </Link>
+
+              <Link
+                href="/items/new"
+                className="rentulo-btn-secondary inline-flex px-5 py-3 text-sm"
+              >
+                PridaĹĄ ponuku
+              </Link>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <MiniInfoCard
+                label="Pre nĂˇjomcu"
+                text="RĂ˝chly vĂ˝ber a rezervĂˇcia"
+                icon="pin"
+              />
+              <MiniInfoCard
+                label="Pre majiteÄľa"
+                text="JednoduchĂ© spravovanie ponĂşk"
+                icon="tool"
+              />
+              <MiniInfoCard
+                label="Flow"
+                text="Stav, sprĂˇvy aj rezervĂˇcie spolu"
+                icon="chat"
+              />
+            </div>
+          </div>
+
+          <div className="relative">
+            <div className="pointer-events-none absolute -right-6 top-4 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute bottom-0 left-0 h-44 w-44 rounded-full bg-fuchsia-500/15 blur-3xl" />
+
+            <div className="rentulo-float relative mx-auto max-w-[620px]">
+              <img
+                src="/rentulo-hero-illustration.png"
+                alt="Rentulo hero ilustrĂˇcia"
+                className="w-full select-none object-contain drop-shadow-[0_30px_80px_rgba(99,102,241,0.28)]"
+              />
+            </div>
+
+            <div className="rentulo-float-slow absolute left-2 top-10 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                  <IconBadge icon="pin" />
+                </div>
+                <div>
+                  <div className="text-xs text-white/45">Lokalita</div>
+                  <div className="text-sm font-medium text-white/85">
+                    Trnava a okolie
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rentulo-float absolute bottom-8 right-0 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                  <IconBadge icon="clock" />
+                </div>
+                <div>
+                  <div className="text-xs text-white/45">RĂ˝chlo</div>
+                  <div className="text-sm font-medium text-white/85">
+                    RezervĂˇcia za pĂˇr klikov
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+        <div className="space-y-4">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="text-sm text-white/45">KategĂłrie</div>
+              <h2 className="mt-2 text-2xl font-semibold">NajÄŤastejĹˇie kategĂłrie</h2>
+              <p className="mt-2 text-white/65">
+                Vyber si kategĂłriu a prejdi rovno na ponuky, ktorĂ© ĹĄa zaujĂ­majĂş.
+              </p>
+            </div>
+
+            <Link
+              href="/items"
+              className="text-sm text-indigo-300 hover:text-indigo-200"
+            >
+              VĹˇetky ponuky â†’
+            </Link>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {categories.map((category) => (
+              <Link
+                key={category.title}
+                href={category.href}
+                className="group rounded-3xl border border-white/10 bg-black/20 p-5 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]"
+              >
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                  <IconBadge icon={category.icon} />
+                </div>
+
+                <div className="mt-4 text-lg font-semibold">{category.title}</div>
+                <div className="mt-2 text-sm leading-6 text-white/65">
+                  {category.description}
+                </div>
+                <div className="mt-4 text-sm font-medium text-indigo-300 transition group-hover:translate-x-0.5">
+                  PozrieĹĄ ponuky
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/[0.08] via-white/[0.03] to-transparent p-6 md:p-8">
+        <div className="max-w-2xl">
+          <div className="text-sm text-indigo-300">DĂ´leĹľitĂ© hneÄŹ na prvĂ˝ pohÄľad</div>
+          <h2 className="mt-2 text-2xl font-semibold">JasnĂ©, rĂ˝chle, bez chaosu</h2>
+          <p className="mt-2 leading-7 text-white/70">
+            NĂˇjdeĹˇ vhodnĂş vec, rezervujeĹˇ termĂ­n a vĹˇetko dĂ´leĹľitĂ© sledujeĹˇ na
+            jednom mieste.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="shield" />
+            </div>
+            <div className="text-lg font-semibold">PrehÄľadnĂ˝ flow</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              RezervĂˇcie, komunikĂˇcia a ÄŹalĹˇie kroky mĂˇĹˇ pokope.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="tool" />
+            </div>
+            <div className="text-lg font-semibold">VhodnĂ© aj pre majiteÄľov</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              PridĂˇĹˇ ponuku a zarĂˇbaĹˇ na veciach, ktorĂ© uĹľ mĂˇĹˇ doma.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
+            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+              <IconBadge icon="clock" />
+            </div>
+            <div className="text-lg font-semibold">RĂ˝chly Ĺˇtart</div>
+            <p className="mt-2 text-sm leading-6 text-white/70">
+              ZaÄŤni prehliadanĂ­m ponĂşk alebo rovno pridaj vlastnĂş vec.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
+        <div className="mb-6">
+          <div className="text-sm text-fuchsia-300">Ako to funguje</div>
+          <h2 className="mt-2 text-2xl font-semibold">Tri jednoduchĂ© kroky</h2>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          {howItWorks.map((item) => (
+            <div
+              key={item.step}
+              className="rounded-3xl border border-white/10 bg-black/20 p-6"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-fuchsia-300">
+                  {item.step}
+                </div>
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300">
+                  <IconBadge icon={item.icon} />
+                </div>
+              </div>
+
+              <div className="mt-4 text-xl font-semibold">{item.title}</div>
+              <p className="mt-3 leading-7 text-white/70">{item.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
+        <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
+          <div className="space-y-5">
+            <div>
+              <h2 className="text-2xl font-semibold">ÄŚo chceĹˇ spraviĹĄ?</h2>
+              <p className="mt-2 max-w-2xl leading-7 text-white/70">
+                NapĂ­Ĺˇ Ăşlohu a Rentulo navrhne postup, potrebnĂ© nĂˇradie a vhodnĂ©
+                ponuky.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {exampleTasks.map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => {
+                    setTask(example);
+                    setError("");
+                  }}
+                  disabled={loading}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/75 hover:bg-white/[0.08]"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <textarea
+                className="min-h-[130px] w-full rounded-2xl border border-white/15 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/35"
+                placeholder="napr. vyÄŤistiĹĄ odtok, navĹ•taĹĄ poliÄŤku, pokosiĹĄ trĂˇvu, vytepovaĹĄ sedaÄŤku"
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                disabled={loading}
+              />
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="rentulo-btn-primary px-5 py-3 text-sm disabled:opacity-50"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                >
+                  {loading ? "Pripravujem..." : "NavrhnĂşĹĄ postup a nĂˇradie"}
+                </button>
+
+                <Link
+                  href="/items"
+                  className="rentulo-btn-secondary inline-flex px-5 py-3 text-sm"
+                >
+                  RadĹˇej rovno na ponuky
+                </Link>
+              </div>
+
+              {error ? (
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                  {error}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+              <div className="text-sm text-white/50">ÄŚo tĂ˝m zĂ­skam</div>
+              <div className="mt-3 space-y-3 text-sm leading-6 text-white/75">
+                <div>â€˘ rĂ˝chly zoznam potrebnĂ©ho nĂˇradia</div>
+                <div>â€˘ jednoduchĂ˝ postup po krokoch</div>
+                <div>â€˘ vhodnĂ© ponuky z Rentulo na jednom mieste</div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+              <div className="text-sm text-white/50">Pre koho je to dobrĂ©</div>
+              <div className="mt-3 space-y-3 text-sm leading-6 text-white/75">
+                <div>â€˘ keÄŹ nevieĹˇ, ÄŤo presne potrebujeĹˇ</div>
+                <div>â€˘ keÄŹ chceĹˇ Ă­sĹĄ rovno na sprĂˇvny item</div>
+                <div>â€˘ keÄŹ si chceĹˇ rĂ˝chlo overiĹĄ postup</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {result ? (
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="text-xl font-semibold">{result.task_title}</div>
+                  <div className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
+                    ObtiaĹľnosĹĄ: {result.difficulty}
+                  </div>
+                </div>
+                <div className="mt-2 text-white/70">{result.summary}</div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <div className="text-lg font-semibold">Postup</div>
+                <ol className="mt-4 space-y-3 text-white/80">
+                  {result.steps.map((step, index) => (
+                    <li key={index} className="flex gap-3">
+                      <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-black">
+                        {index + 1}
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                  <div className="text-lg font-semibold">BudeĹˇ potrebovaĹĄ</div>
+                  <ul className="mt-3 space-y-2 text-white/80">
+                    {result.required_tools.length === 0 ? (
+                      <li>â€˘ Bez ĹˇpeciĂˇlneho nĂˇradia</li>
+                    ) : (
+                      result.required_tools.map((tool, index) => (
+                        <li key={index}>â€˘ {tool}</li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                  <div className="text-lg font-semibold">VoliteÄľnĂ©</div>
+                  <ul className="mt-3 space-y-2 text-white/80">
+                    {result.optional_tools.length === 0 ? (
+                      <li>â€˘ NiÄŤ navyĹˇe</li>
+                    ) : (
+                      result.optional_tools.map((tool, index) => (
+                        <li key={index}>â€˘ {tool}</li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <div className="text-lg font-semibold">Na ÄŤo si daĹĄ pozor</div>
+                <ul className="mt-3 space-y-2 text-white/80">
+                  {result.safety_tips.length === 0 ? (
+                    <li>â€˘ DodrĹľ zĂˇkladnĂş bezpeÄŤnosĹĄ pri prĂˇci.</li>
+                  ) : (
+                    result.safety_tips.map((tip, index) => (
+                      <li key={index}>â€˘ {tip}</li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <div className="text-lg font-semibold">OdporĂşÄŤanĂ© ponuky</div>
+                <div className="mt-2 text-sm text-white/60">
+                  VybranĂ© podÄľa Ăşlohy a potrebnĂ©ho nĂˇradia.
+                </div>
+
+                {result.suggested_items.length === 0 ? (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+                    ZatiaÄľ som nenaĹˇiel vhodnĂ© ponuky.
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {result.suggested_items.map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/items/${item.id}`}
+                        className="block rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10"
+                      >
+                        <div className="text-base font-semibold">{item.title}</div>
+
+                        <div className="mt-2 text-sm text-white/70">
+                          {item.price_per_day !== null
+                            ? `${item.price_per_day} â‚¬ / deĹ`
+                            : "Cena neuvedenĂˇ"}
+                          {item.city ? ` Â· ${item.city}` : ""}
+                          {item.category ? ` Â· ${item.category}` : ""}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
+                <div className="text-sm text-white/50">PouĹľitĂ© kÄľĂşÄŤovĂ© slovĂˇ</div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {result.search_keywords.map((keyword, index) => (
+                    <div
+                      key={index}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/75"
+                    >
+                      {keyword}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+            <IconBadge icon="clock" />
+          </div>
+          <div className="text-lg font-semibold">RezervĂˇcie</div>
+          <p className="mt-3 leading-7 text-white/70">
+            JasnĂ˝ stav od Ĺľiadosti aĹľ po ukonÄŤenie prenĂˇjmu.
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+            <IconBadge icon="chat" />
+          </div>
+          <div className="text-lg font-semibold">SprĂˇvy</div>
+          <p className="mt-3 leading-7 text-white/70">
+            KomunikĂˇcia priamo pri rezervĂˇcii bez hÄľadania v inboxe.
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+            <IconBadge icon="tool" />
+          </div>
+          <div className="text-lg font-semibold">Pre majiteÄľov</div>
+          <p className="mt-3 leading-7 text-white/70">
+            PridĂˇĹˇ ponuku a vieĹˇ sledovaĹĄ dopyty aj rezervĂˇcie.
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
+          <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+            <IconBadge icon="shield" />
+          </div>
+          <div className="text-lg font-semibold">DĂ´vera</div>
+          <p className="mt-3 leading-7 text-white/70">
+            PrehÄľadnĂ˝ flow, jasnĂ© kroky a lepĹˇĂ­ pocit z celej aplikĂˇcie.
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-indigo-400/20 bg-gradient-to-r from-indigo-500/10 via-white/[0.04] to-white/[0.03] p-8">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-2xl">
+            <div className="text-2xl font-semibold">
+              PozrieĹĄ ponuky alebo pridaĹĄ vlastnĂş vec?
+            </div>
+            <div className="mt-2 leading-7 text-white/70">
+              NajlepĹˇie ÄŹalĹˇie 2 kroky sĂş jasnĂ© hneÄŹ odtiaÄľto.
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/items"
+              className="rentulo-btn-primary inline-flex px-5 py-3 text-sm"
+            >
+              ĂŤsĹĄ na ponuky
+            </Link>
+
+            <Link
+              href="/items/new"
+              className="rentulo-btn-secondary inline-flex px-5 py-3 text-sm"
+            >
+              PridaĹĄ ponuku
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+===== src\app\owner\layout.tsx =====
+import Link from "next/link";
+
+function OwnerTab({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-xl border border-white/15 px-4 py-2 text-sm font-medium hover:bg-white/10"
+    >
+      {children}
+    </Link>
+  );
+}
+
+export default function OwnerLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">PrenajĂ­mam</h1>
+            <p className="mt-1 text-white/60">
+              SprĂˇva tvojich ponĂşk, rezervĂˇciĂ­ a reklamĂˇciĂ­ na jednom mieste.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <OwnerTab href="/owner/items">Moje ponuky</OwnerTab>
+            <OwnerTab href="/owner/reservations">RezervĂˇcie</OwnerTab>
+            <OwnerTab href="/owner/disputes">ReklamĂˇcie</OwnerTab>
+          </div>
+        </div>
+      </section>
+
+      {children}
+    </div>
+  );
+}
+
+===== src\components\ClientNav.tsx =====
+"use client";
+
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import NotificationBell from "@/components/NotificationBell";
+
+function NavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      className="rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+      href={href}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function SecondaryNavLink({
+  href,
+  children,
+  primary = false,
+}: {
+  href: string;
+  children: React.ReactNode;
+  primary?: boolean;
+}) {
+  return (
+    <Link
+      className={
+        primary
+          ? "rounded-xl bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-white/90"
+          : "rounded-xl px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10"
+      }
+      href={href}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MessagesNavLink() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const loadIdRef = useRef(0);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadUnreadCount = async () => {
+    const loadId = ++loadIdRef.current;
+
+    const { data: sess } = await supabase.auth.getSession();
+    const userId = sess.session?.user.id;
+
+    if (loadId !== loadIdRef.current) return;
+
+    if (!userId) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const { count, error } = await supabase
+      .from("messages")
+      .select("id,conversations!inner(owner_id,renter_id)", { count: "exact", head: true })
+      .neq("sender_id", userId)
+      .is("read_at", null)
+      .or(`owner_id.eq.${userId},renter_id.eq.${userId}`, { foreignTable: "conversations" });
+
+    if (loadId !== loadIdRef.current) return;
+
+    if (error) {
+      setUnreadCount(0);
+      return;
+    }
+
+    setUnreadCount(count ?? 0);
+  };
+
+  const scheduleLoadUnreadCount = () => {
+    if (reloadTimerRef.current) {
+      clearTimeout(reloadTimerRef.current);
+    }
+
+    reloadTimerRef.current = setTimeout(() => {
+      void loadUnreadCount();
+    }, 150);
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    void loadUnreadCount();
+
+    const handleFocus = () => {
+      if (!active) return;
+      scheduleLoadUnreadCount();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!active) return;
+
+      if (document.visibilityState === "visible") {
+        scheduleLoadUnreadCount();
+      }
+    };
+
+    const handleMessagesRefresh = () => {
+      if (!active) return;
+      scheduleLoadUnreadCount();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const channel = supabase
+      .channel("nav-messages-unread")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => {
+          scheduleLoadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      scheduleLoadUnreadCount();
+    });
+
+    return () => {
+      active = false;
+
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current);
+      }
+
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("rentulo:messages-unread-refresh", handleMessagesRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return (
+    <Link
+      className="relative rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+      href="/messages"
+    >
+      SprĂˇvy
+      {unreadCount > 0 ? (
+        <span className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-xs font-semibold text-black">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+export default function ClientNav() {
+  const [hidden, setHidden] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const isMobile = window.innerWidth < 1024;
+
+      if (!isMobile) {
+        setHidden(false);
+        lastY = currentY;
+        return;
+      }
+
+      if (currentY <= 20) {
+        setHidden(false);
+        lastY = currentY;
+        return;
+      }
+
+      if (currentY > lastY + 8) {
+        setHidden(true);
+      } else if (currentY < lastY - 8) {
+        setHidden(false);
+      }
+
+      lastY = currentY;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadAuthState = async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user.id;
+
+      if (!active) return;
+
+      setIsLoggedIn(!!userId);
+
+      if (!userId) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error || !data) {
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(data.role === "admin");
+    };
+
+    void loadAuthState();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void loadAuthState();
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
+  return (
+    <header
+      className={`sticky top-0 z-50 border-b border-white/10 bg-neutral-950/85 backdrop-blur transition-transform duration-300 ${
+        hidden ? "-translate-y-full" : "translate-y-0"
+      }`}
+    >
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/" className="text-lg font-semibold tracking-tight">
+            Rentulo
+          </Link>
+
+          <div className="text-sm text-white/50 lg:hidden">
+            PrenĂˇjom vecĂ­ jednoducho
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:flex-1 lg:pl-6">
+          <nav className="flex flex-wrap items-center gap-2">
+            <NavLink href="/items">Ponuky</NavLink>
+
+            {isLoggedIn ? (
+              <>
+                <NavLink href="/reservations">Moje rezervĂˇcie</NavLink>
+                <NavLink href="/owner/items">PrenajĂ­mam</NavLink>
+                <MessagesNavLink />
+                <NavLink href="/profile">Profil</NavLink>
+                <NavLink href="/verification">Overenie</NavLink>
+
+                {isAdmin ? <NavLink href="/admin">AdministrĂˇcia</NavLink> : null}
+
+                <NotificationBell />
+              </>
+            ) : null}
+          </nav>
+
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+            {isLoggedIn ? (
+              <button
+                type="button"
+                className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-white/90 disabled:opacity-50"
+                onClick={handleSignOut}
+                disabled={signingOut}
+              >
+                {signingOut ? "Odhlasujem..." : "OdhlĂˇsiĹĄ"}
+              </button>
+            ) : (
+              <>
+                <SecondaryNavLink href="/login">PrihlĂˇsiĹĄ</SecondaryNavLink>
+                <SecondaryNavLink href="/register" primary>
+                  RegistrovaĹĄ
+                </SecondaryNavLink>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+===== src\components\owner\OwnerSubnav.tsx =====
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+function tabClass(active: boolean) {
+  return `rounded-xl border px-3 py-2 text-sm font-medium transition
+    ${active ? "border-white/30 bg-white/10" : "border-white/15 hover:bg-white/10"}`;
+}
+
+export function OwnerSubnav() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/owner/reservations" && pathname.startsWith(href));
+
+  return (
+    <nav aria-label="NavigĂˇcia prenajĂ­mateÄľa" className="flex flex-wrap gap-2">
+      <Link
+        href="/owner/reservations"
+        className={tabClass(isActive("/owner/reservations"))}
+        aria-current={isActive("/owner/reservations") ? "page" : undefined}
+      >
+        RezervĂˇcie
+      </Link>
+
+      <Link
+        href="/owner/items"
+        className={tabClass(isActive("/owner/items"))}
+        aria-current={isActive("/owner/items") ? "page" : undefined}
+      >
+        Moje ponuky
+      </Link>
+
+      <Link
+        href="/owner/disputes"
+        className={tabClass(isActive("/owner/disputes"))}
+        aria-current={isActive("/owner/disputes") ? "page" : undefined}
+      >
+        ReklamĂˇcie
+      </Link>
+    </nav>
+  );
+}
+
+
+===== src\components\owner\OwnerUI.tsx =====
+"use client";
+
+import React from "react";
+
+export type Tone = "neutral" | "success" | "warning" | "danger" | "info";
+
+export function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+export function Badge({
+  tone = "neutral",
+  children,
+  title,
+}: {
+  tone?: Tone;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  const toneCls =
+    tone === "success"
+      ? "bg-green-600/90 text-white"
+      : tone === "warning"
+      ? "bg-yellow-400 text-black"
+      : tone === "danger"
+      ? "bg-red-600/90 text-white"
+      : tone === "info"
+      ? "bg-blue-600/90 text-white"
+      : "bg-white/10 text-white";
+
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center rounded-full px-3 py-1 text-sm font-medium",
+        toneCls
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function KpiCard({
+  title,
+  value,
+  hint,
+}: {
+  title: string;
+  value: number | string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <div className="text-sm text-white/60">{title}</div>
+      <div className="mt-2 text-3xl font-semibold">{value}</div>
+      <div className="mt-1 text-sm text-white/50">{hint}</div>
+    </div>
+  );
+}
+
+export function Notice({ text }: { text: string }) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white/80"
+    >
+      {text}
+    </div>
+  );
+}
+
+export function TextField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm text-white/70">
+        {label}
+      </label>
+      <input
+        id={id}
+        className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+export function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm text-white/70">
+        {label}
+      </label>
+      <select
+        id={id}
+        className="mt-2 w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="mt-1 text-sm text-white/60">{subtitle}</p>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+export function Pagination({
+  page,
+  pageSize,
+  total,
+  onPageChange,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  onPageChange: (next: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
+  if (total <= pageSize) return null;
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between">
+      <div className="text-sm text-white/60">
+        Strana <strong className="text-white">{page}</strong> z{" "}
+        <strong className="text-white">{totalPages}</strong> Â· Spolu{" "}
+        <strong className="text-white">{total}</strong>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+          onClick={() => onPageChange(page - 1)}
+          disabled={!canPrev}
+          aria-label="PredchĂˇdzajĂşca strana"
+        >
+          â† PredchĂˇdzajĂşca
+        </button>
+
+        <button
+          type="button"
+          className="rounded-xl border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+          onClick={() => onPageChange(page + 1)}
+          disabled={!canNext}
+          aria-label="ÄŽalĹˇia strana"
+        >
+          ÄŽalĹˇia â†’
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
