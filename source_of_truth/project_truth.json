@@ -1,0 +1,47 @@
+﻿{
+  "project_name": "Rentulo",
+  "stack": {
+    "frontend": "Next.js",
+    "language": "TypeScript",
+    "backend": "Supabase",
+    "hosting": "Vercel"
+  },
+  "deployment": {
+    "primary_platform": "Vercel",
+    "database_platform": "Supabase",
+    "status": "active"
+  },
+  "active_chat_system": true,
+  "master_chat": "RENTULO MASTER",
+  "core_segments": [
+    "RENTULO MASTER",
+    "RENTULO APP",
+    "RENTULO DATA",
+    "RENTULO AUTOMATION",
+    "RENTULO ENGINEERING HYGIENE"
+  ],
+  "existing_domain_chats": [
+    "RENTULO SPRÁVY A NOTIFIKÁCIE",
+    "RENTULO SPORY A REKLAMÁCIE",
+    "RENTULO INZERÁTY A FOTKY",
+    "RENTULO PLATBY"
+  ],
+  "current_truth_status": {
+    "chat_operating_system": "active",
+    "source_of_truth_repo_layer": "bootstrapped",
+    "paths_registry": "partial",
+    "export_contract": "partial_not_yet_formalized",
+    "issue_registry": "initialized",
+    "repo_structure_validation": "pending_real_repo_read"
+  },
+  "routing_rule_summary": [
+    "MASTER owns routing, approvals, governance, and next best step.",
+    "APP owns app surfaces and app-facing truth presentation.",
+    "DATA owns DB truth, schema, RLS, migrations, and upstream/source correctness.",
+    "AUTOMATION owns cron, jobs, webhooks, retries, and runtime health.",
+    "ENGINEERING HYGIENE owns low-risk cleanup without behavior change.",
+    "Domain chats own product implementation within their narrow domain.",
+    "Cross-scope work is split by MASTER into exact handoffs.",
+    "When next step remains in the same owner scope, continue directly without self-handoff."
+  ]
+}

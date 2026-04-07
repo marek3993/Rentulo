@@ -1,0 +1,84 @@
+﻿{
+  "version": 1,
+  "last_updated_by": "RENTULO MASTER",
+  "registry_status": "partial_bootstrap",
+  "notes": [
+    "This file is intentionally usable before full repo mapping.",
+    "Replace unknown paths only after real repo read.",
+    "Keep keys stable once downstream chats start depending on them."
+  ],
+  "paths": {
+    "app_root": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO APP",
+      "purpose": "Main application root"
+    },
+    "shared_components": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO APP",
+      "purpose": "Shared UI/components"
+    },
+    "feature_routes": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO APP",
+      "purpose": "User-facing route surfaces"
+    },
+    "supabase_sql": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO DATA",
+      "purpose": "SQL migrations, policies, functions, views"
+    },
+    "schema_docs": {
+      "path": "source_of_truth",
+      "status": "active",
+      "owner": "RENTULO DATA",
+      "purpose": "Truth documentation for schema-related understanding"
+    },
+    "automation_jobs": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Cron jobs, background workers, schedulers"
+    },
+    "webhook_handlers": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO AUTOMATION",
+      "purpose": "Webhook receivers and processors"
+    },
+    "payments_module": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO PLATBY",
+      "purpose": "Payment-related feature implementation"
+    },
+    "messages_module": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "purpose": "Messaging and notifications feature implementation"
+    },
+    "disputes_module": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO SPORY A REKLAMÁCIE",
+      "purpose": "Disputes and complaints implementation"
+    },
+    "listings_module": {
+      "path": "unknown",
+      "status": "not_yet_verified",
+      "owner": "RENTULO INZERÁTY A FOTKY",
+      "purpose": "Listings and media feature implementation"
+    },
+    "source_of_truth_root": {
+      "path": "source_of_truth",
+      "status": "active",
+      "owner": "RENTULO MASTER",
+      "purpose": "Central truth layer for project governance"
+    }
+  }
+}

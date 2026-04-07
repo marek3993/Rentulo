@@ -375,7 +375,9 @@ export default function ReservationsPage() {
           .createSignedUrls(photoPaths, 60 * 60);
 
         for (const signed of signedUrls ?? []) {
-          signedUrlMap.set(signed.path, signed.signedUrl ?? null);
+          if (signed.path) {
+            signedUrlMap.set(signed.path, signed.signedUrl ?? null);
+          }
         }
       }
 

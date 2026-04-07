@@ -1,0 +1,104 @@
+﻿{
+  "version": 1,
+  "status": "partial_not_yet_formalized",
+  "owner": "RENTULO APP",
+  "purpose": "Defines app-facing truth surfaces that UI can rely on.",
+  "notes": [
+    "This is an initial bootstrap contract, not a full audited contract.",
+    "Only formalize fields here after repo/path validation.",
+    "Unknown items must remain explicit until verified."
+  ],
+  "surfaces": {
+    "homepage": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Homepage contract not yet audited."
+    },
+    "items_list": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Items listing contract not yet audited."
+    },
+    "item_detail": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Item detail contract not yet audited."
+    },
+    "profile": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Profile contract not yet audited."
+    },
+    "reservations_ui": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Reservations surface contract not yet audited."
+    },
+    "owner_items": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Owner items contract not yet audited."
+    },
+    "owner_reservations": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Owner reservations contract not yet audited."
+    },
+    "messages_notifications": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Split ownership: product surface vs runtime delivery."
+    },
+    "payments_surfaces": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO PLATBY",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Split ownership between payment product, data truth, and runtime events."
+    },
+    "disputes_surfaces": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO SPORY A REKLAMÁCIE",
+      "data_owner": "RENTULO DATA",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Disputes surface contract not yet audited."
+    },
+    "listings_media_surfaces": {
+      "status": "not_yet_formalized",
+      "source_owner": "RENTULO INZERÁTY A FOTKY",
+      "data_owner": "RENTULO DATA",
+      "runtime_owner": "RENTULO AUTOMATION",
+      "inputs": "unknown",
+      "outputs": "unknown",
+      "notes": "Listings/media contract not yet audited."
+    }
+  }
+}
