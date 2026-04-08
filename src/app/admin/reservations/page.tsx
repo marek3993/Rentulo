@@ -62,9 +62,46 @@ export default function AdminReservationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  const updateReservation = async (id: number, patch: Partial<Row>) => {
+  const setReservationStatus = async (
+    id: number,
+    nextStatus: "confirmed" | "cancelled"
+  ) => {
     setStatus("Updating...");
-    const { error } = await supabase.from("reservations").update(patch).eq("id", id);
+    const { error } = await supabase.rpc("admin_set_reservation_status", {
+      p_reservation_id: id,
+      p_next_status: nextStatus,
+    });
+
+    if (error) {
+      setStatus("Error: " + error.message);
+      return;
+    }
+
+    await load();
+  };
+
+  const recordManualPaymentSuccess = async (id: number) => {
+    setStatus("Updating...");
+    const { error } = await supabase.rpc("admin_record_manual_payment_success", {
+      p_reservation_id: id,
+      p_note: "Manual payment marked as paid by admin.",
+      p_provider_ref: `admin-manual-${id}-${Date.now()}`,
+    });
+
+    if (error) {
+      setStatus("Error: " + error.message);
+      return;
+    }
+
+    await load();
+  };
+
+  const resetPaymentToUnpaid = async (id: number) => {
+    setStatus("Updating...");
+    const { error } = await supabase.rpc("admin_reset_payment_to_unpaid", {
+      p_reservation_id: id,
+      p_note: "Manual payment reset to unpaid by admin.",
+    });
 
     if (error) {
       setStatus("Error: " + error.message);
@@ -107,7 +144,7 @@ export default function AdminReservationsPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className="rounded border px-3 py-1 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => updateReservation(r.id, { status: "confirmed" })}
+                onClick={() => setReservationStatus(r.id, "confirmed")}
                 disabled={r.status === "confirmed"}
                 type="button"
               >
@@ -116,7 +153,7 @@ export default function AdminReservationsPage() {
 
               <button
                 className="rounded border px-3 py-1 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => updateReservation(r.id, { status: "cancelled" })}
+                onClick={() => setReservationStatus(r.id, "cancelled")}
                 disabled={r.status === "cancelled"}
                 type="button"
               >
@@ -125,7 +162,7 @@ export default function AdminReservationsPage() {
 
               <button
                 className="rounded border px-3 py-1 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => updateReservation(r.id, { payment_status: "paid", payment_provider: "manual" as any })}
+                onClick={() => recordManualPaymentSuccess(r.id)}
                 disabled={r.payment_status === "paid"}
                 type="button"
               >
@@ -134,7 +171,7 @@ export default function AdminReservationsPage() {
 
               <button
                 className="rounded border px-3 py-1 hover:bg-white/10 disabled:opacity-50"
-                onClick={() => updateReservation(r.id, { payment_status: "unpaid", payment_provider: "none" })}
+                onClick={() => resetPaymentToUnpaid(r.id)}
                 disabled={r.payment_status === "unpaid"}
                 type="button"
               >

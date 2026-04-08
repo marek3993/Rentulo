@@ -47,21 +47,6 @@ function PaymentInner() {
     return row;
   };
 
-  const insertPaymentEvent = async (
-    actorUserId: string,
-    eventType: string,
-    note: string
-  ) => {
-    await supabase.from("payment_events").insert({
-      reservation_id: reservationId,
-      actor_user_id: actorUserId,
-      event_type: eventType,
-      provider: "demo",
-      note,
-      currency: "EUR",
-    });
-  };
-
   const insertNotification = async (
     userId: string,
     title: string,
@@ -129,26 +114,18 @@ function PaymentInner() {
       return;
     }
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        payment_provider: "demo",
-        payment_status: "paid",
-      })
-      .eq("id", reservationId)
-      .eq("renter_id", userId);
+    const { error } = await supabase.rpc("payment_record_event", {
+      p_reservation_id: reservationId,
+      p_provider: "demo",
+      p_event_type: "payment_demo_paid",
+      p_note: "Používateľ simuloval úspešnú demo platbu.",
+    });
 
     if (error) {
       setStatus("Chyba: " + error.message);
       setBusy(false);
       return;
     }
-
-    await insertPaymentEvent(
-      userId,
-      "payment_demo_paid",
-      "Používateľ simuloval úspešnú demo platbu."
-    );
 
     const { data: itemRow } = await supabase
       .from("items")
@@ -190,26 +167,18 @@ function PaymentInner() {
       return;
     }
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        payment_provider: "demo",
-        payment_status: "failed",
-      })
-      .eq("id", reservationId)
-      .eq("renter_id", userId);
+    const { error } = await supabase.rpc("payment_record_event", {
+      p_reservation_id: reservationId,
+      p_provider: "demo",
+      p_event_type: "payment_demo_failed",
+      p_note: "Používateľ simuloval zlyhanie demo platby.",
+    });
 
     if (error) {
       setStatus("Chyba: " + error.message);
       setBusy(false);
       return;
     }
-
-    await insertPaymentEvent(
-      userId,
-      "payment_demo_failed",
-      "Používateľ simuloval zlyhanie demo platby."
-    );
 
     await insertNotification(
       userId,

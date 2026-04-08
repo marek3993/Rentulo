@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type DisputeStatus = "open" | "under_review" | "resolved" | "closed" | string;
+type ReservationStatusAfter =
+  | "confirmed"
+  | "in_rental"
+  | "return_pending_confirmation"
+  | "completed"
+  | "cancelled"
+  | "disputed";
 
 type DisputeRow = {
   id: number;
@@ -46,6 +53,20 @@ type CurrentUserRow = {
 };
 
 const PAGE_SIZE = 12;
+const RESERVATION_STATUS_AFTER_OPTIONS: Array<{
+  value: ReservationStatusAfter;
+  label: string;
+}> = [
+  { value: "confirmed", label: "confirmed" },
+  { value: "in_rental", label: "in_rental" },
+  {
+    value: "return_pending_confirmation",
+    label: "return_pending_confirmation",
+  },
+  { value: "completed", label: "completed" },
+  { value: "cancelled", label: "cancelled" },
+  { value: "disputed", label: "disputed" },
+];
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -97,6 +118,9 @@ export default function AdminDisputesPage() {
   const [sort, setSort] = useState("newest");
 
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [reservationStatusAfterMap, setReservationStatusAfterMap] = useState<
+    Record<number, ReservationStatusAfter | "">
+  >({});
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -228,23 +252,32 @@ export default function AdminDisputesPage() {
   }, [debouncedQ, page, router, sort, statusFilter]);
 
   useEffect(() => {
-    load();
+    const timeoutId = setTimeout(() => {
+      void load();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [load]);
 
   const changeDisputeStatus = async (
     disputeId: number,
-    nextStatus: "under_review" | "resolved" | "closed"
+    nextStatus: "under_review" | "resolved" | "closed",
+    reservationStatusAfter: ReservationStatusAfter | null = null
   ) => {
+    if ((nextStatus === "resolved" || nextStatus === "closed") && !reservationStatusAfter) {
+      setStatusText("Vyber výsledný stav rezervácie.");
+      alert("Vyber výsledný stav rezervácie.");
+      return;
+    }
+
     setUpdatingId(disputeId);
     setStatusText("Ukladám zmenu...");
 
-    const { error } = await supabase
-      .from("disputes")
-      .update({
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", disputeId);
+    const { error } = await supabase.rpc("dispute_set_status", {
+      p_dispute_id: disputeId,
+      p_next_status: nextStatus,
+      p_reservation_status_after: nextStatus === "under_review" ? null : reservationStatusAfter,
+    });
 
     if (error) {
       setUpdatingId(null);
@@ -392,6 +425,7 @@ export default function AdminDisputesPage() {
               const reservation = reservationMap[row.reservation_id];
               const renter = profileMap[row.renter_id];
               const owner = profileMap[row.owner_id];
+              const reservationStatusAfter = reservationStatusAfterMap[row.id] ?? "";
 
               const canMoveToReview = row.status === "open";
               const canResolve = row.status === "open" || row.status === "under_review";
@@ -475,6 +509,40 @@ export default function AdminDisputesPage() {
                     </div>
                   </div>
 
+                  {canResolve || canClose ? (
+                    <div className="mt-4 max-w-sm">
+                      <label className="block">
+                        <div className="mb-1 text-sm text-white/70">
+                          Stav rezervácie po vyriešení / uzavretí
+                        </div>
+                        <select
+                          className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none disabled:opacity-50"
+                          value={reservationStatusAfter}
+                          onChange={(e) =>
+                            setReservationStatusAfterMap((prev) => ({
+                              ...prev,
+                              [row.id]: e.target.value as ReservationStatusAfter | "",
+                            }))
+                          }
+                          disabled={updatingId === row.id}
+                        >
+                          <option value="" className="text-black">
+                            Vyber stav rezervácie
+                          </option>
+                          {RESERVATION_STATUS_AFTER_OPTIONS.map((option) => (
+                            <option
+                              key={option.value}
+                              value={option.value}
+                              className="text-black"
+                            >
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     {canMoveToReview ? (
                       <button
@@ -492,7 +560,13 @@ export default function AdminDisputesPage() {
                         type="button"
                         className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
                         disabled={updatingId === row.id}
-                        onClick={() => changeDisputeStatus(row.id, "resolved")}
+                        onClick={() =>
+                          changeDisputeStatus(
+                            row.id,
+                            "resolved",
+                            reservationStatusAfter || null
+                          )
+                        }
                       >
                         {updatingId === row.id ? "Ukladám..." : "Označiť ako vyriešené"}
                       </button>
@@ -503,7 +577,13 @@ export default function AdminDisputesPage() {
                         type="button"
                         className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
                         disabled={updatingId === row.id}
-                        onClick={() => changeDisputeStatus(row.id, "closed")}
+                        onClick={() =>
+                          changeDisputeStatus(
+                            row.id,
+                            "closed",
+                            reservationStatusAfter || null
+                          )
+                        }
                       >
                         {updatingId === row.id ? "Ukladám..." : "Uzavrieť"}
                       </button>

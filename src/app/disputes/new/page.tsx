@@ -142,33 +142,16 @@ function NewDisputePageInner() {
     setSaving(true);
     setStatus("Ukladám spor...");
 
-    const { error } = await supabase.from("disputes").insert({
-      reservation_id: reservation.id,
-      item_id: reservation.item_id,
-      renter_id: reservation.renter_id,
-      owner_id: item.owner_id,
-      reason: reason.trim(),
-      details: details.trim() ? details.trim() : null,
-      status: "open",
+    const { error } = await supabase.rpc("dispute_open", {
+      p_reservation_id: reservation.id,
+      p_reason: reason.trim(),
+      p_details: details.trim() ? details.trim() : null,
     });
 
     if (error) {
       setSaving(false);
       setStatus("Chyba: " + error.message);
       alert(error.message);
-      return;
-    }
-
-    const { error: reservationUpdateError } = await supabase
-      .from("reservations")
-      .update({ status: "disputed" })
-      .eq("id", reservation.id);
-
-    if (reservationUpdateError) {
-      setSaving(false);
-      setStatus("Spor bol uložený, ale status rezervácie sa nepodarilo zmeniť.");
-      alert("Spor bol uložený, ale status rezervácie sa nepodarilo zmeniť.");
-      router.push("/disputes");
       return;
     }
 
