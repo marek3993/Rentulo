@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 
@@ -14,7 +14,7 @@ function NavLink({
 }) {
   return (
     <Link
-      className="rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+      className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
       href={href}
     >
       {children}
@@ -35,8 +35,8 @@ function SecondaryNavLink({
     <Link
       className={
         primary
-          ? "rounded-xl bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-white/90"
-          : "rounded-xl px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10"
+          ? "rounded-full bg-white px-3.5 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
+          : "rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:bg-white/[0.08] hover:text-white"
       }
       href={href}
     >
@@ -50,7 +50,7 @@ function MessagesNavLink() {
   const loadIdRef = useRef(0);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useEffectEvent(async () => {
     const loadId = ++loadIdRef.current;
 
     const { data: sess } = await supabase.auth.getSession();
@@ -78,9 +78,9 @@ function MessagesNavLink() {
     }
 
     setUnreadCount(count ?? 0);
-  };
+  });
 
-  const scheduleLoadUnreadCount = () => {
+  const scheduleLoadUnreadCount = useEffectEvent(() => {
     if (reloadTimerRef.current) {
       clearTimeout(reloadTimerRef.current);
     }
@@ -88,12 +88,12 @@ function MessagesNavLink() {
     reloadTimerRef.current = setTimeout(() => {
       void loadUnreadCount();
     }, 150);
-  };
+  });
 
   useEffect(() => {
     let active = true;
 
-    void loadUnreadCount();
+    scheduleLoadUnreadCount();
 
     const handleFocus = () => {
       if (!active) return;
@@ -151,7 +151,7 @@ function MessagesNavLink() {
 
   return (
     <Link
-      className="relative rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+      className="relative rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
       href="/messages"
     >
       Správy
@@ -261,14 +261,24 @@ export default function ClientNav() {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b border-white/10 bg-neutral-950/85 backdrop-blur transition-transform duration-300 ${
+      className={`sticky top-0 z-50 px-3 pt-3 transition-transform duration-300 sm:px-4 lg:px-6 ${
         hidden ? "-translate-y-full" : "translate-y-0"
       }`}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto flex max-w-[1280px] flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-neutral-950/75 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
-            Rentulo
+          <Link href="/" className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.35),rgba(217,70,239,0.2))] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)]">
+              R
+            </span>
+            <span>
+              <span className="block text-lg font-semibold tracking-tight text-white">
+                Rentulo
+              </span>
+              <span className="hidden text-xs uppercase tracking-[0.22em] text-white/40 sm:block">
+                Trust-first marketplace
+              </span>
+            </span>
           </Link>
 
           <div className="text-sm text-white/50 lg:hidden">
@@ -299,7 +309,7 @@ export default function ClientNav() {
             {isLoggedIn ? (
               <button
                 type="button"
-                className="rounded-xl bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-white/90 disabled:opacity-50"
+                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90 disabled:opacity-50"
                 onClick={handleSignOut}
                 disabled={signingOut}
               >
