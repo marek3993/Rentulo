@@ -84,8 +84,8 @@ export default function AdminReservationsPage() {
     setStatus("Updating...");
     const { error } = await supabase.rpc("admin_record_manual_payment_success", {
       p_reservation_id: id,
-      p_note: "Manual payment marked as paid by admin.",
-      p_provider_ref: `admin-manual-${id}-${Date.now()}`,
+      p_note: "Admin manuálne označil platbu ako úspešnú.",
+      p_provider_ref: null,
     });
 
     if (error) {
@@ -100,7 +100,7 @@ export default function AdminReservationsPage() {
     setStatus("Updating...");
     const { error } = await supabase.rpc("admin_reset_payment_to_unpaid", {
       p_reservation_id: id,
-      p_note: "Manual payment reset to unpaid by admin.",
+      p_note: "Admin resetol platbu späť na unpaid.",
     });
 
     if (error) {
