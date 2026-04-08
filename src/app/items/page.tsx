@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -50,15 +50,15 @@ function SectionEyebrow({ children }: { children: React.ReactNode }) {
 }
 
 const CATEGORIES = [
-  "VĹˇetky kategĂłrie",
-  "NĂˇradie",
-  "ZĂˇhrada",
-  "StavebnĂ© stroje",
+  "Všetky kategórie",
+  "Náradie",
+  "Záhrada",
+  "Stavebné stroje",
   "Auto-moto",
   "Elektronika",
-  "Dom a dielĹa",
-  "Ĺ port a voÄľnĂ˝ ÄŤas",
-  "OstatnĂ©",
+  "Dom a dielňa",
+  "Šport a voľný čas",
+  "Ostatné",
 ];
 
 const NON_BLOCKING_RESERVATION_STATUSES = new Set([
@@ -78,12 +78,12 @@ export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
   const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
-  const [status, setStatus] = useState("NaÄŤĂ­tavam...");
+  const [status, setStatus] = useState("Načítavam...");
 
   const [textQuery, setTextQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [radiusKm, setRadiusKm] = useState("20");
-  const [categoryFilter, setCategoryFilter] = useState("VĹˇetky kategĂłrie");
+  const [categoryFilter, setCategoryFilter] = useState("Všetky kategórie");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -104,7 +104,7 @@ export default function ItemsPage() {
     const unavailableSet = new Set(unavailableItemIds);
 
     return items.filter((item) => {
-      if (categoryFilter !== "VĹˇetky kategĂłrie" && item.category !== categoryFilter) {
+      if (categoryFilter !== "Všetky kategórie" && item.category !== categoryFilter) {
         return false;
       }
 
@@ -198,7 +198,7 @@ export default function ItemsPage() {
   };
 
   const loadDefaultItems = async () => {
-    setStatus("NaÄŤĂ­tavam...");
+    setStatus("Načítavam...");
 
     const { data, error } = await supabase
       .from("items")
@@ -219,7 +219,7 @@ export default function ItemsPage() {
   };
 
   const loadNearbyItems = async (lat: number, lng: number, label: string) => {
-    setStatus("HÄľadĂˇm ponuky v okolĂ­...");
+    setStatus("Hľadám ponuky v okolí...");
 
     const { data, error } = await supabase.rpc("search_items_near", {
       search_lat: lat,
@@ -293,7 +293,10 @@ export default function ItemsPage() {
 
       const { data, error } = await supabase
         .from("reservations")
-        .select("item_id,date_from,date_to,status")`r`n        .in("item_id", itemIds)`r`n        .lte("date_from", dateTo)`r`n        .gte("date_to", dateFrom);
+        .select("item_id,date_from,date_to,status")
+        .in("item_id", itemIds)
+        .lte("date_from", dateTo)
+        .gte("date_to", dateFrom);
 
       if (cancelled) return;
 
@@ -331,7 +334,7 @@ export default function ItemsPage() {
     const label = p.formatted ?? [p.city, p.postcode].filter(Boolean).join(", ");
 
     if (lat === null || lng === null) {
-      setStatus("Chyba: lokalita nemĂˇ sĂşradnice.");
+      setStatus("Chyba: lokalita nemá súradnice.");
       return;
     }
 
@@ -342,7 +345,7 @@ export default function ItemsPage() {
 
   const searchByTypedLocation = async () => {
     if (locationResults.length === 0) {
-      setStatus("Najprv vyber lokalitu zo zoznamu nĂˇvrhov.");
+      setStatus("Najprv vyber lokalitu zo zoznamu návrhov.");
       return;
     }
 
@@ -351,11 +354,11 @@ export default function ItemsPage() {
 
   const useMyLocation = async () => {
     if (!navigator.geolocation) {
-      setStatus("Tento prehliadaÄŤ nepodporuje geolokĂˇciu.");
+      setStatus("Tento prehliadač nepodporuje geolokáciu.");
       return;
     }
 
-    setStatus("ZisĹĄujem tvoju polohu...");
+    setStatus("Zisťujem tvoju polohu...");
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -365,7 +368,7 @@ export default function ItemsPage() {
         await loadNearbyItems(lat, lng, "moja poloha");
       },
       () => {
-        setStatus("Nepodarilo sa zĂ­skaĹĄ tvoju polohu.");
+        setStatus("Nepodarilo sa získať tvoju polohu.");
       },
       {
         enableHighAccuracy: true,
@@ -379,7 +382,7 @@ export default function ItemsPage() {
     setLocationQuery("");
     setLocationResults([]);
     setRadiusKm("20");
-    setCategoryFilter("VĹˇetky kategĂłrie");
+    setCategoryFilter("Všetky kategórie");
     setDateFrom("");
     setDateTo("");
     setUnavailableItemIds([]);
@@ -422,23 +425,23 @@ export default function ItemsPage() {
 
             <div className="space-y-4">
               <h1 className="max-w-3xl text-4xl font-semibold leading-[1.02] tracking-tight text-white md:text-5xl lg:text-6xl">
-                PrenĂˇjom vecĂ­ s dĂ´razom na fotky, dostupnosĹĄ a dĂ´veru
+                Prenájom vecí s dôrazom na fotky, dostupnosť a dôveru
               </h1>
               <p className="max-w-2xl text-base leading-7 text-white/72 md:text-lg md:leading-8">
-                PrechĂˇdzaj ponuky podÄľa lokality, termĂ­nu aj typu veci. Rentulo
-                drĹľĂ­ vĂ˝ber, rezervĂˇciu a komunikĂˇciu v jednom produkte.
+                Prechádzaj ponuky podľa lokality, termínu aj typu veci. Rentulo
+                drží výber, rezerváciu a komunikáciu v jednom produkte.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Link className="rentulo-btn-primary px-5 py-3 text-sm" href="/items/new">
-                PridaĹĄ ponuku
+                Pridať ponuku
               </Link>
               <a
                 href="#vysledky"
                 className="rentulo-btn-secondary inline-flex items-center bg-white/[0.03] px-5 py-3 text-sm"
               >
-                PozrieĹĄ vĂ˝sledky
+                Pozrieť výsledky
               </a>
             </div>
           </div>
@@ -446,20 +449,20 @@ export default function ItemsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-[1.6rem] border border-white/10 bg-black/25 p-5 backdrop-blur-sm sm:col-span-2">
               <div className="text-[11px] uppercase tracking-[0.24em] text-white/45">
-                AktuĂˇlny vĂ˝ber
+                Aktuálny výber
               </div>
               <div className="mt-3 grid gap-4 sm:grid-cols-3">
                 <div>
                   <div className="text-3xl font-semibold text-white">{filteredItems.length}</div>
-                  <div className="mt-1 text-sm text-white/60">zobrazenĂ˝ch ponĂşk</div>
+                  <div className="mt-1 text-sm text-white/60">zobrazených ponúk</div>
                 </div>
                 <div>
                   <div className="text-3xl font-semibold text-white">{items.length}</div>
-                  <div className="mt-1 text-sm text-white/60">naÄŤĂ­tanĂ˝ch ponĂşk</div>
+                  <div className="mt-1 text-sm text-white/60">načítaných ponúk</div>
                 </div>
                 <div>
                   <div className="text-3xl font-semibold text-white">{CATEGORIES.length - 1}</div>
-                  <div className="mt-1 text-sm text-white/60">hlavnĂ˝ch kategĂłriĂ­</div>
+                  <div className="mt-1 text-sm text-white/60">hlavných kategórií</div>
                 </div>
               </div>
             </div>
@@ -467,7 +470,7 @@ export default function ItemsPage() {
             <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(99,102,241,0.16),rgba(0,0,0,0.16))] p-5">
               <div className="text-sm font-semibold text-white">Lokalita</div>
               <div className="mt-3 text-sm leading-6 text-white/72">
-                {selectedLabel ? selectedLabel : "CelĂ© Slovensko"}
+                {selectedLabel ? selectedLabel : "Celé Slovensko"}
               </div>
               <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
                 Okruh {radiusKm} km
@@ -475,14 +478,14 @@ export default function ItemsPage() {
             </div>
 
             <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(236,72,153,0.14),rgba(0,0,0,0.16))] p-5">
-              <div className="text-sm font-semibold text-white">DostupnosĹĄ</div>
+              <div className="text-sm font-semibold text-white">Dostupnosť</div>
               <div className="mt-3 text-sm leading-6 text-white/72">
                 {hasValidDateRange
-                  ? `FiltrovanĂ© medzi ${dateFrom} a ${dateTo}`
-                  : "Vyber termĂ­n a zobraz len voÄľnĂ© ponuky"}
+                  ? `Filtrované medzi ${dateFrom} a ${dateTo}`
+                  : "Vyber termín a zobraz len voľné ponuky"}
               </div>
               <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
-                RezervĂˇcia cez Rentulo
+                Rezervácia cez Rentulo
               </div>
             </div>
           </div>
@@ -494,27 +497,27 @@ export default function ItemsPage() {
           <div className="flex flex-col gap-2">
             <SectionEyebrow>Filtre a lokalita</SectionEyebrow>
             <h2 className="text-2xl font-semibold text-white md:text-3xl">
-              Spresni si vĂ˝sledky bez straty kontextu
+              Spresni si výsledky bez straty kontextu
             </h2>
             <p className="max-w-2xl text-sm leading-6 text-white/65">
-              HÄľadaj podÄľa nĂˇzvu, mesta, termĂ­nu aj kategĂłrie a rovno si over,
-              ktorĂ© ponuky ostĂˇvajĂş voÄľnĂ©.
+              Hľadaj podľa názvu, mesta, termínu aj kategórie a rovno si over,
+              ktoré ponuky ostávajú voľné.
             </p>
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div>
-              <div className="mb-2 text-sm text-white/75">ÄŚo hÄľadĂˇĹˇ</div>
+              <div className="mb-2 text-sm text-white/75">Čo hľadáš</div>
               <input
                 className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
-                placeholder="napr. vĹ•taÄŤka, KĂ¤rcher, Trnava"
+                placeholder="napr. vŕtačka, Kärcher, Trnava"
                 value={textQuery}
                 onChange={(e) => setTextQuery(e.target.value)}
               />
             </div>
 
             <div>
-              <div className="mb-2 text-sm text-white/75">KategĂłria</div>
+              <div className="mb-2 text-sm text-white/75">Kategória</div>
               <select
                 className="rentulo-input-light h-12 px-3"
                 value={categoryFilter}
@@ -529,7 +532,7 @@ export default function ItemsPage() {
             </div>
 
             <div>
-              <div className="mb-2 text-sm text-white/75">Mesto alebo PSÄŚ</div>
+              <div className="mb-2 text-sm text-white/75">Mesto alebo PSČ</div>
               <input
                 className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
                 placeholder="napr. Trnava alebo 91701"
@@ -538,7 +541,7 @@ export default function ItemsPage() {
               />
 
               {searchingLocation ? (
-                <div className="mt-2 text-sm text-white/60">HÄľadĂˇm lokality...</div>
+                <div className="mt-2 text-sm text-white/60">Hľadám lokality...</div>
               ) : null}
 
               {locationResults.length > 0 ? (
@@ -550,7 +553,7 @@ export default function ItemsPage() {
                       onClick={() => runSearchFromFeature(f)}
                       className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm text-white/85 hover:bg-white/10 last:border-b-0"
                     >
-                      {f.properties?.formatted ?? "NeznĂˇma lokalita"}
+                      {f.properties?.formatted ?? "Neznáma lokalita"}
                     </button>
                   ))}
                 </div>
@@ -574,7 +577,7 @@ export default function ItemsPage() {
               </div>
 
               <div className="sm:col-span-1">
-                <div className="mb-2 text-sm text-white/75">DĂˇtum od</div>
+                <div className="mb-2 text-sm text-white/75">Dátum od</div>
                 <input
                   type="date"
                   className="rentulo-input-light h-12 px-3"
@@ -584,7 +587,7 @@ export default function ItemsPage() {
               </div>
 
               <div className="sm:col-span-1">
-                <div className="mb-2 text-sm text-white/75">DĂˇtum do</div>
+                <div className="mb-2 text-sm text-white/75">Dátum do</div>
                 <input
                   type="date"
                   className="rentulo-input-light h-12 px-3"
@@ -598,15 +601,15 @@ export default function ItemsPage() {
 
           {hasInvalidDateRange ? (
             <div className="mt-4 rounded-[1.25rem] border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-              DĂˇtum od musĂ­ byĹĄ menĹˇĂ­ alebo rovnĂ˝ dĂˇtumu do.
+              Dátum od musí byť menší alebo rovný dátumu do.
             </div>
           ) : null}
         </div>
 
         <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(9,12,20,0.82))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.22)] md:p-8">
-          <SectionEyebrow>RĂ˝chle akcie</SectionEyebrow>
+          <SectionEyebrow>Rýchle akcie</SectionEyebrow>
           <div className="mt-4 text-2xl font-semibold text-white">
-            Nastav si hÄľadanie podÄľa toho, ako chceĹˇ objavovaĹĄ ponuky
+            Nastav si hľadanie podľa toho, ako chceš objavovať ponuky
           </div>
 
           <div className="mt-6 grid gap-3">
@@ -615,7 +618,7 @@ export default function ItemsPage() {
               type="button"
               onClick={searchByTypedLocation}
             >
-              HÄľadaĹĄ podÄľa lokality
+              Hľadať podľa lokality
             </button>
 
             <button
@@ -623,7 +626,7 @@ export default function ItemsPage() {
               type="button"
               onClick={useMyLocation}
             >
-              V mojej blĂ­zkosti
+              V mojej blízkosti
             </button>
 
             <button
@@ -631,13 +634,13 @@ export default function ItemsPage() {
               type="button"
               onClick={resetSearch}
             >
-              ZruĹˇiĹĄ filtre
+              Zrušiť filtre
             </button>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
             <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-              VĂ˝sledky: <strong className="text-white">{filteredItems.length}</strong>
+              Výsledky: <strong className="text-white">{filteredItems.length}</strong>
             </div>
 
             {selectedLabel ? (
@@ -646,31 +649,31 @@ export default function ItemsPage() {
               </div>
             ) : null}
 
-            {categoryFilter !== "VĹˇetky kategĂłrie" ? (
+            {categoryFilter !== "Všetky kategórie" ? (
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-                KategĂłria: <strong className="text-white">{categoryFilter}</strong>
+                Kategória: <strong className="text-white">{categoryFilter}</strong>
               </div>
             ) : null}
 
             {hasValidDateRange ? (
               <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-white/80">
-                VoÄľnĂ© medzi: <strong className="text-white">{dateFrom}</strong> â€“{" "}
+                Voľné medzi: <strong className="text-white">{dateFrom}</strong> –{" "}
                 <strong className="text-white">{dateTo}</strong>
               </div>
             ) : null}
 
             {availabilityLoading ? (
               <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60">
-                Kontrolujem dostupnosĹĄ...
+                Kontrolujem dostupnosť...
               </div>
             ) : null}
           </div>
 
           <div className="mt-6 space-y-3">
             {[
-              "VĂ˝ber podÄľa lokality a termĂ­nu",
-              "SilnejĹˇĂ­ dĂ´raz na fotky a cenu",
-              "RezervĂˇcia a komunikĂˇcia na jednom mieste",
+              "Výber podľa lokality a termínu",
+              "Silnejší dôraz na fotky a cenu",
+              "Rezervácia a komunikácia na jednom mieste",
             ].map((item) => (
               <div
                 key={item}
@@ -691,20 +694,20 @@ export default function ItemsPage() {
 
       {filteredItems.length === 0 && !status ? (
         <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-10 text-center text-white/60">
-          NenaĹˇli sa Ĺľiadne ponuky.
+          Nenašli sa žiadne ponuky.
         </div>
       ) : null}
 
       <section id="vysledky" className="space-y-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <SectionEyebrow>VĂ˝sledky</SectionEyebrow>
+            <SectionEyebrow>Výsledky</SectionEyebrow>
             <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
-              Ponuky pripravenĂ© na objavovanie
+              Ponuky pripravené na objavovanie
             </h2>
           </div>
           <div className="text-sm text-white/60">
-            Fotka, cena, miesto a dĂ´vera v ÄŤitateÄľnejĹˇej hierarchii.
+            Fotka, cena, miesto a dôvera v čitateľnejšej hierarchii.
           </div>
         </div>
 
@@ -761,7 +764,7 @@ export default function ItemsPage() {
                       onClick={() => showPrevImage(item.id)}
                       className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
-                      â†
+                      ←
                     </button>
 
                     <button
@@ -769,7 +772,7 @@ export default function ItemsPage() {
                       onClick={() => showNextImage(item.id)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
-                      â†’
+                      →
                     </button>
                   </>
                 ) : null}
@@ -779,14 +782,14 @@ export default function ItemsPage() {
                     <div className="text-xl font-semibold text-white">{item.title}</div>
                     <div className="mt-1 text-sm text-white/70">
                       {item.city ? <span>{item.city}</span> : null}
-                      {item.city && item.postal_code ? <span> Â· </span> : null}
+                      {item.city && item.postal_code ? <span> · </span> : null}
                       {item.postal_code ? <span>{item.postal_code}</span> : null}
                     </div>
                   </div>
 
                   <div className="rounded-[1.2rem] border border-white/10 bg-black/40 px-4 py-3 text-right backdrop-blur-sm">
-                    <div className="text-lg font-semibold text-white">{item.price_per_day} â‚¬</div>
-                    <div className="text-xs text-white/65">za deĹ</div>
+                    <div className="text-lg font-semibold text-white">{item.price_per_day} €</div>
+                    <div className="text-xs text-white/65">za deň</div>
                   </div>
                 </div>
               </div>
@@ -802,14 +805,14 @@ export default function ItemsPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
-                    RezervĂˇcia cez Rentulo
+                    Rezervácia cez Rentulo
                   </span>
                   <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
-                    KomunikĂˇcia pri ponuke
+                    Komunikácia pri ponuke
                   </span>
                   {hasValidDateRange ? (
                     <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
-                      VoÄľnĂ© v termĂ­ne
+                      Voľné v termíne
                     </span>
                   ) : null}
                 </div>
@@ -826,7 +829,7 @@ export default function ItemsPage() {
                             ? "w-8 bg-white"
                             : "w-2.5 bg-white/25 hover:bg-white/45"
                         }`}
-                        aria-label={`ZobraziĹĄ fotku ${index + 1}`}
+                        aria-label={`Zobraziť fotku ${index + 1}`}
                       />
                     ))}
                   </div>
@@ -834,14 +837,14 @@ export default function ItemsPage() {
 
                 <div className="flex items-center justify-between gap-3 pt-1">
                   <div className="text-sm text-white/50">
-                    Fotka, cena a dĂ´vera v jednom produkte
+                    Fotka, cena a dôvera v jednom produkte
                   </div>
 
                   <Link
                     href={`/items/${item.id}`}
                     className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/85 hover:bg-white/[0.1]"
                   >
-                    OtvoriĹĄ detail
+                    Otvoriť detail
                   </Link>
                 </div>
               </div>
@@ -853,4 +856,5 @@ export default function ItemsPage() {
     </main>
   );
 }
+
 
