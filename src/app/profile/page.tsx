@@ -53,7 +53,6 @@ export default function ProfilePage() {
   const [status, setStatus] = useState("Načítavam...");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [requestingVerification, setRequestingVerification] = useState(false);
 
   const avatarUrl = useMemo(() => {
     if (!avatarPath) return null;
@@ -229,48 +228,6 @@ export default function ProfilePage() {
     }
   };
 
-  const requestVerification = async () => {
-    if (!currentUserId) {
-      router.replace("/login");
-      return;
-    }
-
-    setRequestingVerification(true);
-    setStatus("Odosielam žiadosť o overenie...");
-
-    try {
-      await ensureProfileExists(currentUserId);
-
-      const nowIso = new Date().toISOString();
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          verification_status: "pending",
-          verification_note: null,
-          verification_submitted_at: nowIso,
-        })
-        .eq("id", currentUserId);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setVerificationStatus("pending");
-      setVerificationNote("");
-      setVerificationSubmittedAt(nowIso);
-      setStatus("Žiadosť o overenie bola odoslaná ✅");
-      alert("Žiadosť o overenie bola odoslaná.");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Neznáma chyba pri odoslaní žiadosti.";
-      setStatus("Chyba: " + message);
-      alert(message);
-    } finally {
-      setRequestingVerification(false);
-    }
-  };
-
   if (!authChecked) {
     return (
       <main className="space-y-6">
@@ -345,21 +302,16 @@ export default function ProfilePage() {
               </div>
             ) : null}
 
-            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/65">
-              Ak ešte overenie nemáš, môžeš ho spustiť hneď teraz bez zmeny ostatných častí profilu.
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {verificationStatus === "unverified" || verificationStatus === "rejected" ? (
-              <button
-                type="button"
-                className="rentulo-btn-primary px-4 py-2.5 text-sm disabled:opacity-50"
-                onClick={requestVerification}
-                disabled={requestingVerification}
+              <Link
+                href="/verification"
+                className="rentulo-btn-primary px-4 py-2.5 text-sm"
               >
-                {requestingVerification ? "Odosielam..." : "Požiadať o overenie"}
-              </button>
+                Overiť profil
+              </Link>
             ) : verificationStatus === "pending" ? (
               <div className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/70">
                 Žiadosť čaká na spracovanie
