@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -18,9 +18,17 @@ type Item = {
 
 type ReservationRow = {
   item_id: number;
-  start_date: string;
-  end_date: string;
+  date_from: string;
+  date_to: string;
   status: string | null;
+};
+
+type ItemImageRow = {
+  item_id: number;
+  path: string;
+  is_primary: boolean | null;
+  position: number | null;
+  id: number;
 };
 
 type GeoapifyFeature = {
@@ -33,16 +41,24 @@ type GeoapifyFeature = {
   };
 };
 
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inline-flex rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/55">
+      {children}
+    </div>
+  );
+}
+
 const CATEGORIES = [
-  "Všetky kategórie",
-  "Náradie",
-  "Záhrada",
-  "Stavebné stroje",
+  "VĹˇetky kategĂłrie",
+  "NĂˇradie",
+  "ZĂˇhrada",
+  "StavebnĂ© stroje",
   "Auto-moto",
   "Elektronika",
-  "Dom a dielňa",
-  "Šport a voľný čas",
-  "Ostatné",
+  "Dom a dielĹa",
+  "Ĺ port a voÄľnĂ˝ ÄŤas",
+  "OstatnĂ©",
 ];
 
 const NON_BLOCKING_RESERVATION_STATUSES = new Set([
@@ -62,12 +78,12 @@ export default function ItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
   const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
-  const [status, setStatus] = useState("Načítavam...");
+  const [status, setStatus] = useState("NaÄŤĂ­tavam...");
 
   const [textQuery, setTextQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
   const [radiusKm, setRadiusKm] = useState("20");
-  const [categoryFilter, setCategoryFilter] = useState("Všetky kategórie");
+  const [categoryFilter, setCategoryFilter] = useState("VĹˇetky kategĂłrie");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -88,7 +104,7 @@ export default function ItemsPage() {
     const unavailableSet = new Set(unavailableItemIds);
 
     return items.filter((item) => {
-      if (categoryFilter !== "Všetky kategórie" && item.category !== categoryFilter) {
+      if (categoryFilter !== "VĹˇetky kategĂłrie" && item.category !== categoryFilter) {
         return false;
       }
 
@@ -139,11 +155,11 @@ export default function ItemsPage() {
       return;
     }
 
-    const grouped: Record<number, any[]> = {};
+    const grouped: Record<number, ItemImageRow[]> = {};
     const nextMap: Record<number, string[]> = {};
     const nextActiveMap: Record<number, number> = {};
 
-    for (const raw of (imgs ?? []) as any[]) {
+    for (const raw of (imgs ?? []) as ItemImageRow[]) {
       if (!grouped[raw.item_id]) grouped[raw.item_id] = [];
       grouped[raw.item_id].push(raw);
     }
@@ -182,7 +198,7 @@ export default function ItemsPage() {
   };
 
   const loadDefaultItems = async () => {
-    setStatus("Načítavam...");
+    setStatus("NaÄŤĂ­tavam...");
 
     const { data, error } = await supabase
       .from("items")
@@ -203,7 +219,7 @@ export default function ItemsPage() {
   };
 
   const loadNearbyItems = async (lat: number, lng: number, label: string) => {
-    setStatus("Hľadám ponuky v okolí...");
+    setStatus("HÄľadĂˇm ponuky v okolĂ­...");
 
     const { data, error } = await supabase.rpc("search_items_near", {
       search_lat: lat,
@@ -277,10 +293,7 @@ export default function ItemsPage() {
 
       const { data, error } = await supabase
         .from("reservations")
-        .select("item_id,start_date,end_date,status")
-        .in("item_id", itemIds)
-        .lte("start_date", dateTo)
-        .gte("end_date", dateFrom);
+        .select("item_id,date_from,date_to,status")`r`n        .in("item_id", itemIds)`r`n        .lte("date_from", dateTo)`r`n        .gte("date_to", dateFrom);
 
       if (cancelled) return;
 
@@ -318,7 +331,7 @@ export default function ItemsPage() {
     const label = p.formatted ?? [p.city, p.postcode].filter(Boolean).join(", ");
 
     if (lat === null || lng === null) {
-      setStatus("Chyba: lokalita nemá súradnice.");
+      setStatus("Chyba: lokalita nemĂˇ sĂşradnice.");
       return;
     }
 
@@ -329,7 +342,7 @@ export default function ItemsPage() {
 
   const searchByTypedLocation = async () => {
     if (locationResults.length === 0) {
-      setStatus("Najprv vyber lokalitu zo zoznamu návrhov.");
+      setStatus("Najprv vyber lokalitu zo zoznamu nĂˇvrhov.");
       return;
     }
 
@@ -338,11 +351,11 @@ export default function ItemsPage() {
 
   const useMyLocation = async () => {
     if (!navigator.geolocation) {
-      setStatus("Tento prehliadač nepodporuje geolokáciu.");
+      setStatus("Tento prehliadaÄŤ nepodporuje geolokĂˇciu.");
       return;
     }
 
-    setStatus("Zisťujem tvoju polohu...");
+    setStatus("ZisĹĄujem tvoju polohu...");
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -352,7 +365,7 @@ export default function ItemsPage() {
         await loadNearbyItems(lat, lng, "moja poloha");
       },
       () => {
-        setStatus("Nepodarilo sa získať tvoju polohu.");
+        setStatus("Nepodarilo sa zĂ­skaĹĄ tvoju polohu.");
       },
       {
         enableHighAccuracy: true,
@@ -366,7 +379,7 @@ export default function ItemsPage() {
     setLocationQuery("");
     setLocationResults([]);
     setRadiusKm("20");
-    setCategoryFilter("Všetky kategórie");
+    setCategoryFilter("VĹˇetky kategĂłrie");
     setDateFrom("");
     setDateTo("");
     setUnavailableItemIds([]);
@@ -399,208 +412,303 @@ export default function ItemsPage() {
   };
 
   return (
-    <main className="space-y-6">
-      <section className="rentulo-card p-6 md:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="max-w-2xl">
-            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
-              Rentulo marketplace
+    <main className="space-y-8 lg:space-y-10">
+      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03)_42%,rgba(99,102,241,0.14)_100%)] px-6 py-8 shadow-[0_24px_90px_rgba(0,0,0,0.28)] md:px-8 md:py-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.18),transparent_28%)]" />
+
+        <div className="relative grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+          <div className="space-y-6">
+            <SectionEyebrow>Objav ponuky na Rentulo</SectionEyebrow>
+
+            <div className="space-y-4">
+              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.02] tracking-tight text-white md:text-5xl lg:text-6xl">
+                PrenĂˇjom vecĂ­ s dĂ´razom na fotky, dostupnosĹĄ a dĂ´veru
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-white/72 md:text-lg md:leading-8">
+                PrechĂˇdzaj ponuky podÄľa lokality, termĂ­nu aj typu veci. Rentulo
+                drĹľĂ­ vĂ˝ber, rezervĂˇciu a komunikĂˇciu v jednom produkte.
+              </p>
             </div>
 
-            <h1 className="mt-4 text-3xl font-semibold md:text-4xl">Ponuky</h1>
-
-            <p className="mt-2 leading-7 text-white/70">
-              Hľadaj podľa názvu, popisu, kategórie, lokality a dostupnosti v dátume.
-            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link className="rentulo-btn-primary px-5 py-3 text-sm" href="/items/new">
+                PridaĹĄ ponuku
+              </Link>
+              <a
+                href="#vysledky"
+                className="rentulo-btn-secondary inline-flex items-center bg-white/[0.03] px-5 py-3 text-sm"
+              >
+                PozrieĹĄ vĂ˝sledky
+              </a>
+            </div>
           </div>
 
-          <Link className="rentulo-btn-primary px-4 py-2.5 text-sm" href="/items/new">
-            Pridať ponuku
-          </Link>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[1.6rem] border border-white/10 bg-black/25 p-5 backdrop-blur-sm sm:col-span-2">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-white/45">
+                AktuĂˇlny vĂ˝ber
+              </div>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <div className="text-3xl font-semibold text-white">{filteredItems.length}</div>
+                  <div className="mt-1 text-sm text-white/60">zobrazenĂ˝ch ponĂşk</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-semibold text-white">{items.length}</div>
+                  <div className="mt-1 text-sm text-white/60">naÄŤĂ­tanĂ˝ch ponĂşk</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-semibold text-white">{CATEGORIES.length - 1}</div>
+                  <div className="mt-1 text-sm text-white/60">hlavnĂ˝ch kategĂłriĂ­</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(99,102,241,0.16),rgba(0,0,0,0.16))] p-5">
+              <div className="text-sm font-semibold text-white">Lokalita</div>
+              <div className="mt-3 text-sm leading-6 text-white/72">
+                {selectedLabel ? selectedLabel : "CelĂ© Slovensko"}
+              </div>
+              <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
+                Okruh {radiusKm} km
+              </div>
+            </div>
+
+            <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(236,72,153,0.14),rgba(0,0,0,0.16))] p-5">
+              <div className="text-sm font-semibold text-white">DostupnosĹĄ</div>
+              <div className="mt-3 text-sm leading-6 text-white/72">
+                {hasValidDateRange
+                  ? `FiltrovanĂ© medzi ${dateFrom} a ${dateTo}`
+                  : "Vyber termĂ­n a zobraz len voÄľnĂ© ponuky"}
+              </div>
+              <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
+                RezervĂˇcia cez Rentulo
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="rentulo-card p-5 md:p-6">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">Filtre a lokalita</h2>
-          <p className="text-sm leading-6 text-white/60">
-            Vyfiltruj si ponuky rýchlo a rovno aj podľa voľného termínu.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-          <div>
-            <div className="mb-2 text-sm text-white/75">Textové vyhľadávanie</div>
-            <input
-              className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
-              placeholder="napr. vŕtačka, Kärcher, Trnava"
-              value={textQuery}
-              onChange={(e) => setTextQuery(e.target.value)}
-            />
+      <section className="grid gap-6 xl:grid-cols-[1.24fr_0.76fr]">
+        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.18)] md:p-8">
+          <div className="flex flex-col gap-2">
+            <SectionEyebrow>Filtre a lokalita</SectionEyebrow>
+            <h2 className="text-2xl font-semibold text-white md:text-3xl">
+              Spresni si vĂ˝sledky bez straty kontextu
+            </h2>
+            <p className="max-w-2xl text-sm leading-6 text-white/65">
+              HÄľadaj podÄľa nĂˇzvu, mesta, termĂ­nu aj kategĂłrie a rovno si over,
+              ktorĂ© ponuky ostĂˇvajĂş voÄľnĂ©.
+            </p>
           </div>
 
-          <div>
-            <div className="mb-2 text-sm text-white/75">Kategória</div>
-            <select
-              className="rentulo-input-light h-12 px-3"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div>
+              <div className="mb-2 text-sm text-white/75">ÄŚo hÄľadĂˇĹˇ</div>
+              <input
+                className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
+                placeholder="napr. vĹ•taÄŤka, KĂ¤rcher, Trnava"
+                value={textQuery}
+                onChange={(e) => setTextQuery(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <div className="mb-2 text-sm text-white/75">KategĂłria</div>
+              <select
+                className="rentulo-input-light h-12 px-3"
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="mb-2 text-sm text-white/75">Mesto alebo PSÄŚ</div>
+              <input
+                className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
+                placeholder="napr. Trnava alebo 91701"
+                value={locationQuery}
+                onChange={(e) => setLocationQuery(e.target.value)}
+              />
+
+              {searchingLocation ? (
+                <div className="mt-2 text-sm text-white/60">HÄľadĂˇm lokality...</div>
+              ) : null}
+
+              {locationResults.length > 0 ? (
+                <div className="mt-2 overflow-hidden rounded-[1.15rem] border border-white/10 bg-black/20">
+                  {locationResults.map((f, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => runSearchFromFeature(f)}
+                      className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm text-white/85 hover:bg-white/10 last:border-b-0"
+                    >
+                      {f.properties?.formatted ?? "NeznĂˇma lokalita"}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-1">
+                <div className="mb-2 text-sm text-white/75">Okruh</div>
+                <select
+                  className="rentulo-input-light h-12 px-3"
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(e.target.value)}
+                >
+                  <option value="5">5 km</option>
+                  <option value="10">10 km</option>
+                  <option value="15">15 km</option>
+                  <option value="20">20 km</option>
+                  <option value="50">50 km</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-1">
+                <div className="mb-2 text-sm text-white/75">DĂˇtum od</div>
+                <input
+                  type="date"
+                  className="rentulo-input-light h-12 px-3"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <div className="mb-2 text-sm text-white/75">DĂˇtum do</div>
+                <input
+                  type="date"
+                  className="rentulo-input-light h-12 px-3"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {hasInvalidDateRange ? (
+            <div className="mt-4 rounded-[1.25rem] border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              DĂˇtum od musĂ­ byĹĄ menĹˇĂ­ alebo rovnĂ˝ dĂˇtumu do.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(9,12,20,0.82))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.22)] md:p-8">
+          <SectionEyebrow>RĂ˝chle akcie</SectionEyebrow>
+          <div className="mt-4 text-2xl font-semibold text-white">
+            Nastav si hÄľadanie podÄľa toho, ako chceĹˇ objavovaĹĄ ponuky
+          </div>
+
+          <div className="mt-6 grid gap-3">
+            <button
+              className="rentulo-btn-primary h-12 px-4 text-sm"
+              type="button"
+              onClick={searchByTypedLocation}
             >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+              HÄľadaĹĄ podÄľa lokality
+            </button>
+
+            <button
+              className="rentulo-btn-secondary h-12 px-4 text-sm"
+              type="button"
+              onClick={useMyLocation}
+            >
+              V mojej blĂ­zkosti
+            </button>
+
+            <button
+              className="rentulo-btn-secondary h-12 px-4 text-sm"
+              type="button"
+              onClick={resetSearch}
+            >
+              ZruĹˇiĹĄ filtre
+            </button>
           </div>
 
-          <div>
-            <div className="mb-2 text-sm text-white/75">Dátum od</div>
-            <input
-              type="date"
-              className="rentulo-input-light h-12 px-3"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
+          <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
+              VĂ˝sledky: <strong className="text-white">{filteredItems.length}</strong>
+            </div>
 
-          <div>
-            <div className="mb-2 text-sm text-white/75">Dátum do</div>
-            <input
-              type="date"
-              className="rentulo-input-light h-12 px-3"
-              value={dateTo}
-              min={dateFrom || undefined}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 grid items-start gap-3 lg:grid-cols-[2fr_1fr_1fr]">
-          <div>
-            <div className="mb-2 text-sm text-white/75">Mesto alebo PSČ</div>
-
-            <input
-              className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
-              placeholder="napr. Trnava alebo 91701"
-              value={locationQuery}
-              onChange={(e) => setLocationQuery(e.target.value)}
-            />
-
-            {searchingLocation ? (
-              <div className="mt-2 text-sm text-white/60">Hľadám lokality...</div>
+            {selectedLabel ? (
+              <div className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-white/80">
+                Lokalita: <strong className="text-white">{selectedLabel}</strong>
+              </div>
             ) : null}
 
-            {locationResults.length > 0 ? (
-              <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
-                {locationResults.map((f, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => runSearchFromFeature(f)}
-                    className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm text-white/85 hover:bg-white/10 last:border-b-0"
-                  >
-                    {f.properties?.formatted ?? "Neznáma lokalita"}
-                  </button>
-                ))}
+            {categoryFilter !== "VĹˇetky kategĂłrie" ? (
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
+                KategĂłria: <strong className="text-white">{categoryFilter}</strong>
+              </div>
+            ) : null}
+
+            {hasValidDateRange ? (
+              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-white/80">
+                VoÄľnĂ© medzi: <strong className="text-white">{dateFrom}</strong> â€“{" "}
+                <strong className="text-white">{dateTo}</strong>
+              </div>
+            ) : null}
+
+            {availabilityLoading ? (
+              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60">
+                Kontrolujem dostupnosĹĄ...
               </div>
             ) : null}
           </div>
 
-          <div>
-            <div className="mb-2 text-sm text-white/75">Okruh</div>
-
-            <select
-              className="rentulo-input-light h-12 px-3"
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(e.target.value)}
-            >
-              <option value="5">5 km</option>
-              <option value="10">10 km</option>
-              <option value="15">15 km</option>
-              <option value="20">20 km</option>
-              <option value="50">50 km</option>
-            </select>
-          </div>
-
-          <div>
-            <div className="mb-2 text-sm text-white/75">Akcie</div>
-
-            <div className="grid gap-2">
-              <button
-                className="rentulo-btn-primary h-12 px-4 text-sm"
-                type="button"
-                onClick={searchByTypedLocation}
+          <div className="mt-6 space-y-3">
+            {[
+              "VĂ˝ber podÄľa lokality a termĂ­nu",
+              "SilnejĹˇĂ­ dĂ´raz na fotky a cenu",
+              "RezervĂˇcia a komunikĂˇcia na jednom mieste",
+            ].map((item) => (
+              <div
+                key={item}
+                className="rounded-[1.25rem] border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-6 text-white/72"
               >
-                Hľadať podľa lokality
-              </button>
-
-              <button
-                className="rentulo-btn-secondary h-12 px-4 text-sm"
-                type="button"
-                onClick={useMyLocation}
-              >
-                V mojej blízkosti
-              </button>
-
-              <button
-                className="rentulo-btn-secondary h-12 px-4 text-sm"
-                type="button"
-                onClick={resetSearch}
-              >
-                Zrušiť filtre
-              </button>
-            </div>
+                {item}
+              </div>
+            ))}
           </div>
-        </div>
-
-        {hasInvalidDateRange ? (
-          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-            Dátum od musí byť menší alebo rovný dátumu do.
-          </div>
-        ) : null}
-
-        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-          <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-            Výsledky: <strong className="text-white">{filteredItems.length}</strong>
-          </div>
-
-          {selectedLabel ? (
-            <div className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-white/80">
-              Lokalita: <strong className="text-white">{selectedLabel}</strong> · {radiusKm} km
-            </div>
-          ) : null}
-
-          {categoryFilter !== "Všetky kategórie" ? (
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-              Kategória: <strong className="text-white">{categoryFilter}</strong>
-            </div>
-          ) : null}
-
-          {hasValidDateRange ? (
-            <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-white/80">
-              Dostupné medzi: <strong className="text-white">{dateFrom}</strong> –{" "}
-              <strong className="text-white">{dateTo}</strong>
-            </div>
-          ) : null}
-
-          {availabilityLoading ? (
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60">
-              Kontrolujem dostupnosť...
-            </div>
-          ) : null}
         </div>
       </section>
 
-      {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
-
-      {filteredItems.length === 0 && !status ? (
-        <div className="rentulo-card p-8 text-center text-white/60">
-          Nenašli sa žiadne ponuky.
+      {status ? (
+        <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4 text-white/80">
+          {status}
         </div>
       ) : null}
 
-      <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {filteredItems.length === 0 && !status ? (
+        <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-10 text-center text-white/60">
+          NenaĹˇli sa Ĺľiadne ponuky.
+        </div>
+      ) : null}
+
+      <section id="vysledky" className="space-y-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <SectionEyebrow>VĂ˝sledky</SectionEyebrow>
+            <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
+              Ponuky pripravenĂ© na objavovanie
+            </h2>
+          </div>
+          <div className="text-sm text-white/60">
+            Fotka, cena, miesto a dĂ´vera v ÄŤitateÄľnejĹˇej hierarchii.
+          </div>
+        </div>
+
+        <ul className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {filteredItems.map((item) => {
           const images = imageMap[item.id] ?? [];
           const activeIndex = activeImageIndexMap[item.id] ?? 0;
@@ -609,93 +717,81 @@ export default function ItemsPage() {
           return (
             <li
               key={item.id}
-              className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-indigo-400/40 hover:bg-white/[0.07]"
+              className="group overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)]"
             >
-              <div className="relative">
+              <div className="relative h-64 overflow-hidden">
                 {activeImage ? (
-                  <img src={activeImage} alt={item.title} className="h-52 w-full object-cover" />
+                  <img
+                    src={activeImage}
+                    alt={item.title}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                  />
                 ) : (
-                  <div className="flex h-52 w-full items-center justify-center bg-black/20 text-sm text-white/40">
+                  <div className="flex h-full w-full items-center justify-center bg-black/20 text-sm text-white/40">
                     Bez fotky
                   </div>
                 )}
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {item.category ? (
+                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                        {item.category}
+                      </span>
+                    ) : null}
+
+                    {item.distance_km !== null && item.distance_km !== undefined ? (
+                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+                        {item.distance_km} km
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur-sm">
+                    {images.length > 0 ? `${activeIndex + 1}/${images.length} fotiek` : "Bez fotiek"}
+                  </span>
+                </div>
 
                 {images.length > 1 ? (
                   <>
                     <button
                       type="button"
                       onClick={() => showPrevImage(item.id)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
-                      ←
+                      â†
                     </button>
 
                     <button
                       type="button"
                       onClick={() => showNextImage(item.id)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-sm text-white hover:bg-black/70"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
-                      →
+                      â†’
                     </button>
-
-                    <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2 py-1 text-xs text-white">
-                      {activeIndex + 1}/{images.length}
-                    </div>
                   </>
                 ) : null}
-              </div>
 
-              {images.length > 1 ? (
-                <div className="flex gap-2 overflow-x-auto border-t border-white/10 bg-black/20 px-3 py-3">
-                  {images.map((imageUrl, index) => (
-                    <button
-                      key={imageUrl}
-                      type="button"
-                      onClick={() => setItemImageIndex(item.id, index)}
-                      className={`shrink-0 overflow-hidden rounded-lg border ${
-                        activeIndex === index ? "border-indigo-400" : "border-white/10"
-                      }`}
-                    >
-                      <img
-                        src={imageUrl}
-                        alt={`${item.title} ${index + 1}`}
-                        className="h-14 w-20 object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="space-y-3 p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  {item.category ? (
-                    <div className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
-                      {item.category}
+                <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                  <div className="max-w-[70%]">
+                    <div className="text-xl font-semibold text-white">{item.title}</div>
+                    <div className="mt-1 text-sm text-white/70">
+                      {item.city ? <span>{item.city}</span> : null}
+                      {item.city && item.postal_code ? <span> Â· </span> : null}
+                      {item.postal_code ? <span>{item.postal_code}</span> : null}
                     </div>
-                  ) : null}
+                  </div>
 
-                  {item.distance_km !== null && item.distance_km !== undefined ? (
-                    <div className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/70">
-                      {item.distance_km} km
-                    </div>
-                  ) : null}
-                </div>
-
-                <div>
-                  <div className="text-lg font-semibold">{item.title}</div>
-
-                  <div className="mt-1 text-sm text-white/60">
-                    {item.city ? <span>{item.city}</span> : null}
-                    {item.city && item.postal_code ? <span> · </span> : null}
-                    {item.postal_code ? <span>{item.postal_code}</span> : null}
+                  <div className="rounded-[1.2rem] border border-white/10 bg-black/40 px-4 py-3 text-right backdrop-blur-sm">
+                    <div className="text-lg font-semibold text-white">{item.price_per_day} â‚¬</div>
+                    <div className="text-xs text-white/65">za deĹ</div>
                   </div>
                 </div>
+              </div>
 
-                <div className="text-base font-medium text-white">
-                  {item.price_per_day} €
-                  <span className="ml-1 text-sm font-normal text-white/60">/ deň</span>
-                </div>
-
+              <div className="space-y-4 p-5">
                 {item.description ? (
                   <div className="line-clamp-3 text-sm leading-6 text-white/70">
                     {item.description}
@@ -704,17 +800,57 @@ export default function ItemsPage() {
                   <div className="text-sm text-white/45">Bez popisu</div>
                 )}
 
-                <Link
-                  href={`/items/${item.id}`}
-                  className="inline-flex pt-1 text-sm font-medium text-indigo-300 hover:text-indigo-200"
-                >
-                  Otvoriť detail →
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
+                    RezervĂˇcia cez Rentulo
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
+                    KomunikĂˇcia pri ponuke
+                  </span>
+                  {hasValidDateRange ? (
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                      VoÄľnĂ© v termĂ­ne
+                    </span>
+                  ) : null}
+                </div>
+
+                {images.length > 1 ? (
+                  <div className="flex gap-2">
+                    {images.slice(0, 4).map((_, index) => (
+                      <button
+                        key={`${item.id}-${index}`}
+                        type="button"
+                        onClick={() => setItemImageIndex(item.id, index)}
+                        className={`h-2.5 rounded-full transition ${
+                          activeIndex === index
+                            ? "w-8 bg-white"
+                            : "w-2.5 bg-white/25 hover:bg-white/45"
+                        }`}
+                        aria-label={`ZobraziĹĄ fotku ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="text-sm text-white/50">
+                    Fotka, cena a dĂ´vera v jednom produkte
+                  </div>
+
+                  <Link
+                    href={`/items/${item.id}`}
+                    className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/85 hover:bg-white/[0.1]"
+                  >
+                    OtvoriĹĄ detail
+                  </Link>
+                </div>
               </div>
             </li>
           );
         })}
-      </ul>
+        </ul>
+      </section>
     </main>
   );
 }
+
