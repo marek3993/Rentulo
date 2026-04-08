@@ -185,7 +185,7 @@ export default function VerificationPage() {
           <div>
             <h1 className="text-2xl font-semibold">Overenie profilu</h1>
             <p className="mt-1 text-white/60">
-              Vyplň údaje a odošli žiadosť o overenie. Overenie zvyšuje dôveryhodnosť profilu.
+              Overenie pomáha budovať dôveru medzi ľuďmi pri rezervácii, prevzatí aj vrátení veci.
             </p>
           </div>
 
@@ -195,6 +195,26 @@ export default function VerificationPage() {
           >
             Späť na profil
           </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="font-semibold">Čo overenie pomáha zlepšiť</div>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-white/70">
+            <div>• profil pôsobí dôveryhodnejšie už pri prvom kontakte</div>
+            <div>• druhá strana lepšie rozumie, s kým rieši rezerváciu</div>
+            <div>• stav overenia sa ukáže aj na tvojom profile v aplikácii</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+          <div className="font-semibold">Čo môžeš čakať po odoslaní</div>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-white/70">
+            <div>• žiadosť prejde do stavu Čaká na kontrolu</div>
+            <div>• výsledok uvidíš priamo na tejto stránke aj vo svojom profile</div>
+            <div>• ak bude treba úpravu, formulár môžeš po zamietnutí doplniť a poslať znova</div>
+          </div>
         </div>
       </div>
 
@@ -216,25 +236,28 @@ export default function VerificationPage() {
 
         {verificationStatus === "approved" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Tvoj profil je overený.
+            Tvoj profil je overený a tento stav je pripravený podporiť dôveru pri ďalších rezerváciách.
           </div>
         ) : null}
 
         {verificationStatus === "pending" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Tvoja žiadosť čaká na kontrolu administrátorom.
+            Tvoja žiadosť čaká na kontrolu administrátorom. Po výsledku sa stav aktualizuje tu aj na profile.
           </div>
         ) : null}
 
         {verificationStatus === "rejected" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Žiadosť bola zamietnutá. Údaje môžeš upraviť a odoslať znova.
+            Žiadosť bola zamietnutá. Údaje môžeš upraviť, doplniť a odoslať znova.
           </div>
         ) : null}
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
         <div className="font-semibold">Údaje pre overenie</div>
+        <p className="text-sm leading-6 text-white/65">
+          Vyplň údaje pravdivo a tak, ako ich chceš mať naviazané na svoj dôveryhodný profil v Rentulo.
+        </p>
 
         <label className="block">
           <div className="mb-1 text-white/80">Meno a priezvisko</div>

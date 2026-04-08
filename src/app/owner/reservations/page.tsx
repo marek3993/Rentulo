@@ -163,6 +163,32 @@ function paymentEventLabel(eventType: string) {
   return eventType;
 }
 
+function CheckpointCard({
+  label,
+  value,
+  hint,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3 ${
+        emphasized
+          ? "border-indigo-400/30 bg-indigo-500/10"
+          : "border-white/10 bg-black/20"
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-white/45">{label}</div>
+      <div className="mt-2 text-sm font-medium text-white/90">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-white/55">{hint}</div> : null}
+    </div>
+  );
+}
+
 export default function OwnerReservationsPage() {
   const router = useRouter();
 
@@ -461,14 +487,21 @@ export default function OwnerReservationsPage() {
       | "in_rental"
       | "completed"
       | "cancelled"
-      | "disputed"
   ) => {
     setStatus("Ukladám zmenu...");
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: nextStatus })
-      .eq("id", id);
+    const rpcName =
+      nextStatus === "confirmed"
+        ? "reservation_confirm"
+        : nextStatus === "in_rental"
+        ? "reservation_mark_in_rental"
+        : nextStatus === "completed"
+        ? "reservation_complete"
+        : "reservation_cancel";
+
+    const { error } = await supabase.rpc(rpcName, {
+      p_reservation_id: id,
+    });
 
     if (error) {
       setStatus("Chyba: " + error.message);
@@ -805,10 +838,87 @@ export default function OwnerReservationsPage() {
                   Poskytovateľ platby: {r.payment_provider}
                 </div>
 
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-sm font-medium text-white/85">Priebeh a dôkazy</div>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <CheckpointCard
+                      label="Stav rezervácie"
+                      value={reservationStatusLabel(r.status)}
+                      hint={
+                        r.status === "cancelled"
+                          ? "Rezervácia je zrušená"
+                          : r.status === "completed"
+                          ? "Prenájom je ukončený"
+                          : startIn > 0
+                          ? `Začiatok o ${startIn} ${startIn === 1 ? "deň" : startIn < 5 ? "dni" : "dní"}`
+                          : startIn === 0
+                          ? "Prenájom začína dnes"
+                          : "Termín už začal alebo prebieha"
+                      }
+                      emphasized
+                    />
+                    <CheckpointCard
+                      label="Stav platby"
+                      value={paymentStatusLabel(r.payment_status)}
+                      hint={
+                        r.payment_due_at
+                          ? `Platobný krok do ${formatDateTime(r.payment_due_at)}`
+                          : "Platobný stav podľa aktuálnej rezervácie"
+                      }
+                    />
+                    <CheckpointCard
+                      label="Prevzatie"
+                      value={
+                        handoverOwnerCount > 0
+                          ? "Fotky pri odovzdaní sú pripravené"
+                          : r.status === "pending"
+                          ? "Čaká na potvrdenie"
+                          : r.status === "confirmed"
+                          ? "Čaká na tvoje fotky"
+                          : "Zatiaľ bez dôkazových fotiek"
+                      }
+                      hint="Checkpoint pri odovzdaní zákazníkovi"
+                      emphasized={handoverOwnerCount > 0}
+                    />
+                    <CheckpointCard
+                      label="Vrátenie"
+                      value={
+                        r.status === "completed"
+                          ? "Vrátenie je potvrdené"
+                          : r.status === "return_pending_confirmation"
+                          ? "Kontrola po vrátení"
+                          : r.status === "in_rental"
+                          ? "Čaká sa na vrátenie"
+                          : "Zatiaľ nezačalo"
+                      }
+                      hint="Záver prenájmu a potvrdenie z tvojej strany"
+                      emphasized={r.status === "return_pending_confirmation" || returnOwnerCount > 0}
+                    />
+                    <CheckpointCard
+                      label="Dôkaz pri prevzatí"
+                      value={
+                        handoverOwnerCount > 0
+                          ? `${handoverOwnerCount} ${
+                              handoverOwnerCount === 1 ? "fotka" : handoverOwnerCount < 5 ? "fotky" : "fotiek"
+                            }`
+                          : "Bez fotiek"
+                      }
+                      hint="Nahraté tebou pri odovzdaní"
+                      emphasized={handoverOwnerCount > 0}
+                    />
+                    <CheckpointCard
+                      label="Dôkaz po vrátení"
+                      value={`Zákazník ${returnRenterCount} · ty ${returnOwnerCount}`}
+                      hint="Počty fotiek po návrate veci"
+                      emphasized={returnRenterCount > 0 || returnOwnerCount > 0}
+                    />
+                  </div>
+                </div>
+
                 <div className="mt-4 space-y-4">
                   {r.status === "confirmed" ? (
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <div className="font-semibold">Krok 1: odovzdanie zákazníkovi</div>
+                      <div className="font-semibold">Checkpoint: prevzatie zákazníkom</div>
                       <div className="mt-1 text-sm text-white/60">
                         Najprv nahraj fotky stavu veci pri odovzdaní. Až potom označ rezerváciu ako odovzdanú.
                       </div>
@@ -849,14 +959,14 @@ export default function OwnerReservationsPage() {
 
                   {r.status === "return_pending_confirmation" ? (
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <div className="font-semibold">Krok 2: vrátenie od zákazníka</div>
+                      <div className="font-semibold">Checkpoint: vrátenie od zákazníka</div>
                       <div className="mt-1 text-sm text-white/60">
                         Najprv si pozri fotky od zákazníka. Potom nahraj svoje fotky po vrátení a až nakoniec potvrď ukončenie prenájmu.
                       </div>
 
                       <div className="mt-4 grid gap-4 lg:grid-cols-2">
                         <div>
-                          <div className="text-sm font-medium text-white/80">Fotky od zákazníka po vrátení</div>
+                          <div className="text-sm font-medium text-white/80">Dôkazové fotky od zákazníka po vrátení</div>
                           <div className="mt-1 text-sm text-white/60">
                             Nahraté zákazníkom: <strong>{returnRenterCount}</strong>
                           </div>
@@ -864,7 +974,7 @@ export default function OwnerReservationsPage() {
                         </div>
 
                         <div>
-                          <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
+                          <div className="text-sm font-medium text-white/80">Tvoje dôkazové fotky po vrátení</div>
                           <div className="mt-1 text-sm text-white/60">
                             Nahraté prenajímateľom: <strong>{returnOwnerCount}</strong>
                           </div>
@@ -907,7 +1017,7 @@ export default function OwnerReservationsPage() {
 
                   {r.status === "in_rental" ? (
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                      Vec je označená ako odovzdaná. Teraz čakáš, kým zákazník nahrá fotky po vrátení a klikne <strong>Vrátil som</strong>.
+                      Vec je označená ako odovzdaná. Teraz čakáš, kým zákazník nahrá dôkazové fotky po vrátení a klikne <strong>Vrátil som</strong>.
                     </div>
                   ) : null}
                 </div>
@@ -1001,9 +1111,10 @@ export default function OwnerReservationsPage() {
 
                   {canMarkDisputed ? (
                     <button
-                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
-                      onClick={() => updateReservationStatus(r.id, "disputed")}
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled
                       type="button"
+                      title="Zmenu na spor tu momentálne nie je možné vykonať."
                     >
                       Označiť spor
                     </button>
@@ -1068,7 +1179,7 @@ export default function OwnerReservationsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Rezervácie mojich ponúk</h1>
             <p className="mt-1 text-white/60">
-              Prehľad objednávok zákazníkov a jasné kroky od odovzdania až po vrátenie.
+              Sleduj rezervácie, stav platby a dôkazové checkpointy od odovzdania až po vrátenie.
             </p>
           </div>
 
@@ -1118,25 +1229,25 @@ export default function OwnerReservationsPage() {
 
       {renderSection(
         "Čakajúce rezervácie",
-        "Nové rezervácie, ktoré ešte neboli potvrdené.",
+        "Nové rezervácie, kde ešte chýba potvrdenie alebo úspešný platobný krok.",
         pending
       )}
 
       {renderSection(
         "Potvrdené rezervácie",
-        "Rezervácie schválené a pripravené na odovzdanie.",
+        "Rezervácie schválené a pripravené na bezpečné odovzdanie.",
         confirmed
       )}
 
       {renderSection(
         "Prebiehajúce prenájmy",
-        "Tieto rezervácie sú už odovzdané zákazníkovi.",
+        "Tieto rezervácie sú už odovzdané zákazníkovi a čakajú na vrátenie.",
         inRental
       )}
 
       {renderSection(
         "Čaká na potvrdenie vrátenia",
-        "Zákazník tvrdí, že vrátil. Treba skontrolovať fotky a potvrdiť ukončenie.",
+        "Zákazník tvrdí, že vrátil. Treba skontrolovať dôkazové fotky a potvrdiť ukončenie.",
         returnPending
       )}
 

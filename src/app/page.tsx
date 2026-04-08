@@ -42,51 +42,91 @@ const categories: {
 }[] = [
   {
     title: "Náradie",
-    description: "Vŕtačky, brúsky, píly, rezačky, hobby aj profi kusy.",
+    description: "Vŕtačky, brúsky, píly a ďalšie veci, pri ktorých chceš jasný priebeh prenájmu.",
     href: "/items",
     icon: "tool",
   },
   {
-    title: "Záhrada",
-    description: "Kosačky, plotostrihy, krovinorezy, vysávače lístia.",
+    title: "Šport",
+    description: "Výbava na sezónu, víkend aj jednorazové použitie bez potreby kupovať vlastnú.",
     href: "/items",
-    icon: "leaf",
+    icon: "shield",
   },
   {
-    title: "Čistenie",
-    description: "Tepovače, wapky, priemyselné vysávače, odvlhčovače.",
+    title: "Detská výbavička",
+    description: "Kočíky, nosiče a praktické veci, kde záleží na dôvere aj stave pri prevzatí.",
+    href: "/items",
+    icon: "home",
+  },
+  {
+    title: "Event vybavenie",
+    description: "Veci na oslavy, svadby a akcie s prehľadným odovzdaním aj vrátením.",
     href: "/items",
     icon: "spark",
   },
+];
+
+const trustPillars: {
+  title: string;
+  description: string;
+  icon: IconName;
+}[] = [
   {
-    title: "Dom a dielňa",
-    description: "Rebríky, vozíky, miešačky, ohrievače, drobná technika.",
-    href: "/items",
-    icon: "home",
+    title: "Overení používatelia",
+    description:
+      "Profil a overenie sú viditeľné priamo v aplikácii, aby bolo jasnejšie, s kým si rezerváciu dohadujete.",
+    icon: "shield",
+  },
+  {
+    title: "Bezpečný priebeh prenájmu",
+    description:
+      "Rezervácia, potvrdenie, stav platby, prevzatie aj vrátenie sleduješ krok za krokom na jednom mieste.",
+    icon: "clock",
+  },
+  {
+    title: "Platforma rieši spor aj dôkazy",
+    description:
+      "Ak vznikne problém, dôležité kroky, komunikácia a dôkazové fotky ostávajú naviazané na rezerváciu.",
+    icon: "chat",
   },
 ];
 
 const howItWorks = [
   {
     step: "01",
-    title: "Nájdi správnu vec",
-    description:
-      "Pozrieš ponuky, otvoríš detail a vyberieš termín, ktorý ti sedí.",
+    title: "Rezervácia",
+    description: "Vyberieš si vec, termín a odošleš rezerváciu priamo cez Rentulo.",
     icon: "pin" as IconName,
   },
   {
     step: "02",
-    title: "Rezervuj bez chaosu",
-    description:
-      "Vidíš stav rezervácie, komunikáciu aj ďalšie kroky na jednom mieste.",
-    icon: "clock" as IconName,
+    title: "Potvrdenie",
+    description: "Prenajímateľ rezerváciu potvrdí a v aplikácii sa zobrazí ďalší krok.",
+    icon: "shield" as IconName,
   },
   {
     step: "03",
-    title: "Použi a vráť",
-    description:
-      "Odovzdanie, vrátenie a potvrdenie prebehnú cez jasný flow v aplikácii.",
-    icon: "shield" as IconName,
+    title: "Stav platby",
+    description: "Platobný krok sleduješ priamo pri rezervácii, bez hľadania mimo aplikácie.",
+    icon: "clock" as IconName,
+  },
+  {
+    step: "04",
+    title: "Prevzatie",
+    description: "Pri odovzdaní máš k dispozícii jasný checkpoint a dôkazové fotky stavu veci.",
+    icon: "tool" as IconName,
+  },
+  {
+    step: "05",
+    title: "Vrátenie",
+    description: "Aj návrat veci prebieha cez rovnaký flow, vrátane potvrdenia a fotiek.",
+    icon: "home" as IconName,
+  },
+  {
+    step: "06",
+    title: "Spor ak treba",
+    description: "Ak sa niečo pokazí, rezervácia má nadviazaný priestor pre problém aj dôkazy.",
+    icon: "chat" as IconName,
   },
 ];
 
@@ -282,21 +322,21 @@ export default function Home() {
         <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="space-y-6">
             <div className="inline-flex rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
-              Rentulo · prenájom vecí jednoducho
+              Najdôveryhodnejší prenájom medzi ľuďmi na Slovensku
             </div>
 
             <div className="space-y-4">
               <h1 className="max-w-4xl text-4xl font-semibold leading-tight md:text-5xl lg:text-6xl">
-                Požičaj si vec na pár dní.
+                Bezpečný peer-to-peer prenájom vecí
                 <br />
-                Zarábaj na tom,
+                medzi ľuďmi
                 <br />
-                čo doma len stojí.
+                na Slovensku.
               </h1>
 
               <p className="max-w-2xl text-base leading-7 text-white/75 md:text-lg">
-                Lokálny marketplace pre náradie a techniku. Ponuky, rezervácie,
-                správy a priebeh prenájmu máš na jednom mieste.
+                Rentulo stavia dôveru na overených profiloch, jasnom priebehu
+                rezervácie a dôkazových krokoch pri prevzatí aj vrátení.
               </p>
             </div>
 
@@ -318,18 +358,18 @@ export default function Home() {
 
             <div className="grid gap-3 md:grid-cols-3">
               <MiniInfoCard
-                label="Pre nájomcu"
-                text="Rýchly výber a rezervácia"
-                icon="pin"
+                label="Overenie"
+                text="Vidíš, s kým si rezerváciu dohadujete."
+                icon="shield"
               />
               <MiniInfoCard
-                label="Pre majiteľa"
-                text="Jednoduché spravovanie ponúk"
-                icon="tool"
+                label="Priebeh"
+                text="Rezervácia, platba, prevzatie aj vrátenie v jednom flow."
+                icon="clock"
               />
               <MiniInfoCard
-                label="Flow"
-                text="Stav, správy aj rezervácie spolu"
+                label="Dôkazy"
+                text="Fotky a komunikácia ostávajú pri konkrétnej rezervácii."
                 icon="chat"
               />
             </div>
@@ -350,12 +390,12 @@ export default function Home() {
             <div className="rentulo-float-slow absolute left-2 top-10 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-sm">
               <div className="flex items-center gap-3">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-                  <IconBadge icon="pin" />
+                  <IconBadge icon="shield" />
                 </div>
                 <div>
-                  <div className="text-xs text-white/45">Lokalita</div>
+                  <div className="text-xs text-white/45">Dôvera</div>
                   <div className="text-sm font-medium text-white/85">
-                    Trnava a okolie
+                    Overené profily a jasné kroky
                   </div>
                 </div>
               </div>
@@ -364,12 +404,12 @@ export default function Home() {
             <div className="rentulo-float absolute bottom-8 right-0 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-sm">
               <div className="flex items-center gap-3">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-                  <IconBadge icon="clock" />
+                  <IconBadge icon="chat" />
                 </div>
                 <div>
-                  <div className="text-xs text-white/45">Rýchlo</div>
+                  <div className="text-xs text-white/45">Dôkazové kroky</div>
                   <div className="text-sm font-medium text-white/85">
-                    Rezervácia za pár klikov
+                    Prevzatie, vrátenie a spor pri rezervácii
                   </div>
                 </div>
               </div>
@@ -382,10 +422,11 @@ export default function Home() {
         <div className="space-y-4">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <div className="text-sm text-white/45">Kategórie</div>
-              <h2 className="mt-2 text-2xl font-semibold">Najčastejšie kategórie</h2>
+              <div className="text-sm text-white/45">Kde ľudia najčastejšie riešia dôveru</div>
+              <h2 className="mt-2 text-2xl font-semibold">Vertikály pre každodenný prenájom</h2>
               <p className="mt-2 text-white/65">
-                Vyber si kategóriu a prejdi rovno na ponuky, ktoré ťa zaujímajú.
+                Vyber si oblasť a prejdi rovno na ponuky, kde sa oplatí mať
+                rezerváciu, dôkazy aj komunikáciu pokope.
               </p>
             </div>
 
@@ -423,54 +464,47 @@ export default function Home() {
 
       <section className="rounded-3xl border border-indigo-500/15 bg-gradient-to-br from-indigo-500/[0.08] via-white/[0.03] to-transparent p-6 md:p-8">
         <div className="max-w-2xl">
-          <div className="text-sm text-indigo-300">Dôležité hneď na prvý pohľad</div>
-          <h2 className="mt-2 text-2xl font-semibold">Jasné, rýchle, bez chaosu</h2>
+          <div className="text-sm text-indigo-300">Na čom stojí dôvera v Rentulo</div>
+          <h2 className="mt-2 text-2xl font-semibold">
+            Dôležité veci vidíš ešte pred samotným prenájmom
+          </h2>
           <p className="mt-2 leading-7 text-white/70">
-            Nájdeš vhodnú vec, rezervuješ termín a všetko dôležité sleduješ na
-            jednom mieste.
+            Aplikácia zviditeľňuje tie body, ktoré pomáhajú ľuďom dôverovať si
+            pri prenájme aj medzi sebou.
           </p>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-              <IconBadge icon="shield" />
+          {trustPillars.map((pillar) => (
+            <div
+              key={pillar.title}
+              className="rounded-3xl border border-white/10 bg-black/20 p-5"
+            >
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
+                <IconBadge icon={pillar.icon} />
+              </div>
+              <div className="text-lg font-semibold">{pillar.title}</div>
+              <p className="mt-2 text-sm leading-6 text-white/70">
+                {pillar.description}
+              </p>
             </div>
-            <div className="text-lg font-semibold">Prehľadný flow</div>
-            <p className="mt-2 text-sm leading-6 text-white/70">
-              Rezervácie, komunikácia a ďalšie kroky máš pokope.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-              <IconBadge icon="tool" />
-            </div>
-            <div className="text-lg font-semibold">Vhodné aj pre majiteľov</div>
-            <p className="mt-2 text-sm leading-6 text-white/70">
-              Pridáš ponuku a zarábaš na veciach, ktoré už máš doma.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-black/20 p-5">
-            <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
-              <IconBadge icon="clock" />
-            </div>
-            <div className="text-lg font-semibold">Rýchly štart</div>
-            <p className="mt-2 text-sm leading-6 text-white/70">
-              Začni prehliadaním ponúk alebo rovno pridaj vlastnú vec.
-            </p>
-          </div>
+          ))}
         </div>
       </section>
 
       <section className="rounded-3xl border border-fuchsia-500/15 bg-gradient-to-br from-fuchsia-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
-        <div className="mb-6">
-          <div className="text-sm text-fuchsia-300">Ako to funguje</div>
-          <h2 className="mt-2 text-2xl font-semibold">Tri jednoduché kroky</h2>
+        <div className="mb-6 max-w-2xl">
+          <div className="text-sm text-fuchsia-300">Jeden jasný lifecycle</div>
+          <h2 className="mt-2 text-2xl font-semibold">
+            Od rezervácie až po spor, ak treba
+          </h2>
+          <p className="mt-2 leading-7 text-white/70">
+            Rentulo zjednocuje celý priebeh prenájmu do jedného zrozumiteľného
+            flow, aby obidve strany vedeli, čo nasleduje.
+          </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {howItWorks.map((item) => (
             <div
               key={item.step}
@@ -492,14 +526,16 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-cyan-500/15 bg-gradient-to-br from-cyan-500/[0.06] via-white/[0.03] to-transparent p-6 md:p-8">
+      <section className="rounded-3xl border border-white/10 bg-black/20 p-6 md:p-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
           <div className="space-y-5">
             <div>
-              <h2 className="text-2xl font-semibold">Čo chceš spraviť?</h2>
+              <div className="text-sm text-white/45">Pomocník pre výber veci</div>
+              <h2 className="mt-2 text-2xl font-semibold">Nevieš ešte presne, čo potrebuješ?</h2>
               <p className="mt-2 max-w-2xl leading-7 text-white/70">
                 Napíš úlohu a Rentulo navrhne postup, potrebné náradie a vhodné
-                ponuky.
+                ponuky. Funkcia ostáva k dispozícii, ale hlavný priebeh prenájmu
+                stále vedie cez rezerváciu a jej checkpointy.
               </p>
             </div>
 
@@ -557,20 +593,20 @@ export default function Home() {
 
           <div className="space-y-4">
             <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
-              <div className="text-sm text-white/50">Čo tým získam</div>
+              <div className="text-sm text-white/50">Kedy sa hodí</div>
               <div className="mt-3 space-y-3 text-sm leading-6 text-white/75">
-                <div>• rýchly zoznam potrebného náradia</div>
-                <div>• jednoduchý postup po krokoch</div>
-                <div>• vhodné ponuky z Rentulo na jednom mieste</div>
+                <div>• keď chceš rýchlo zistiť, čo vôbec hľadať</div>
+                <div>• keď potrebuješ zoznam náradia bez dlhého pátrania</div>
+                <div>• keď si chceš porovnať úlohu s ponukami na Rentulo</div>
               </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-black/25 p-5">
-              <div className="text-sm text-white/50">Pre koho je to dobré</div>
+              <div className="text-sm text-white/50">Na čo nenahrádza flow rezervácie</div>
               <div className="mt-3 space-y-3 text-sm leading-6 text-white/75">
-                <div>• keď nevieš, čo presne potrebuješ</div>
-                <div>• keď chceš ísť rovno na správny item</div>
-                <div>• keď si chceš rýchlo overiť postup</div>
+                <div>• nepreskakuje potvrdenie rezervácie</div>
+                <div>• nemení platobné ani odovzdávacie kroky</div>
+                <div>• neskrýva dôkazové fotky ani komunikáciu pri rezervácii</div>
               </div>
             </div>
           </div>
@@ -702,9 +738,9 @@ export default function Home() {
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
             <IconBadge icon="clock" />
           </div>
-          <div className="text-lg font-semibold">Rezervácie</div>
+          <div className="text-lg font-semibold">Stav rezervácie</div>
           <p className="mt-3 leading-7 text-white/70">
-            Jasný stav od žiadosti až po ukončenie prenájmu.
+            Každý prenájom má zrozumiteľný priebeh od potvrdenia až po ukončenie.
           </p>
         </div>
 
@@ -712,9 +748,9 @@ export default function Home() {
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
             <IconBadge icon="chat" />
           </div>
-          <div className="text-lg font-semibold">Správy</div>
+          <div className="text-lg font-semibold">Komunikácia</div>
           <p className="mt-3 leading-7 text-white/70">
-            Komunikácia priamo pri rezervácii bez hľadania v inboxe.
+            Dôležitá komunikácia ostáva naviazaná na konkrétnu rezerváciu.
           </p>
         </div>
 
@@ -722,9 +758,9 @@ export default function Home() {
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-400/20 bg-indigo-500/10 text-indigo-300">
             <IconBadge icon="tool" />
           </div>
-          <div className="text-lg font-semibold">Pre majiteľov</div>
+          <div className="text-lg font-semibold">Prevzatie a vrátenie</div>
           <p className="mt-3 leading-7 text-white/70">
-            Pridáš ponuku a vieš sledovať dopyty aj rezervácie.
+            Checkpointy pri odovzdaní aj návrate veci držia obe strany v rovnakom flow.
           </p>
         </div>
 
@@ -734,7 +770,7 @@ export default function Home() {
           </div>
           <div className="text-lg font-semibold">Dôvera</div>
           <p className="mt-3 leading-7 text-white/70">
-            Prehľadný flow, jasné kroky a lepší pocit z celej aplikácie.
+            Overenie, dôkazy a spor pri potrebe patria priamo do aplikácie.
           </p>
         </div>
       </section>
@@ -743,10 +779,11 @@ export default function Home() {
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="max-w-2xl">
             <div className="text-2xl font-semibold">
-              Pozrieť ponuky alebo pridať vlastnú vec?
+              Chceš si bezpečne vybrať vec alebo ju začať prenajímať?
             </div>
             <div className="mt-2 leading-7 text-white/70">
-              Najlepšie ďalšie 2 kroky sú jasné hneď odtiaľto.
+              Obe cesty ostávajú rovnaké, len sú teraz zrozumiteľnejšie postavené
+              okolo dôvery a jasného priebehu prenájmu.
             </div>
           </div>
 

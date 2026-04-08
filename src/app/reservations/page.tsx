@@ -181,6 +181,32 @@ function paymentEventLabel(eventType: string) {
   return eventType;
 }
 
+function CheckpointCard({
+  label,
+  value,
+  hint,
+  emphasized = false,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  emphasized?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border p-3 ${
+        emphasized
+          ? "border-indigo-400/30 bg-indigo-500/10"
+          : "border-white/10 bg-black/20"
+      }`}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-white/45">{label}</div>
+      <div className="mt-2 text-sm font-medium text-white/90">{value}</div>
+      {hint ? <div className="mt-1 text-xs text-white/55">{hint}</div> : null}
+    </div>
+  );
+}
+
 export default function ReservationsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Reservation[]>([]);
@@ -532,10 +558,14 @@ export default function ReservationsPage() {
   ) => {
     setStatus("Ukladám zmenu...");
 
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: nextStatus })
-      .eq("id", id);
+    const rpcName =
+      nextStatus === "return_pending_confirmation"
+        ? "reservation_mark_return_pending_confirmation"
+        : "reservation_cancel";
+
+    const { error } = await supabase.rpc(rpcName, {
+      p_reservation_id: id,
+    });
 
     if (error) {
       setStatus("Chyba: " + error.message);
@@ -931,10 +961,85 @@ export default function ReservationsPage() {
           Poskytovateľ platby: {r.payment_provider}
         </div>
 
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="text-sm font-medium text-white/85">Priebeh a dôvera</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <CheckpointCard
+              label="Stav rezervácie"
+              value={reservationStatusLabel(r.status)}
+              hint={countdownText}
+              emphasized
+            />
+            <CheckpointCard
+              label="Stav platby"
+              value={paymentStatusLabel(r.payment_status)}
+              hint={
+                r.payment_due_at
+                  ? `Platobný krok do ${formatDateTime(r.payment_due_at)}`
+                  : "Platobný stav podľa aktuálnej rezervácie"
+              }
+            />
+            <CheckpointCard
+              label="Prevzatie"
+              value={
+                ownerHandoverCount > 0
+                  ? "Fotky pri prevzatí sú pripravené"
+                  : r.status === "pending"
+                  ? "Čaká sa na potvrdenie"
+                  : r.status === "confirmed"
+                  ? "Čaká na prevzatie"
+                  : "Zatiaľ bez dôkazových fotiek"
+              }
+              hint="Checkpoint pri odovzdaní od prenajímateľa"
+              emphasized={ownerHandoverCount > 0}
+            />
+            <CheckpointCard
+              label="Vrátenie"
+              value={
+                r.status === "completed"
+                  ? "Vrátenie je potvrdené"
+                  : r.status === "return_pending_confirmation"
+                  ? "Čaká na potvrdenie prenajímateľa"
+                  : renterReturnCount > 0
+                  ? "Fotky po vrátení sú nahraté"
+                  : r.status === "in_rental"
+                  ? "Čaká na tvoje vrátenie"
+                  : "Zatiaľ nezačalo"
+              }
+              hint="Záver prenájmu a potvrdenie druhej strany"
+              emphasized={renterReturnCount > 0 || r.status === "return_pending_confirmation"}
+            />
+            <CheckpointCard
+              label="Dôkaz pri prevzatí"
+              value={
+                ownerHandoverCount > 0
+                  ? `${ownerHandoverCount} ${
+                      ownerHandoverCount === 1 ? "fotka" : ownerHandoverCount < 5 ? "fotky" : "fotiek"
+                    }`
+                  : "Bez fotiek"
+              }
+              hint="Nahrané prenajímateľom"
+              emphasized={ownerHandoverCount > 0}
+            />
+            <CheckpointCard
+              label="Dôkaz pri vrátení"
+              value={
+                renterReturnCount > 0
+                  ? `${renterReturnCount} ${
+                      renterReturnCount === 1 ? "fotka" : renterReturnCount < 5 ? "fotky" : "fotiek"
+                    }`
+                  : "Bez fotiek"
+              }
+              hint="Nahraté pri vrátení"
+              emphasized={renterReturnCount > 0}
+            />
+          </div>
+        </div>
+
         {r.status === "confirmed" || r.status === "in_rental" || r.status === "return_pending_confirmation" ? (
           <div className="mt-4 space-y-4">
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="font-semibold">Fotky pri odovzdaní od prenajímateľa</div>
+              <div className="font-semibold">Dôkazové fotky pri prevzatí</div>
               <div className="mt-1 text-sm text-white/60">
                 Tieto fotky ukazujú stav veci pri odovzdaní. Nahraté prenajímateľom: <strong>{ownerHandoverCount}</strong>
               </div>
@@ -945,7 +1050,7 @@ export default function ReservationsPage() {
 
         {r.status === "in_rental" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="font-semibold">Krok: vrátenie veci</div>
+            <div className="font-semibold">Checkpoint: vrátenie</div>
             <div className="mt-1 text-sm text-white/60">
               Najprv nahraj svoje fotky po vrátení. Až potom klikni <strong>Vrátil som</strong>.
             </div>
@@ -1000,13 +1105,13 @@ export default function ReservationsPage() {
 
         {r.status === "return_pending_confirmation" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="font-semibold">Čaká sa na potvrdenie prenajímateľa</div>
+            <div className="font-semibold">Čaká sa na potvrdenie vrátenia</div>
             <div className="mt-1 text-sm text-white/60">
               Nahral si fotky po vrátení a označil si rezerváciu ako vrátenú. Teraz čakáš, kým prenajímateľ skontroluje stav a potvrdí ukončenie.
             </div>
 
             <div className="mt-4">
-              <div className="text-sm font-medium text-white/80">Tvoje fotky po vrátení</div>
+              <div className="text-sm font-medium text-white/80">Dôkazové fotky po vrátení</div>
               <div className="mt-3">{renderPhotoGrid(r.id, "return", "renter")}</div>
             </div>
           </div>
@@ -1304,7 +1409,7 @@ export default function ReservationsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Moje rezervácie</h1>
             <p className="mt-1 text-white/60">
-              Jasný postup od prevzatia až po vrátenie a hodnotenie.
+              Sleduj rezerváciu, stav platby a dôkazové fotky od prevzatia až po vrátenie.
             </p>
           </div>
 
@@ -1323,7 +1428,7 @@ export default function ReservationsPage() {
 
       {renderSection(
         "Čakajúce rezervácie",
-        "Rezervácie čakajúce na potvrdenie alebo na platbu.",
+        "Rezervácie, kde ešte chýba potvrdenie alebo ďalší platobný krok.",
         pending.length === 0 ? (
           <p className="text-white/60">Nemáš žiadne čakajúce rezervácie.</p>
         ) : (
@@ -1337,7 +1442,7 @@ export default function ReservationsPage() {
 
       {renderSection(
         "Potvrdené rezervácie",
-        "Rezervácie schválené prenajímateľom a pripravené na odovzdanie.",
+        "Rezervácie schválené prenajímateľom a pripravené na bezpečné prevzatie.",
         confirmed.length === 0 ? (
           <p className="text-white/60">Nemáš žiadne potvrdené rezervácie.</p>
         ) : (
@@ -1351,7 +1456,7 @@ export default function ReservationsPage() {
 
       {renderSection(
         "Prebieha prenájom",
-        "Vec je u teba. Pred vrátením nahraj fotky a potom potvrď vrátenie.",
+        "Vec je u teba. Pred vrátením nahraj dôkazové fotky a potom potvrď vrátenie.",
         inRental.length === 0 ? (
           <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
         ) : (
@@ -1365,7 +1470,7 @@ export default function ReservationsPage() {
 
       {renderSection(
         "Čaká na potvrdenie vrátenia",
-        "Prenajímateľ ešte kontroluje stav po vrátení.",
+        "Fotky sú nahraté a prenajímateľ ešte kontroluje stav po vrátení.",
         returnPending.length === 0 ? (
           <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>
         ) : (

@@ -287,13 +287,13 @@ export default function ProfilePage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-2xl">
             <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
-              Môj účet
+              Dôvera a profil
             </div>
 
             <h1 className="mt-4 text-3xl font-semibold md:text-4xl">Môj profil</h1>
 
             <p className="mt-2 leading-7 text-white/70">
-              Uprav si profil, dôveryhodnosť a kontaktné odkazy.
+              Uprav si profil tak, aby druhá strana pri rezervácii hneď videla, kto si a aký je tvoj stav overenia.
             </p>
           </div>
 
@@ -307,8 +307,15 @@ export default function ProfilePage() {
 
       <div className="rentulo-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="text-sm text-white/60">Stav overenia</div>
+          <div className="max-w-2xl">
+            <div className="text-sm text-white/60">Dôvera v profile</div>
+
+            <div className="mt-2 text-xl font-semibold">Stav overenia je viditeľný ako prvý signál dôvery</div>
+
+            <p className="mt-2 text-sm leading-6 text-white/65">
+              Overený profil pomáha ľuďom cítiť väčšiu istotu pri rezervácii, pri prevzatí veci aj vtedy,
+              keď treba spätne pozrieť priebeh prenájmu.
+            </p>
 
             <div className="mt-2">
               <span
@@ -337,6 +344,10 @@ export default function ProfilePage() {
                 Poznámka: {verificationNote}
               </div>
             ) : null}
+
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/65">
+              Ak ešte overenie nemáš, môžeš ho spustiť hneď teraz bez zmeny ostatných častí profilu.
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -380,7 +391,7 @@ export default function ProfilePage() {
             )}
 
             <div className="text-sm text-white/70">
-              Nahraj fotku pre vyššiu dôveryhodnosť profilu.
+              Nahraj fotku, aby bol profil pri rezerváciách a komunikácii dôveryhodnejší.
             </div>
           </div>
 
