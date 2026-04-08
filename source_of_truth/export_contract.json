@@ -1,23 +1,157 @@
 ﻿{
-  "version": 2,
-  "status": "partially_verified_from_real_rentulo_repo",
+  "version": 3,
+  "status": "refined_from_app_contract_dump",
   "owner": "RENTULO APP",
   "purpose": "Defines app-facing truth surfaces that UI can rely on.",
   "notes": [
-    "Filled from real local repo tree at C:\\Projects\\rentulo.",
-    "Surface presence is confirmed from route/component paths only.",
-    "Inputs and outputs remain unknown until deeper repo audit.",
-    "No standalone Supabase schema/migrations directory was confirmed from the provided local output."
+    "Refined only from source_of_truth/_app_contract_read_dump.txt and existing truth files.",
+    "Only structure and shapes explicitly visible in the dump were formalized.",
+    "Anything not explicit in the dump remains unknown."
   ],
   "surfaces": {
+    "app_shell": {
+      "status": "layout_confirmed_partial_contract",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/app/layout.tsx",
+      "inputs": {
+        "children": "React.ReactNode"
+      },
+      "outputs": {
+        "html_lang": "sk",
+        "shared_nav_component": "src/components/ClientNav.tsx",
+        "shared_toaster_component": "src/components/NotificationToaster.tsx",
+        "body_classes": "min-h-screen bg-neutral-950 text-white",
+        "main_wrapper_classes": "mx-auto max-w-6xl px-4 py-8"
+      },
+      "notes": "Root app shell is explicitly confirmed in the dump."
+    },
     "homepage": {
-      "status": "route_confirmed_contract_not_yet_formalized",
+      "status": "route_confirmed_with_request_response_shape",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
       "path": "src/app/page.tsx",
-      "inputs": "unknown",
-      "outputs": "unknown",
-      "notes": "Homepage route file confirmed."
+      "inputs": {
+        "user_task_text": "string",
+        "task_helper_endpoint": "/api/task-helper",
+        "task_helper_method": "POST",
+        "task_helper_request_body": {
+          "task": "string"
+        }
+      },
+      "outputs": {
+        "primary_cta_paths": [
+          "/items",
+          "/items/new"
+        ],
+        "task_helper_response_shape": {
+          "task_title": "string",
+          "summary": "string",
+          "difficulty": "string",
+          "steps": "string[]",
+          "required_tools": "string[]",
+          "optional_tools": "string[]",
+          "safety_tips": "string[]",
+          "search_keywords": "string[]",
+          "suggested_items": [
+            {
+              "id": "number",
+              "title": "string",
+              "price_per_day": "number | null",
+              "city": "string | null",
+              "category": "string | null",
+              "score": "number"
+            }
+          ]
+        },
+        "suggested_item_link_shape": "/items/{id}"
+      },
+      "notes": "Homepage contract was refined from explicit state, fetch call, and render logic in the dump."
+    },
+    "owner_shell": {
+      "status": "layout_confirmed_partial_contract",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/owner/layout.tsx",
+        "src/components/owner/OwnerSubnav.tsx"
+      ],
+      "inputs": {
+        "children": "React.ReactNode",
+        "owner_nav_paths": [
+          "/owner/items",
+          "/owner/reservations",
+          "/owner/disputes"
+        ]
+      },
+      "outputs": {
+        "owner_header_title": "Prenajímam",
+        "owner_header_subtitle": "Správa tvojich ponúk, rezervácií a reklamácií na jednom mieste.",
+        "owner_nav_paths": [
+          "/owner/items",
+          "/owner/reservations",
+          "/owner/disputes"
+        ]
+      },
+      "notes": "Owner shell and owner subnav are both explicitly confirmed in the dump."
+    },
+    "owner_ui_primitives": {
+      "status": "component_library_confirmed_partial_contract",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "path": "src/components/owner/OwnerUI.tsx",
+      "inputs": {
+        "Badge": {
+          "tone": "neutral | success | warning | danger | info",
+          "children": "React.ReactNode",
+          "title": "string | undefined"
+        },
+        "KpiCard": {
+          "title": "string",
+          "value": "number | string",
+          "hint": "string"
+        },
+        "Notice": {
+          "text": "string"
+        },
+        "TextField": {
+          "id": "string",
+          "label": "string",
+          "value": "string",
+          "onChange": "(v: string) => void",
+          "placeholder": "string | undefined"
+        },
+        "SelectField": {
+          "id": "string",
+          "label": "string",
+          "value": "string",
+          "onChange": "(v: string) => void",
+          "options": "{ value: string; label: string }[]"
+        },
+        "Section": {
+          "title": "string",
+          "subtitle": "string",
+          "children": "React.ReactNode"
+        },
+        "Pagination": {
+          "page": "number",
+          "pageSize": "number",
+          "total": "number",
+          "onPageChange": "(next: number) => void"
+        }
+      },
+      "outputs": {
+        "confirmed_components": [
+          "Badge",
+          "KpiCard",
+          "Notice",
+          "TextField",
+          "SelectField",
+          "Section",
+          "Pagination"
+        ]
+      },
+      "notes": "Reusable owner UI primitives are explicitly confirmed in the dump."
     },
     "items_list": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -26,7 +160,7 @@
       "path": "src/app/items/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Items listing route confirmed."
+      "notes": "Items listing route remains path-confirmed only."
     },
     "item_detail": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -35,7 +169,7 @@
       "path": "src/app/items/[id]/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Item detail route confirmed."
+      "notes": "Item detail route remains path-confirmed only."
     },
     "item_create": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -44,7 +178,7 @@
       "path": "src/app/items/new/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Item creation route confirmed."
+      "notes": "Item creation route remains path-confirmed only."
     },
     "profile": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -53,7 +187,7 @@
       "path": "src/app/profile/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Profile route confirmed."
+      "notes": "Profile route remains path-confirmed only."
     },
     "profile_public": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -62,7 +196,7 @@
       "path": "src/app/profile/[id]/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Public profile route confirmed."
+      "notes": "Public profile route remains path-confirmed only."
     },
     "reservations_ui": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -71,7 +205,7 @@
       "path": "src/app/reservations/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Reservations route confirmed."
+      "notes": "Reservations route remains path-confirmed only."
     },
     "owner_items": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -80,7 +214,7 @@
       "path": "src/app/owner/items/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Owner items route confirmed."
+      "notes": "Owner items route remains path-confirmed only."
     },
     "owner_reservations": {
       "status": "route_confirmed_contract_not_yet_formalized",
@@ -89,10 +223,10 @@
       "path": "src/app/owner/reservations/page.tsx",
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Owner reservations route confirmed."
+      "notes": "Owner reservations route remains path-confirmed only."
     },
     "messages_notifications": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "shell_behavior_partially_confirmed",
       "source_owner": "RENTULO SPRÁVY A NOTIFIKÁCIE",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
@@ -100,15 +234,26 @@
         "src/app/messages/page.tsx",
         "src/app/messages/[id]/page.tsx",
         "src/app/notifications/page.tsx",
+        "src/components/ClientNav.tsx",
         "src/components/NotificationBell.tsx",
         "src/components/NotificationToaster.tsx"
       ],
-      "inputs": "unknown",
-      "outputs": "unknown",
-      "notes": "Messaging and notification surfaces/components confirmed."
+      "inputs": {
+        "authenticated_state": "boolean",
+        "messages_unread_badge": "computed in ClientNav"
+      },
+      "outputs": {
+        "authenticated_nav_paths": [
+          "/messages",
+          "/profile",
+          "/verification"
+        ],
+        "message_badge_cap": "99+"
+      },
+      "notes": "Only nav-level behavior explicitly visible in ClientNav was formalized."
     },
     "payments_surfaces": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO PLATBY",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
@@ -119,10 +264,10 @@
       ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Payment page and related API/webhook paths confirmed."
+      "notes": "Payment page and related API/webhook paths remain path-confirmed only."
     },
     "disputes_surfaces": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO SPORY A REKLAMÁCIE",
       "data_owner": "RENTULO DATA",
       "paths": [
@@ -132,10 +277,10 @@
       ],
       "inputs": "unknown",
       "outputs": "unknown",
-      "notes": "Disputes routes confirmed."
+      "notes": "Disputes routes remain path-confirmed only."
     },
     "listings_media_surfaces": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "homepage_and_route_links_partially_confirmed",
       "source_owner": "RENTULO INZERÁTY A FOTKY",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
@@ -145,12 +290,18 @@
         "src/app/items/[id]/page.tsx",
         "src/app/owner/items/page.tsx"
       ],
-      "inputs": "unknown",
+      "inputs": {
+        "homepage_entry_paths": [
+          "/items",
+          "/items/new"
+        ],
+        "suggested_item_link_shape": "/items/{id}"
+      },
       "outputs": "unknown",
-      "notes": "Listings routes confirmed. No separate media-processing path confirmed yet."
+      "notes": "Listings entry points were refined from homepage render logic; deeper media contract remains unknown."
     },
     "auth_surfaces": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "nav_entry_points_confirmed",
       "source_owner": "RENTULO APP",
       "data_owner": "RENTULO DATA",
       "paths": [
@@ -158,12 +309,20 @@
         "src/app/register/page.tsx",
         "src/app/verification/page.tsx"
       ],
-      "inputs": "unknown",
+      "inputs": {
+        "guest_nav_paths": [
+          "/login",
+          "/register"
+        ],
+        "authenticated_nav_paths": [
+          "/verification"
+        ]
+      },
       "outputs": "unknown",
-      "notes": "Auth-related routes confirmed."
+      "notes": "Only nav entry points explicitly visible in ClientNav were formalized."
     },
     "admin_surfaces": {
-      "status": "routes_confirmed_contract_not_yet_formalized",
+      "status": "nav_gate_confirmed_partial_contract",
       "source_owner": "RENTULO MASTER",
       "data_owner": "RENTULO DATA",
       "paths": [
@@ -173,11 +332,16 @@
         "src/app/admin/items/page.tsx",
         "src/app/admin/reservations/page.tsx",
         "src/app/admin/users/page.tsx",
-        "src/app/admin/verifications/page.tsx"
+        "src/app/admin/verifications/page.tsx",
+        "src/components/ClientNav.tsx"
       ],
-      "inputs": "unknown",
-      "outputs": "unknown",
-      "notes": "Admin routes confirmed. Detailed admin contract not yet formalized."
+      "inputs": {
+        "admin_gate_condition": "profiles.role === 'admin'"
+      },
+      "outputs": {
+        "admin_nav_path": "/admin"
+      },
+      "notes": "Only the ClientNav gate and route presence are explicit in the dump."
     }
   }
 }
