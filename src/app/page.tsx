@@ -242,38 +242,43 @@ export default function Home() {
                 Od ľudí vo vašom okolí. Jednoducho a bezpečne.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  href="/items"
-                  className="inline-flex items-center rounded-full bg-[linear-gradient(135deg,#8B5CF6,#6D4AF6)] px-6 py-3.5 text-base font-medium text-white shadow-[0_18px_40px_rgba(109,74,246,0.35)] transition hover:brightness-110"
-                >
-                  Preskúmať ponuku
-                </Link>
-                <Link
-                  href="#ako-to-funguje"
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-6 py-3.5 text-base font-medium text-white/92 backdrop-blur-sm transition hover:bg-white/[0.1]"
-                >
-                  Ako to funguje
-                </Link>
-              </div>
+            </div>
+          </div>
+        </div>
 
-              <div className="mt-10 flex max-w-[42rem] gap-6 xl:gap-8">
-                <TrustItem
-                  type="shield"
-                  title="Overení používatelia"
-                  text="Každý profil je preverovaný"
-                />
-                <TrustItem
-                  type="lock"
-                  title="Bezpečné platby"
-                  text="Peniaze sú rezervované"
-                />
-                <TrustItem
-                  type="chat"
-                  title="Podpora"
-                  text="Sme tu, keď treba"
-                />
-              </div>
+        <div className="hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-6 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] md:block">
+          <div className="flex items-center justify-between gap-6">
+            <div className="flex flex-wrap gap-6 xl:gap-10">
+              <TrustItem
+                type="shield"
+                title="Overení používatelia"
+                text="Každý profil je preverovaný"
+              />
+              <TrustItem
+                type="lock"
+                title="Bezpečné platby"
+                text="Peniaze sú rezervované"
+              />
+              <TrustItem
+                type="chat"
+                title="Podpora"
+                text="Sme tu, keď treba"
+              />
+            </div>
+
+            <div className="flex shrink-0 flex-wrap justify-end gap-3">
+              <Link
+                href="/items"
+                className="inline-flex items-center rounded-full bg-[linear-gradient(135deg,#8B5CF6,#6D4AF6)] px-6 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(109,74,246,0.35)] transition hover:brightness-110"
+              >
+                Ísť na ponuky
+              </Link>
+              <Link
+                href="#ako-to-funguje"
+                className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-6 py-3 text-sm font-medium text-white/92 backdrop-blur-sm transition hover:bg-white/[0.1]"
+              >
+                Ako to funguje
+              </Link>
             </div>
           </div>
         </div>
@@ -316,6 +321,26 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:hidden">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <TrustItem
+              type="shield"
+              title="Overení používatelia"
+              text="Každý profil je preverovaný"
+            />
+            <TrustItem
+              type="lock"
+              title="Bezpečné platby"
+              text="Peniaze sú rezervované"
+            />
+            <TrustItem
+              type="chat"
+              title="Podpora"
+              text="Sme tu, keď treba"
+            />
           </div>
         </div>
       </section>
@@ -376,7 +401,7 @@ export default function Home() {
 
       <section
         id="ako-to-funguje"
-        className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8"
+        className="scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
