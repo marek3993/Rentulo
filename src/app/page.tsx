@@ -22,10 +22,8 @@ type TaskHelperResponse = {
   difficulty: string | null;
   steps: string[];
   required_tools: string[];
-  optional_tools: string[];
   safety_tips: string[];
   search_keywords: string[];
-  confidence: number;
   followup_question: string | null;
   suggested_items: SuggestedItem[];
 };

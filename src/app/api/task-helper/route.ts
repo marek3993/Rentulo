@@ -13,10 +13,8 @@ type PlannedTask = {
   difficulty: string | null;
   steps: string[];
   required_tools: string[];
-  optional_tools: string[];
   safety_tips: string[];
   search_keywords: string[];
-  confidence: number;
   followup_question: string | null;
 };
 
@@ -28,6 +26,25 @@ type ItemRow = {
   city: string | null;
   category: string | null;
   is_active: boolean | null;
+  distance_km?: number | null;
+};
+
+type ItemImageRow = {
+  item_id: number;
+  path: string;
+  is_primary: boolean | null;
+  position: number | null;
+  id: number;
+};
+
+type SuggestedItem = {
+  id: number;
+  title: string;
+  price_per_day: number | null;
+  city: string | null;
+  category: string | null;
+  image_url: string | null;
+  score: number;
 };
 
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
@@ -37,6 +54,7 @@ const MISSING_OPENAI_KEY_ERROR =
   "AI pomocn\u00edk e\u0161te nie je nastaven\u00fd. Dopl\u0148 OPENAI_API_KEY na serveri.";
 const MISSING_SUPABASE_CONFIG_ERROR =
   "Pomocn\u00edk moment\u00e1lne nevie na\u010d\u00edta\u0165 ponuky. Skontroluj serverov\u00e9 nastavenie Supabase.";
+const ALLOWED_RADIUS_KM = [5, 10, 20, 50] as const;
 
 const plannerSchema = {
   type: "object",
@@ -48,10 +66,8 @@ const plannerSchema = {
     "difficulty",
     "steps",
     "required_tools",
-    "optional_tools",
     "safety_tips",
     "search_keywords",
-    "confidence",
     "followup_question",
   ],
   properties: {
@@ -76,10 +92,6 @@ const plannerSchema = {
       type: "array",
       items: { type: "string" },
     },
-    optional_tools: {
-      type: "array",
-      items: { type: "string" },
-    },
     safety_tips: {
       type: "array",
       items: { type: "string" },
@@ -87,9 +99,6 @@ const plannerSchema = {
     search_keywords: {
       type: "array",
       items: { type: "string" },
-    },
-    confidence: {
-      type: "number",
     },
     followup_question: {
       type: ["string", "null"],
@@ -158,12 +167,17 @@ function toStringArray(value: unknown, limit: number) {
   ).slice(0, limit);
 }
 
-function clampConfidence(value: unknown) {
+function parseRadiusKm(value: unknown) {
+  const parsed = Number(value);
+  return ALLOWED_RADIUS_KM.includes(parsed as (typeof ALLOWED_RADIUS_KM)[number]) ? parsed : 10;
+}
+
+function parseCoordinate(value: unknown) {
   if (typeof value !== "number" || Number.isNaN(value)) {
-    return 0.5;
+    return null;
   }
 
-  return Math.max(0, Math.min(1, value));
+  return value;
 }
 
 function sanitizePlannedTask(raw: unknown, forceFinal: boolean): PlannedTask {
@@ -190,23 +204,57 @@ function sanitizePlannedTask(raw: unknown, forceFinal: boolean): PlannedTask {
         ? "Sta\u010d\u00ed mi e\u0161te jedna kr\u00e1tka odpove\u010f a potom u\u017e d\u00e1m fin\u00e1lny n\u00e1vrh."
         : "Stru\u010dn\u00fd postup a pom\u00f4cky pod\u013ea zadania."),
     difficulty: toNullableString(record.difficulty),
-    steps: toStringArray(record.steps, 8),
-    required_tools: toStringArray(record.required_tools, 10),
-    optional_tools: toStringArray(record.optional_tools, 10),
-    safety_tips: toStringArray(record.safety_tips, 6),
-    search_keywords: toStringArray(record.search_keywords, 10),
-    confidence: clampConfidence(record.confidence),
+    steps: toStringArray(record.steps, 6),
+    required_tools: toStringArray(record.required_tools, 6),
+    safety_tips: toStringArray(record.safety_tips, 3),
+    search_keywords: toStringArray(record.search_keywords, 6),
     followup_question: followupQuestion,
   };
 }
 
-function getPlannerPrompt(
-  rawTask: string,
-  followupAnswer?: string,
-  options?: { forceFinal?: boolean; retryReason?: string }
-) {
+function buildMinimalFinalTask(rawTask: string, draft: PlannedTask): PlannedTask {
+  const fallbackKeywords = Array.from(
+    new Set(
+      rawTask
+        .split(/[\s,.;:!?()/\\-]+/)
+        .map((part) => part.trim())
+        .filter((part) => part.length >= 4)
+    )
+  ).slice(0, 6);
+
+  return {
+    status: "final",
+    task_title:
+      draft.task_title ||
+      `Postup: ${rawTask
+        .split(/\s+/)
+        .slice(0, 5)
+        .join(" ")
+        .trim()}`,
+    summary: draft.summary || "Stručný praktický postup a základné pomôcky podľa zadania.",
+    difficulty: draft.difficulty,
+    steps:
+      draft.steps.length > 0
+        ? draft.steps.slice(0, 6)
+        : [
+            "Skontroluj miesto, povrch alebo materiál, s ktorým budeš pracovať.",
+            "Priprav si základné náradie a ochranné pomôcky vhodné pre túto úlohu.",
+            "Pracuj opatrne a priebežne kontroluj výsledok alebo pevnosť.",
+            "Po dokončení skontroluj výsledok a uprac pracovné miesto.",
+          ],
+    required_tools:
+      draft.required_tools.length > 0
+        ? draft.required_tools.slice(0, 6)
+        : (draft.search_keywords.length > 0 ? draft.search_keywords : fallbackKeywords).slice(0, 4),
+    safety_tips: draft.safety_tips.slice(0, 3),
+    search_keywords:
+      (draft.search_keywords.length > 0 ? draft.search_keywords : fallbackKeywords).slice(0, 6),
+    followup_question: null,
+  };
+}
+
+function getPlannerPrompt(rawTask: string, followupAnswer?: string) {
   const hasFollowupAnswer = Boolean(followupAnswer);
-  const forceFinal = Boolean(options?.forceFinal || hasFollowupAnswer);
 
   return [
     "Si Rentulo task helper pre slovensk\u00fa homepage.",
@@ -218,9 +266,10 @@ function getPlannerPrompt(
     "Nikdy sa nep\u00fdtaj slab\u00e9, kozmetick\u00e9 alebo n\u00edzkohodnotn\u00e9 follow-up ot\u00e1zky.",
     "Nep\u00fdtaj sa na \u010das, sez\u00f3nu, po\u010dasie, mieru preferencie alebo v\u0161eobecn\u00fd kontext, ak aj bez toho vie\u0161 da\u0165 u\u017eito\u010dn\u00fd praktick\u00fd n\u00e1vod.",
     "Ak u\u017e dopl\u0148uj\u00faca odpove\u010f existuje, mus\u00ed\u0161 vr\u00e1ti\u0165 status final a nesmie\u0161 sa p\u00fdta\u0165 \u010fal\u0161iu ot\u00e1zku.",
-    "Pri status needs_followup vypl\u0148 followup_question jednou kr\u00e1tkou ot\u00e1zkou a ostatn\u00e9 polia nechaj stru\u010dn\u00e9 alebo pr\u00e1zdne.",
-    "Pri status final vr\u00e1\u0165 konkr\u00e9tny n\u00e1zov \u00falohy, kr\u00e1tke zhrnutie, praktick\u00e9 kroky, required_tools, optional_tools, safety_tips a search_keywords vhodn\u00e9 na matching s ponukami.",
-    "Nevracaj esej. Kroky maj\u00fa by\u0165 kr\u00e1tke a pou\u017eite\u013en\u00e9.",
+    "Pri status needs_followup vypl\u0148 followup_question jednou kr\u00e1tkou vetou a ostatn\u00e9 polia nechaj stru\u010dn\u00e9 alebo pr\u00e1zdne.",
+    "Pri status final vr\u00e1\u0165 konkr\u00e9tny n\u00e1zov \u00falohy, kr\u00e1tke zhrnutie, praktick\u00e9 kroky, required_tools, safety_tips a search_keywords vhodn\u00e9 na matching s ponukami.",
+    "Summary m\u00e1 by\u0165 kr\u00e1tke, steps maj\u00fa ma\u0165 3 a\u017e 6 polo\u017eiek, required_tools 3 a\u017e 6 polo\u017eiek, safety_tips 0 a\u017e 3 polo\u017eky.",
+    "Nevracaj esej, dlh\u00e9 vysvetlenia ani duplicitn\u00e9 body.",
     "Pr\u00edklady rozhodovania:",
     "- \"Ostriha\u0165 tuje po zime\" -> final, bez follow-up.",
     "- \"Pokosi\u0165 vysok\u00fa tr\u00e1vu\" -> final, bez follow-up.",
@@ -228,10 +277,9 @@ function getPlannerPrompt(
     "- \"Namontova\u0165 policu\" -> follow-up je dovolen\u00fd len ak je typ steny alebo povrchu podstatn\u00fd pre n\u00e1radie a uchytenie.",
     "- Ak vie\u0161 da\u0165 rozumn\u00fd postup so z\u00e1kladn\u00fdmi predpokladmi, vr\u00e1\u0165 final a tie predpoklady stru\u010dne pomenuj v summary alebo safety_tips.",
     "",
-    `Povolen\u00e9 polo\u017ei\u0165 follow-up ot\u00e1zku: ${forceFinal ? "nie" : "\u00e1no"}.`,
+    `Povolen\u00e9 polo\u017ei\u0165 follow-up ot\u00e1zku: ${hasFollowupAnswer ? "nie" : "\u00e1no"}.`,
     `P\u00f4vodn\u00e1 \u00faloha: ${rawTask}`,
     `Dopl\u0148uj\u00faca odpove\u010f: ${followupAnswer || "\u017eiadna"}`,
-    options?.retryReason ? `Dopl\u0148uj\u00faca in\u0161trukcia: ${options.retryReason}` : "",
   ].join("\n");
 }
 
@@ -320,6 +368,7 @@ async function planTaskWithOpenAI(rawTask: string, followupAnswer?: string) {
   const client = new OpenAI({ apiKey });
   const response = await client.responses.create({
     model: process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
+    max_output_tokens: 320,
     input: [
       {
         role: "user",
@@ -352,51 +401,15 @@ async function planTaskWithOpenAI(rawTask: string, followupAnswer?: string) {
 
   const planned = sanitizePlannedTask(JSON.parse(response.output_text), Boolean(followupAnswer));
 
-  if (
-    !followupAnswer &&
-    planned.status === "needs_followup" &&
-    !isHighValueFollowupQuestion(planned.followup_question || "")
-  ) {
-    const retryResponse = await client.responses.create({
-      model: process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: getPlannerPrompt(rawTask, followupAnswer, {
-                forceFinal: true,
-                retryReason:
-                  "Predosly follow-up bol slaby alebo nizkohodnotny. Vrat final s najlepsim praktickym odhadom a bez dalsej otazky.",
-              }),
-            },
-          ],
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "rentulo_task_helper",
-          strict: true,
-          schema: plannerSchema,
-        },
-      },
-    });
-
-    const retryRefusal = extractRefusal(retryResponse);
-    if (retryRefusal) {
-      throw new Error(retryRefusal);
+  if (planned.status === "needs_followup") {
+    if (followupAnswer || !isHighValueFollowupQuestion(planned.followup_question || "")) {
+      return buildMinimalFinalTask(rawTask, planned);
     }
 
-    if (!retryResponse.output_text) {
-      throw new Error("Planner retry returned no output.");
-    }
-
-    return sanitizePlannedTask(JSON.parse(retryResponse.output_text), true);
+    return planned;
   }
 
-  return planned;
+  return buildMinimalFinalTask(rawTask, planned);
 }
 
 export async function POST(req: Request) {
@@ -405,6 +418,9 @@ export async function POST(req: Request) {
     const rawTask = typeof body?.task === "string" ? body.task.trim() : "";
     const followupAnswer =
       typeof body?.followup_answer === "string" ? body.followup_answer.trim() : "";
+    const radiusKm = parseRadiusKm(body?.radius_km);
+    const searchLat = parseCoordinate(body?.search_lat);
+    const searchLng = parseCoordinate(body?.search_lng);
 
     if (!rawTask) {
       return NextResponse.json({ error: "Ch\u00fdba text \u00falohy." }, { status: 400 });
@@ -423,11 +439,21 @@ export async function POST(req: Request) {
     );
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const { data, error } = await supabase
-      .from("items")
-      .select("id,title,description,price_per_day,city,category,is_active")
-      .eq("is_active", true)
-      .limit(300);
+    const itemsResult =
+      searchLat !== null && searchLng !== null
+        ? await supabase.rpc("search_items_near", {
+            search_lat: searchLat,
+            search_lng: searchLng,
+            radius_km: radiusKm,
+          })
+        : await supabase
+            .from("items")
+            .select("id,title,description,price_per_day,city,category,is_active")
+            .eq("is_active", true)
+            .limit(300);
+
+    const data = (itemsResult.data ?? []) as ItemRow[];
+    const error = itemsResult.error;
 
     if (error) {
       console.error("task-helper supabase error", error);
@@ -440,18 +466,74 @@ export async function POST(req: Request) {
       );
     }
 
-    const suggestedItems = ((data ?? []) as ItemRow[])
+    const rankedItems: SuggestedItem[] = ((data ?? []) as ItemRow[])
       .map((item) => ({
         id: item.id,
         title: item.title,
         price_per_day: item.price_per_day ?? null,
         city: item.city ?? null,
         category: item.category ?? null,
+        image_url: null,
         score: scoreItem(item, matchKeywords),
       }))
       .filter((item) => item.score >= 10)
       .sort((a, b) => b.score - a.score)
       .slice(0, 6);
+
+    const imageIds = rankedItems.map((item) => item.id);
+    const imageMap: Record<number, string> = {};
+
+    if (imageIds.length > 0) {
+      const { data: imageRows, error: imageError } = await supabase
+        .from("item_images")
+        .select("item_id,path,is_primary,position,id")
+        .in("item_id", imageIds)
+        .order("is_primary", { ascending: false })
+        .order("position", { ascending: true })
+        .order("id", { ascending: true });
+
+      if (imageError) {
+        console.error("task-helper item_images error", imageError);
+      } else {
+        const grouped: Record<number, ItemImageRow[]> = {};
+
+        for (const image of (imageRows ?? []) as ItemImageRow[]) {
+          if (!grouped[image.item_id]) {
+            grouped[image.item_id] = [];
+          }
+
+          grouped[image.item_id].push(image);
+        }
+
+        for (const itemId of imageIds) {
+          const images = grouped[itemId] ?? [];
+          const primary = [...images].sort((a, b) => {
+            if (!!a.is_primary !== !!b.is_primary) {
+              return a.is_primary ? -1 : 1;
+            }
+
+            const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
+            const bPos = Number.isFinite(Number(b.position)) ? Number(b.position) : 999999;
+            if (aPos !== bPos) {
+              return aPos - bPos;
+            }
+
+            return Number(a.id) - Number(b.id);
+          })[0];
+
+          if (primary) {
+            imageMap[itemId] = supabase.storage
+              .from("item-images")
+              .getPublicUrl(primary.path).data.publicUrl;
+          }
+        }
+      }
+    }
+
+    const suggestedItems = rankedItems.map((item) => ({
+      ...item,
+      image_url: imageMap[item.id] ?? null,
+    }));
 
     return NextResponse.json({
       ...planned,
