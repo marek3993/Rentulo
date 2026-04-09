@@ -13,18 +13,7 @@ type SuggestedItem = {
   image_url: string | null;
 };
 
-type TaskHelperStatus = "final" | "needs_followup";
-
 type TaskHelperResponse = {
-  status: TaskHelperStatus;
-  task_title: string | null;
-  summary: string | null;
-  difficulty: string | null;
-  steps: string[];
-  required_tools: string[];
-  safety_tips: string[];
-  search_keywords: string[];
-  followup_question: string | null;
   suggested_items: SuggestedItem[];
 };
 
@@ -68,12 +57,7 @@ const categoryTiles: Array<{
   },
 ];
 
-const exampleTasks = [
-  "vyčistiť odtok",
-  "navŕtať poličku",
-  "pokosiť trávu",
-  "vytepovať sedačku",
-];
+const exampleTasks = ["vŕtačka na poličku", "tepovač na sedačku", "kosačka na vysokú trávu", "čistenie odtoku"];
 
 const radiusOptions = [5, 10, 20, 50] as const;
 
@@ -186,9 +170,6 @@ export default function Home() {
   const [searchLat, setSearchLat] = useState<number | null>(null);
   const [searchLng, setSearchLng] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<HelperLocationStatus>("missing");
-  const [followupAnswer, setFollowupAnswer] = useState("");
-  const [followupQuestion, setFollowupQuestion] = useState<string | null>(null);
-  const [followupUsed, setFollowupUsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TaskHelperResponse | null>(null);
   const [error, setError] = useState("");
@@ -196,9 +177,6 @@ export default function Home() {
   const clearTaskHelperState = () => {
     setResult(null);
     setError("");
-    setFollowupAnswer("");
-    setFollowupQuestion(null);
-    setFollowupUsed(false);
   };
 
   const ensureHelperLocation = async () => {
@@ -262,32 +240,16 @@ export default function Home() {
               ? "Filtrovanie v okolí je aktívne podľa tvojej polohy."
               : "Filtrovanie v okolí potrebuje prístup k tvojej polohe.";
 
-  const handleSubmit = async (isFollowupRound = false) => {
+  const handleSubmit = async () => {
     const trimmed = task.trim();
-    const trimmedFollowupAnswer = followupAnswer.trim();
 
     if (!trimmed) {
-      setError("Napíš čo chceš spraviť.");
+      setError("Napíš, čo hľadáš.");
       setResult(null);
       return;
     }
 
-    if (isFollowupRound) {
-      if (!followupQuestion) {
-        setError("Najprv potrebujem doplňujúcu otázku.");
-        return;
-      }
-
-      if (!trimmedFollowupAnswer) {
-        setError("Odpovedz ešte na doplňujúcu otázku.");
-        return;
-      }
-    } else {
-      setResult(null);
-      setFollowupAnswer("");
-      setFollowupQuestion(null);
-      setFollowupUsed(false);
-    }
+    setResult(null);
 
     setLoading(true);
     setError("");
@@ -303,7 +265,6 @@ export default function Home() {
           radius_km: radiusKm,
           search_lat: location?.lat ?? searchLat ?? undefined,
           search_lng: location?.lng ?? searchLng ?? undefined,
-          followup_answer: isFollowupRound ? trimmedFollowupAnswer : undefined,
         }),
       });
 
@@ -314,30 +275,7 @@ export default function Home() {
         return;
       }
 
-      const nextResult = json as TaskHelperResponse;
-
-      if (nextResult.status !== "needs_followup" && nextResult.status !== "final") {
-        setError("Pomocník vrátil nečakanú odpoveď.");
-        return;
-      }
-
-      if (nextResult.status === "needs_followup") {
-        if (isFollowupRound || followupUsed) {
-          setFollowupQuestion(null);
-          setResult(null);
-          setError("Zatiaľ viem pracovať len s jednou doplňujúcou otázkou.");
-          return;
-        }
-
-        setResult(null);
-        setFollowupQuestion(nextResult.followup_question || "Potrebujem ešte jednu odpoveď.");
-        setFollowupUsed(true);
-        return;
-      }
-
-      setFollowupAnswer("");
-      setFollowupQuestion(null);
-      setResult(nextResult);
+      setResult(json as TaskHelperResponse);
     } catch {
       setError("Chyba pri spracovaní.");
     } finally {
@@ -588,12 +526,11 @@ export default function Home() {
             <div>
               <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
-                Nevieš ešte presne, čo potrebuješ?
+                Nájdi rýchlo vhodné ponuky
               </h2>
               <p className="mt-4 leading-7 text-white/70">
-                Napíš úlohu a Rentulo navrhne základný postup, potrebné náradie a
-                vhodné ponuky. Funkcia ostáva zachovaná aj na tejto finálnej verzii
-                homepage.
+                Napíš prirodzene, čo hľadáš, a Rentulo ti ukáže najrelevantnejšie
+                ponuky v okolí.
               </p>
             </div>
 
@@ -618,7 +555,7 @@ export default function Home() {
           <div className="space-y-4">
             <textarea
               className="min-h-[150px] w-full rounded-[1.4rem] border border-white/10 bg-black/30 px-4 py-4 text-white outline-none placeholder:text-white/35"
-              placeholder="napr. vyčistiť odtok, navŕtať poličku, pokosiť trávu, vytepovať sedačku"
+              placeholder="napr. vŕtačka na poličku, tepovač na sedačku, kosačka na vysokú trávu"
               value={task}
               onChange={(e) => {
                 clearTaskHelperState();
@@ -634,7 +571,7 @@ export default function Home() {
                 disabled={loading}
                 className="rentulo-btn-primary px-5 py-3 text-sm disabled:opacity-50"
               >
-                {loading ? "Pripravujem..." : "Navrhnúť postup a náradie"}
+                {loading ? "Hľadám ponuky..." : "Vyhľadať vhodné ponuky"}
               </button>
 
               <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2 py-2">
@@ -673,141 +610,47 @@ export default function Home() {
               </div>
             ) : null}
 
-            {followupQuestion ? (
-              <div className="space-y-4 rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
-                <div>
-                  <div className="text-sm font-semibold text-white">Ešte jedna otázka</div>
-                  <p className="mt-2 text-sm leading-6 text-white/72">{followupQuestion}</p>
-                </div>
-
-                <input
-                  type="text"
-                  className="w-full rounded-[1rem] border border-white/10 bg-black/30 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35"
-                  placeholder="Napíš krátku odpoveď"
-                  value={followupAnswer}
-                  onChange={(e) => {
-                    setError("");
-                    setFollowupAnswer(e.target.value);
-                  }}
-                  disabled={loading}
-                />
-
-                <button
-                  type="button"
-                  onClick={() => handleSubmit(true)}
-                  disabled={loading}
-                  className="rentulo-btn-primary px-5 py-3 text-sm disabled:opacity-50"
-                >
-                  {loading ? "Dopĺňam..." : "Doplniť odpoveď"}
-                </button>
-              </div>
-            ) : null}
-
-            {result?.status === "final" ? (
-              <div className="grid gap-4">
-                <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-xl font-semibold text-white">
-                      {result.task_title || "Orientačný plán úlohy"}
-                    </div>
-                    {result.difficulty ? (
-                      <div className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/65">
-                        Obtiažnosť: {result.difficulty}
-                      </div>
-                    ) : null}
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-white/72">
-                    {result.summary || "Stručný postup a odporúčané pomôcky podľa zadania."}
-                  </p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
-                    <div className="text-sm font-semibold text-white">Postup</div>
-                    {result.steps.length === 0 ? (
-                      <div className="mt-3 text-sm text-white/60">
-                        Zatiaľ nemám pripravený konkrétny postup.
-                      </div>
-                    ) : (
-                      <ol className="mt-3 space-y-2 text-sm leading-6 text-white/74">
-                        {result.steps.map((step, index) => (
-                          <li key={index}>
-                            {index + 1}. {step}
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-
-                    {result.required_tools.length > 0 ? (
-                      <div className="mt-5">
-                        <div className="text-sm font-semibold text-white">Potrebné veci</div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {result.required_tools.map((tool) => (
-                            <span
-                              key={tool}
-                              className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-white/75"
-                            >
-                              {tool}
-                            </span>
-                          ))}
+            {result ? (
+              <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
+                <div className="text-sm font-semibold text-white">Odporúčané ponuky</div>
+                <div className="mt-3 space-y-3">
+                  {result.suggested_items.length === 0 ? (
+                    <div className="text-sm text-white/60">Zatiaľ som nenašiel vhodné ponuky.</div>
+                  ) : (
+                    result.suggested_items.map((item) => (
+                      <Link
+                        key={item.id}
+                        href={`/items/${item.id}`}
+                        className="flex items-center gap-3 rounded-[1rem] border border-white/10 bg-black/25 p-3 transition hover:bg-white/[0.06]"
+                      >
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[0.9rem] border border-white/10 bg-white/[0.04]">
+                          {item.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.image_url}
+                              alt={item.title}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em] text-white/35">
+                              Bez fotky
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ) : null}
 
-                    {result.safety_tips.length > 0 ? (
-                      <div className="mt-5">
-                        <div className="text-sm font-semibold text-white">Na čo si dať pozor</div>
-                        <ul className="mt-3 space-y-2 text-sm leading-6 text-white/68">
-                          {result.safety_tips.map((tip) => (
-                            <li key={tip}>{tip}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
-                    <div className="text-sm font-semibold text-white">Odporúčané ponuky</div>
-                    <div className="mt-3 space-y-3">
-                      {result.suggested_items.length === 0 ? (
-                        <div className="text-sm text-white/60">Zatiaľ som nenašiel vhodné ponuky.</div>
-                      ) : (
-                        result.suggested_items.map((item) => (
-                          <Link
-                            key={item.id}
-                            href={`/items/${item.id}`}
-                            className="flex items-center gap-3 rounded-[1rem] border border-white/10 bg-black/25 p-3 transition hover:bg-white/[0.06]"
-                          >
-                            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[0.9rem] border border-white/10 bg-white/[0.04]">
-                              {item.image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={item.image_url}
-                                  alt={item.title}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em] text-white/35">
-                                  Bez fotky
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-white">{item.title}</div>
-                              <div className="mt-1 text-xs text-white/60">
-                                {item.price_per_day !== null ? `${item.price_per_day} € / deň` : "Cena neuvedená"}
-                              </div>
-                              <div className="mt-1 text-xs text-white/50">
-                                {item.city || "Mesto neuvedené"}
-                                {item.category ? ` · ${item.category}` : ""}
-                              </div>
-                            </div>
-                          </Link>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-white">{item.title}</div>
+                          <div className="mt-1 text-xs text-white/60">
+                            {item.price_per_day !== null ? `${item.price_per_day} € / deň` : "Cena neuvedená"}
+                          </div>
+                          <div className="mt-1 text-xs text-white/50">
+                            {item.city || "Mesto neuvedené"}
+                            {item.category ? ` · ${item.category}` : ""}
+                          </div>
+                        </div>
+                      </Link>
+                    ))
+                  )}
                 </div>
               </div>
             ) : null}
