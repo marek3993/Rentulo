@@ -14,6 +14,7 @@ type SuggestedItem = {
 };
 
 type TaskHelperResponse = {
+  search_hint?: string | null;
   suggested_items: SuggestedItem[];
 };
 
@@ -615,7 +616,10 @@ export default function Home() {
                 <div className="text-sm font-semibold text-white">Odporúčané ponuky</div>
                 <div className="mt-3 space-y-3">
                   {result.suggested_items.length === 0 ? (
-                    <div className="text-sm text-white/60">Zatiaľ som nenašiel vhodné ponuky.</div>
+                    <div className="text-sm leading-6 text-white/60">
+                      {result.search_hint ||
+                        "Nenašiel som dosť presné ponuky. Skús napísať konkrétnejšie, čo chceš požičať."}
+                    </div>
                   ) : (
                     result.suggested_items.map((item) => (
                       <Link

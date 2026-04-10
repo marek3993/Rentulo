@@ -38,6 +38,7 @@ const GENERIC_FINDER_ERROR =
 const MISSING_SUPABASE_CONFIG_ERROR =
   "Pomocník momentálne nevie načítať ponuky. Skontroluj serverové nastavenie Supabase.";
 const ALLOWED_RADIUS_KM = [5, 10, 20, 50] as const;
+const MIN_RELEVANCE_SCORE = 10;
 const STOP_WORDS = new Set([
   "a",
   "aby",
@@ -194,6 +195,16 @@ function scoreItem(item: ItemRow, keywords: string[]) {
   return score;
 }
 
+function buildSearchHint(rawTask: string) {
+  const normalizedTask = normalize(rawTask);
+
+  if (["kop", "vykop", "zump", "zem"].some((token) => normalizedTask.includes(token))) {
+    return "Skús hľadať konkrétnu vec na požičanie, napríklad minibager, lopatu alebo vibračnú dosku.";
+  }
+
+  return "Skús napísať konkrétnejšie, čo chceš požičať, napríklad vŕtačku, tepovač alebo kosačku.";
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -268,8 +279,9 @@ export async function POST(req: Request) {
         return 0;
       });
 
-    const meaningfulItems = rankedItems.filter((item) => item.score > 0);
-    const selectedItems = (meaningfulItems.length > 0 ? meaningfulItems : rankedItems).slice(0, 6);
+    const selectedItems = rankedItems
+      .filter((item) => item.score >= MIN_RELEVANCE_SCORE)
+      .slice(0, 6);
 
     const imageIds = selectedItems.map((item) => item.id);
     const imageMap: Record<number, string> = {};
@@ -320,6 +332,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
+      search_hint: selectedItems.length === 0 ? buildSearchHint(rawTask) : null,
       suggested_items: selectedItems.map((item) => ({
         id: item.id,
         title: item.title,
