@@ -700,6 +700,17 @@ if (!imgErr && imgs) {
                 </div>
               </div>
 
+              <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                <div className="text-sm font-semibold text-white">
+                  Dôležité pred pokračovaním
+                </div>
+                <div className="mt-2 space-y-2 text-sm leading-6 text-white/70">
+                  <p>Na tejto stránke vidíš cenu za deň a orientačný odhad za vybraný termín.</p>
+                  <p>Aktuálne podmienky dokončenia rezervácie uvidíš až v ďalšom kroku.</p>
+                  <p>Rezervácia ešte nie je potvrdená len výberom dátumu.</p>
+                </div>
+              </div>
+
               <div className="overflow-x-auto rounded-xl border border-white/10 bg-black/20 p-3">
                 <DayPicker
                   mode="range"
