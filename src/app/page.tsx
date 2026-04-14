@@ -285,132 +285,194 @@ export default function Home() {
   };
 
   return (
-    <div className="space-y-8 pb-8 lg:space-y-10">
-      <section className="space-y-4">
-        <div className="hidden overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-[0_36px_120px_rgba(0,0,0,0.42)] md:block">
-          <div className="relative aspect-[1831/859]">
-            <Image
-              src="/rentulo-home-hero-desktop-final.png"
-              alt="Rentulo hero s mobilnou aplikáciou a vybavením na prenájom"
-              fill
-              priority
-              sizes="(max-width: 1536px) 100vw, 1536px"
-              className="object-cover"
+    <div className="space-y-6 pb-8 lg:space-y-8">
+      <section
+        id="pomocnik"
+        className="mx-auto max-w-[86rem] scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,14,22,0.98),rgba(15,19,29,0.9))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.3)] sm:p-5 md:p-6"
+      >
+        <div className="relative overflow-hidden rounded-[1.75rem] border border-white/8 bg-black/55">
+          <div className="pointer-events-none absolute inset-0">
+            <div
+              className="absolute inset-0 hidden bg-cover bg-center bg-no-repeat md:block"
+              style={{ backgroundImage: "url('/rentulo-home-hero-desktop-final.png')" }}
             />
-            <div className="absolute inset-y-0 left-0 w-[44%] bg-[linear-gradient(90deg,rgba(2,3,7,0.92),rgba(2,3,7,0.72)_62%,transparent)]" />
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/25 to-transparent" />
+            <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat md:hidden"
+              style={{ backgroundImage: "url('/rentulo-home-hero-mobile-final.png')" }}
+            />
+            <div className="absolute inset-0 hidden md:block bg-[linear-gradient(90deg,rgba(2,3,7,0.94),rgba(2,3,7,0.74)_56%,rgba(2,3,7,0.24)_78%,transparent)]" />
+            <div className="absolute inset-0 md:hidden bg-[linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.2)_34%,rgba(0,0,0,0.76)_72%,rgba(0,0,0,0.92))]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_30%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
+          </div>
 
-            <div className="absolute left-[4.8%] top-[9%] max-w-[31%]">
-              <SectionEyebrow>Požičiaj, ušetri, zaži viac</SectionEyebrow>
-              <h1 className="mt-5 text-5xl font-semibold leading-[0.96] tracking-tight text-white xl:text-[5.25rem]">
+          <div className="relative mx-auto grid max-w-[77rem] gap-5 px-4 py-5 sm:px-5 sm:py-6 lg:min-h-[38rem] lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-5 lg:px-6 lg:py-7 xl:max-w-[79rem] xl:gap-6">
+            <div className="order-2 max-w-[30rem] px-1 py-1 lg:order-1 lg:px-0 lg:py-0">
+              <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
+              <h1 className="mt-3 text-[2.45rem] font-semibold leading-[0.96] tracking-tight text-white md:text-[3.35rem] xl:text-[4.2rem]">
                 Požičaj si,
                 <br />
                 čo práve <span className="text-violet-400">potrebuješ.</span>
               </h1>
-              <p className="mt-5 max-w-[34rem] text-lg leading-8 text-white/72">
-                Náradie, šport, detská výbavička aj vybavenie na eventy.
-                Od ľudí vo vašom okolí. Jednoducho a bezpečne.
+              <p className="mt-3 max-w-[30rem] text-base leading-7 text-white/72 md:text-lg md:leading-7">
+                Napíš prirodzene, čo hľadáš. Rentulo ti ukáže relevantné ponuky v okolí
+                a pomôže rýchlo nájsť správnu vec bez zdĺhavého filtrovania.
               </p>
 
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-6 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.2)] md:block">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex flex-wrap gap-6 xl:gap-10">
-              <TrustItem
-                type="shield"
-                title="Overení používatelia"
-                text="Každý profil je preverovaný"
-              />
-              <TrustItem
-                type="lock"
-                title="Bezpečné platby"
-                text="Peniaze sú rezervované"
-              />
-              <TrustItem
-                type="chat"
-                title="Podpora"
-                text="Sme tu, keď treba"
-              />
-            </div>
-
-            <div className="flex shrink-0 flex-wrap justify-end gap-3">
-              <Link
-                href="/items"
-                className="inline-flex items-center rounded-full bg-[linear-gradient(135deg,#8B5CF6,#6D4AF6)] px-6 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(109,74,246,0.35)] transition hover:brightness-110"
-              >
-                Ísť na ponuky
-              </Link>
-              <Link
-                href="#ako-to-funguje"
-                className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-6 py-3 text-sm font-medium text-white/92 backdrop-blur-sm transition hover:bg-white/[0.1]"
-              >
-                Ako to funguje
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_28px_100px_rgba(0,0,0,0.38)] md:hidden">
-          <div className="relative aspect-[1477/1065]">
-            <Image
-              src="/rentulo-home-hero-mobile-final.png"
-              alt="Rentulo mobilný hero s aplikáciou a vybavením na prenájom"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.18)_35%,rgba(0,0,0,0.78)_72%,rgba(0,0,0,0.92))]" />
-
-            <div className="absolute inset-x-0 bottom-0 p-5">
-              <SectionEyebrow>Požičiaj, ušetri, zaži viac</SectionEyebrow>
-              <h1 className="mt-4 text-[2.55rem] font-semibold leading-[0.98] tracking-tight text-white">
-                Požičaj si,
-                <br />
-                čo práve <span className="text-violet-400">potrebuješ.</span>
-              </h1>
-              <p className="mt-4 text-base leading-7 text-white/74">
-                Náradie, šport, detská výbavička aj vybavenie na eventy. Jednoducho a bezpečne.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-5 flex flex-wrap gap-2.5">
                 <Link
                   href="/items"
-                  className="inline-flex items-center rounded-full bg-[linear-gradient(135deg,#8B5CF6,#6D4AF6)] px-5 py-3 text-sm font-medium text-white shadow-[0_16px_34px_rgba(109,74,246,0.35)]"
+                  className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/88 backdrop-blur-sm transition hover:bg-white/[0.1]"
                 >
                   Preskúmať ponuku
                 </Link>
                 <Link
                   href="#ako-to-funguje"
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-medium text-white/92"
+                  className="inline-flex items-center rounded-full border border-white/10 bg-transparent px-4 py-2.5 text-sm font-medium text-white/68 transition hover:border-white/16 hover:text-white/84"
                 >
                   Ako to funguje
                 </Link>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:hidden">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <TrustItem
-              type="shield"
-              title="Overení používatelia"
-              text="Každý profil je preverovaný"
-            />
-            <TrustItem
-              type="lock"
-              title="Bezpečné platby"
-              text="Peniaze sú rezervované"
-            />
-            <TrustItem
-              type="chat"
-              title="Podpora"
-              text="Sme tu, keď treba"
-            />
+            <div className="order-1 lg:order-2 lg:w-full lg:max-w-[43rem] lg:justify-self-end xl:max-w-[44rem]">
+              <div className="rounded-[1.65rem] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05))] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur-md sm:p-5 md:p-[1.25rem]">
+                <div>
+                  <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-violet-200/78">
+                    Hlavné vyhľadávanie
+                  </div>
+                  <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-white md:text-3xl">
+                    Nájdi rýchlo vhodné ponuky
+                  </h2>
+                  <p className="mt-1.5 text-sm leading-6 text-white/62">
+                    Zadaj, čo potrebuješ, nastav okruh a zobrazíme odporúčané ponuky.
+                  </p>
+                </div>
+
+                <div className="mt-4 space-y-3.5">
+                  <textarea
+                    className="min-h-[104px] w-full rounded-[1.4rem] border border-white/10 bg-black/30 px-4 py-3.5 text-white outline-none sm:min-h-[120px] md:min-h-[132px]"
+                    value={task}
+                    onChange={(e) => {
+                      clearTaskHelperState();
+                      setTask(e.target.value);
+                    }}
+                    disabled={loading}
+                  />
+
+                  <div className="flex flex-col gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit()}
+                      disabled={loading}
+                      className="rentulo-btn-primary w-full px-5 py-3 text-sm shadow-[0_18px_40px_rgba(109,74,246,0.28)] disabled:opacity-50 sm:w-auto"
+                    >
+                      {loading ? "Hľadám ponuky..." : "Vyhľadať vhodné ponuky"}
+                    </button>
+
+                    <div className="inline-flex flex-wrap items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-2 py-1.5">
+                      <div className="px-2 text-xs font-medium uppercase tracking-[0.18em] text-white/42">
+                        Okruh
+                      </div>
+                      {radiusOptions.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => setRadiusKm(option)}
+                          disabled={loading}
+                          className={`rounded-full px-3 py-1.5 text-sm transition ${
+                            radiusKm === option
+                              ? "bg-white text-black"
+                              : "bg-white/[0.04] text-white/72 hover:bg-white/[0.08]"
+                          }`}
+                        >
+                          {option} km
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`text-xs ${
+                      locationStatus === "ready" ? "text-emerald-200/80" : "text-white/52"
+                    }`}
+                  >
+                    {locationHint}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {exampleTasks.map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        onClick={() => {
+                          clearTaskHelperState();
+                          setTask(example);
+                        }}
+                        disabled={loading}
+                        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-white/75 transition hover:bg-white/[0.08]"
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+
+                  {error ? (
+                    <div className="rounded-[1.25rem] border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  {result ? (
+                    <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
+                      <div className="text-sm font-semibold text-white">Odporúčané ponuky</div>
+                      <div className="mt-3 space-y-3">
+                        {result.suggested_items.length === 0 ? (
+                          <div className="text-sm leading-6 text-white/60">
+                            {result.search_hint ||
+                              "Nenašiel som dosť presné ponuky. Skús napísať konkrétnejšie, čo chceš požičať."}
+                          </div>
+                        ) : (
+                          result.suggested_items.map((item) => (
+                            <Link
+                              key={item.id}
+                              href={`/items/${item.id}`}
+                              className="flex items-center gap-3 rounded-[1rem] border border-white/10 bg-black/25 p-3 transition hover:bg-white/[0.06]"
+                            >
+                              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[0.9rem] border border-white/10 bg-white/[0.04]">
+                                {item.image_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={item.image_url}
+                                    alt={item.title}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em] text-white/35">
+                                    Bez fotky
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-white">{item.title}</div>
+                                <div className="mt-1 text-xs text-white/60">
+                                  {item.price_per_day !== null ? `${item.price_per_day} € / deň` : "Cena neuvedená"}
+                                </div>
+                                <div className="mt-1 text-xs text-white/50">
+                                  {item.city || "Mesto neuvedené"}
+                                  {item.category ? ` · ${item.category}` : ""}
+                                </div>
+                              </div>
+                            </Link>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -469,6 +531,80 @@ export default function Home() {
         ))}
       </section>
 
+      <section className="space-y-4">
+        <div className="hidden overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-[0_36px_120px_rgba(0,0,0,0.42)] md:block">
+          <div className="relative aspect-[1831/720] xl:aspect-[1831/650]">
+            <Image
+              src="/rentulo-home-hero-desktop-final.png"
+              alt="Rentulo hero s mobilnou aplikáciou a vybavením na prenájom"
+              fill
+              sizes="(max-width: 1536px) 100vw, 1536px"
+              className="object-cover"
+            />
+            <div className="absolute inset-y-0 left-0 w-[48%] bg-[linear-gradient(90deg,rgba(2,3,7,0.9),rgba(2,3,7,0.68)_64%,transparent)]" />
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/25 to-transparent" />
+
+            <div className="absolute left-[4.8%] top-[11%] max-w-[34%]">
+              <SectionEyebrow>Požičiaj, ušetri, zaži viac</SectionEyebrow>
+              <h2 className="mt-5 text-4xl font-semibold leading-[0.98] tracking-tight text-white xl:text-[4.5rem]">
+                Prenájom od ľudí
+                <br />
+                vo vašom okolí.
+              </h2>
+              <p className="mt-5 max-w-[34rem] text-base leading-7 text-white/72 xl:text-lg xl:leading-8">
+                Náradie, šport, detská výbavička aj vybavenie na eventy.
+                Jednoducho, bezpečne a bez zbytočných nákupov.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_28px_100px_rgba(0,0,0,0.38)] md:hidden">
+          <div className="relative aspect-[1477/980]">
+            <Image
+              src="/rentulo-home-hero-mobile-final.png"
+              alt="Rentulo mobilný hero s aplikáciou a vybavením na prenájom"
+              fill
+              sizes="100vw"
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.18)_35%,rgba(0,0,0,0.78)_72%,rgba(0,0,0,0.92))]" />
+
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <SectionEyebrow>Požičiaj, ušetri, zaži viac</SectionEyebrow>
+              <h2 className="mt-4 text-[2.1rem] font-semibold leading-[0.98] tracking-tight text-white">
+                Prenájom od ľudí
+                <br />
+                vo vašom okolí.
+              </h2>
+              <p className="mt-4 text-sm leading-6 text-white/74">
+                Náradie, šport, detská výbavička aj vybavenie na eventy. Jednoducho a bezpečne.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.2)] md:px-6 md:py-5">
+          <div className="grid gap-4 md:grid-cols-3 md:gap-6 xl:gap-10">
+            <TrustItem
+              type="shield"
+              title="Overení používatelia"
+              text="Každý profil je preverovaný"
+            />
+            <TrustItem
+              type="lock"
+              title="Bezpečné platby"
+              text="Peniaze sú rezervované"
+            />
+            <TrustItem
+              type="chat"
+              title="Podpora"
+              text="Sme tu, keď treba"
+            />
+          </div>
+        </div>
+      </section>
+
       <section
         id="ako-to-funguje"
         className="scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8"
@@ -514,150 +650,6 @@ export default function Home() {
             <p className="mt-2 text-sm leading-6 text-white/68">
               Fotky, komunikácia a dôkazy ostávajú pri konkrétnej dohode.
             </p>
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="pomocnik"
-        className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,14,22,0.96),rgba(15,19,29,0.86))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] md:p-8"
-      >
-        <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="space-y-5">
-            <div>
-              <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white md:text-4xl">
-                Nájdi rýchlo vhodné ponuky
-              </h2>
-              <p className="mt-4 leading-7 text-white/70">
-                Napíš prirodzene, čo hľadáš, a Rentulo ti ukáže najrelevantnejšie
-                ponuky v okolí.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {exampleTasks.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => {
-                    clearTaskHelperState();
-                    setTask(example);
-                  }}
-                  disabled={loading}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.08]"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <textarea
-              className="min-h-[150px] w-full rounded-[1.4rem] border border-white/10 bg-black/30 px-4 py-4 text-white outline-none placeholder:text-white/35"
-              placeholder="napr. vŕtačka na poličku, tepovač na sedačku, kosačka na vysokú trávu"
-              value={task}
-              onChange={(e) => {
-                clearTaskHelperState();
-                setTask(e.target.value);
-              }}
-              disabled={loading}
-            />
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => handleSubmit()}
-                disabled={loading}
-                className="rentulo-btn-primary px-5 py-3 text-sm disabled:opacity-50"
-              >
-                {loading ? "Hľadám ponuky..." : "Vyhľadať vhodné ponuky"}
-              </button>
-
-              <div className="inline-flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-black/20 px-2 py-2">
-                <div className="px-2 text-xs font-medium uppercase tracking-[0.18em] text-white/42">
-                  Okruh
-                </div>
-                {radiusOptions.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setRadiusKm(option)}
-                    disabled={loading}
-                    className={`rounded-full px-3 py-2 text-sm transition ${
-                      radiusKm === option
-                        ? "bg-white text-black"
-                        : "bg-white/[0.04] text-white/72 hover:bg-white/[0.08]"
-                    }`}
-                  >
-                    {option} km
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div
-              className={`text-xs ${
-                locationStatus === "ready" ? "text-emerald-200/80" : "text-white/52"
-              }`}
-            >
-              {locationHint}
-            </div>
-
-            {error ? (
-              <div className="rounded-[1.25rem] border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            {result ? (
-              <div className="rounded-[1.35rem] border border-white/10 bg-white/[0.04] p-5">
-                <div className="text-sm font-semibold text-white">Odporúčané ponuky</div>
-                <div className="mt-3 space-y-3">
-                  {result.suggested_items.length === 0 ? (
-                    <div className="text-sm leading-6 text-white/60">
-                      {result.search_hint ||
-                        "Nenašiel som dosť presné ponuky. Skús napísať konkrétnejšie, čo chceš požičať."}
-                    </div>
-                  ) : (
-                    result.suggested_items.map((item) => (
-                      <Link
-                        key={item.id}
-                        href={`/items/${item.id}`}
-                        className="flex items-center gap-3 rounded-[1rem] border border-white/10 bg-black/25 p-3 transition hover:bg-white/[0.06]"
-                      >
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[0.9rem] border border-white/10 bg-white/[0.04]">
-                          {item.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={item.image_url}
-                              alt={item.title}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] uppercase tracking-[0.18em] text-white/35">
-                              Bez fotky
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-white">{item.title}</div>
-                          <div className="mt-1 text-xs text-white/60">
-                            {item.price_per_day !== null ? `${item.price_per_day} € / deň` : "Cena neuvedená"}
-                          </div>
-                          <div className="mt-1 text-xs text-white/50">
-                            {item.city || "Mesto neuvedené"}
-                            {item.category ? ` · ${item.category}` : ""}
-                          </div>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </section>
