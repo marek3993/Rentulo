@@ -79,15 +79,56 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("sk-SK");
 }
 
+function parseDateOnly(value: string) {
+  if (!value) return undefined;
+
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return undefined;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+function formatDateOnly(date: Date | undefined) {
+  if (!date) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function rangesEqual(a: DateRange | undefined, b: DateRange | undefined) {
+  return (
+    formatDateOnly(a?.from) === formatDateOnly(b?.from) &&
+    formatDateOnly(a?.to) === formatDateOnly(b?.to)
+  );
+}
+
 function buildInitialRange(dateFrom: string, dateTo: string): DateRange | undefined {
   if (!dateFrom || !dateTo) return undefined;
 
-  const from = new Date(dateFrom);
-  const to = new Date(dateTo);
+  const from = parseDateOnly(dateFrom);
+  const to = parseDateOnly(dateTo);
 
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-    return undefined;
-  }
+  if (!from || !to) return undefined;
 
   return { from, to };
 }
@@ -101,6 +142,7 @@ export default function ItemDetailPage() {
 
   const [status, setStatus] = useState("Načítavam...");
   const [contactingOwner, setContactingOwner] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [item, setItem] = useState<Item | null>(null);
   const [owner, setOwner] = useState<OwnerProfile | null>(null);
@@ -114,9 +156,6 @@ export default function ItemDetailPage() {
     buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo)
   );
 
-  const [dateFrom, setDateFrom] = useState(() => itemSearchState.dateFrom);
-  const [dateTo, setDateTo] = useState(() => itemSearchState.dateTo);
-
   const [itemReviewAvg, setItemReviewAvg] = useState<number | null>(null);
   const [itemReviewCount, setItemReviewCount] = useState(0);
 
@@ -125,28 +164,33 @@ export default function ItemDetailPage() {
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
 
-  const selectedFrom = range?.from ? range.from.toISOString().slice(0, 10) : "";
-  const selectedTo = range?.to ? range.to.toISOString().slice(0, 10) : "";
+  const selectedFrom = formatDateOnly(range?.from);
+  const selectedTo = formatDateOnly(range?.to);
+  const hasCompleteRange = Boolean(range?.from && range?.to);
+  const hasPartialRange = Boolean(range?.from && !range?.to);
+  const dateFrom = hasCompleteRange ? selectedFrom : "";
+  const dateTo = hasCompleteRange ? selectedTo : "";
+  const syncedDateFrom = hasPartialRange ? itemSearchState.dateFrom : dateFrom;
+  const syncedDateTo = hasPartialRange ? itemSearchState.dateTo : dateTo;
   const activeImage = imageUrls[activeImageIndex] ?? null;
   const returnToItemsHref = useMemo(
     () =>
       buildItemsHref({
         ...itemSearchState,
-        dateFrom,
-        dateTo,
+        dateFrom: syncedDateFrom,
+        dateTo: syncedDateTo,
       }),
-    [itemSearchState, dateFrom, dateTo]
+    [itemSearchState, syncedDateFrom, syncedDateTo]
   );
 
   const days = useMemo(() => {
-    if (!dateFrom || !dateTo) return 0;
+    if (!range?.from || !range?.to) return 0;
     const msPerDay = 24 * 60 * 60 * 1000;
-    const d1 = new Date(dateFrom).getTime();
-    const d2 = new Date(dateTo).getTime();
-    if (Number.isNaN(d1) || Number.isNaN(d2)) return 0;
+    const d1 = Date.UTC(range.from.getFullYear(), range.from.getMonth(), range.from.getDate());
+    const d2 = Date.UTC(range.to.getFullYear(), range.to.getMonth(), range.to.getDate());
     const diff = Math.floor((d2 - d1) / msPerDay) + 1;
     return Math.max(diff, 0);
-  }, [dateFrom, dateTo]);
+  }, [range]);
 
   const estimatedTotal = useMemo(() => {
     if (!item || days <= 0) return null;
@@ -159,20 +203,16 @@ export default function ItemDetailPage() {
   }, [owner?.avatar_path]);
 
   useEffect(() => {
-    if (itemSearchState.dateFrom === dateFrom && itemSearchState.dateTo === dateTo) {
-      return;
-    }
+    const nextRange = buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo);
 
-    setDateFrom(itemSearchState.dateFrom);
-    setDateTo(itemSearchState.dateTo);
-    setRange(buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo));
-  }, [itemSearchState.dateFrom, itemSearchState.dateTo, dateFrom, dateTo]);
+    setRange((currentRange) => (rangesEqual(nextRange, currentRange) ? currentRange : nextRange));
+  }, [itemSearchState.dateFrom, itemSearchState.dateTo]);
 
   useEffect(() => {
     const nextQuery = buildItemSearchQueryString({
       ...itemSearchState,
-      dateFrom,
-      dateTo,
+      dateFrom: syncedDateFrom,
+      dateTo: syncedDateTo,
     });
     const currentQuery = searchParams.toString();
 
@@ -183,11 +223,14 @@ export default function ItemDetailPage() {
     router.replace(nextQuery ? `/items/${itemId}?${nextQuery}` : `/items/${itemId}`, {
       scroll: false,
     });
-  }, [dateFrom, dateTo, itemId, itemSearchState, router, searchParams]);
+  }, [syncedDateFrom, syncedDateTo, itemId, itemSearchState, router, searchParams]);
 
   useEffect(() => {
     const run = async () => {
       setStatus("Načítavam...");
+
+      const { data: sess } = await supabase.auth.getSession();
+      setCurrentUserId(sess.session?.user.id ?? null);
 
       const { data: itemData, error: itemErr } = await supabase
         .from("items")
@@ -790,6 +833,15 @@ if (!imgErr && imgs) {
               >
                 {contactingOwner ? "Otváram chat..." : "Napísať prenajímateľovi"}
               </button>
+
+              {currentUserId === item.owner_id ? (
+                <Link
+                  href={`/items/edit/${item.id}`}
+                  className="rentulo-btn-secondary mt-3 block w-full px-4 py-2.5 text-center text-sm"
+                >
+                  Upraviť ponuku
+                </Link>
+              ) : null}
             </section>
 
             <section className="rentulo-card p-6 space-y-4">
@@ -815,13 +867,7 @@ if (!imgErr && imgs) {
                 <DayPicker
                   mode="range"
                   selected={range}
-                  onSelect={(r) => {
-                    setRange(r);
-                    const from = r?.from ? r.from.toISOString().slice(0, 10) : "";
-                    const to = r?.to ? r.to.toISOString().slice(0, 10) : "";
-                    setDateFrom(from);
-                    setDateTo(to);
-                  }}
+                  onSelect={setRange}
                   disabled={[...reservedRanges, { before: new Date() }]}
                   modifiers={{ reserved: reservedRanges }}
                   modifiersStyles={{
