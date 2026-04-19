@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  buildItemDetailHref,
+  buildItemSearchQueryString,
+  parseItemSearchParams,
+} from "@/lib/itemSearchParams";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = {
@@ -41,6 +47,11 @@ type GeoapifyFeature = {
   };
 };
 
+type SearchCenter = {
+  lat: number;
+  lng: number;
+};
+
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div className="inline-flex rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/55">
@@ -75,29 +86,58 @@ const NON_BLOCKING_RESERVATION_STATUSES = new Set([
 ]);
 
 export default function ItemsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialSearchState = useMemo(() => parseItemSearchParams(searchParams), [searchParams]);
+
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
   const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
   const [status, setStatus] = useState("Načítavam...");
 
-  const [textQuery, setTextQuery] = useState("");
-  const [locationQuery, setLocationQuery] = useState("");
-  const [radiusKm, setRadiusKm] = useState("20");
+  const [textQuery, setTextQuery] = useState(() => initialSearchState.textQuery);
+  const [locationQuery, setLocationQuery] = useState(() => initialSearchState.locationQuery);
+  const [radiusKm, setRadiusKm] = useState(() => initialSearchState.radiusKm);
   const [categoryFilter, setCategoryFilter] = useState("Všetky kategórie");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => initialSearchState.dateFrom);
+  const [dateTo, setDateTo] = useState(() => initialSearchState.dateTo);
 
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
-  const [selectedLabel, setSelectedLabel] = useState("");
+  const [selectedLabel, setSelectedLabel] = useState(() => initialSearchState.selectedLabel);
+  const [searchCenter, setSearchCenter] = useState<SearchCenter | null>(() =>
+    initialSearchState.lat !== null && initialSearchState.lng !== null
+      ? { lat: initialSearchState.lat, lng: initialSearchState.lng }
+      : null
+  );
+  const [filtersReady, setFiltersReady] = useState(false);
 
   const [unavailableItemIds, setUnavailableItemIds] = useState<number[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
 
+  useEffect(() => {
+    setCategoryFilter(initialSearchState.category);
+    setFiltersReady(true);
+  }, [initialSearchState.category]);
+
   const hasValidDateRange = Boolean(dateFrom && dateTo && dateFrom <= dateTo);
   const hasInvalidDateRange = Boolean(dateFrom && dateTo && dateFrom > dateTo);
+  const currentSearchState = useMemo(
+    () => ({
+      textQuery,
+      locationQuery,
+      radiusKm,
+      category: categoryFilter,
+      dateFrom,
+      dateTo,
+      selectedLabel,
+      lat: searchCenter?.lat ?? null,
+      lng: searchCenter?.lng ?? null,
+    }),
+    [textQuery, locationQuery, radiusKm, categoryFilter, dateFrom, dateTo, selectedLabel, searchCenter]
+  );
 
   const filteredItems = useMemo(() => {
     const normalizedText = textQuery.trim().toLowerCase();
@@ -214,11 +254,10 @@ export default function ItemsPage() {
     const rows = ((data ?? []) as Item[]).map((x) => ({ ...x, distance_km: null }));
     setItems(rows);
     await loadImages(rows);
-    setSelectedLabel("");
     setStatus("");
   };
 
-  const loadNearbyItems = async (lat: number, lng: number, label: string) => {
+  const loadNearbyItems = async (lat: number, lng: number) => {
     setStatus("Hľadám ponuky v okolí...");
 
     const { data, error } = await supabase.rpc("search_items_near", {
@@ -235,14 +274,33 @@ export default function ItemsPage() {
     const rows = (data ?? []) as Item[];
     setItems(rows);
     await loadImages(rows);
-    setSelectedLabel(label);
     setStatus("");
   };
 
   useEffect(() => {
-    loadDefaultItems();
+    if (searchCenter) {
+      void loadNearbyItems(searchCenter.lat, searchCenter.lng);
+      return;
+    }
+
+    void loadDefaultItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!filtersReady) {
+      return;
+    }
+
+    const nextQuery = buildItemSearchQueryString(currentSearchState);
+    const currentQuery = searchParams.toString();
+
+    if (nextQuery === currentQuery) {
+      return;
+    }
+
+    router.replace(nextQuery ? `/items?${nextQuery}` : "/items", { scroll: false });
+  }, [currentSearchState, filtersReady, router, searchParams]);
 
   useEffect(() => {
     const q = locationQuery.trim();
@@ -339,11 +397,18 @@ export default function ItemsPage() {
     }
 
     setLocationQuery(label);
+    setSelectedLabel(label);
+    setSearchCenter({ lat, lng });
     setLocationResults([]);
-    await loadNearbyItems(lat, lng, label);
+    await loadNearbyItems(lat, lng);
   };
 
   const searchByTypedLocation = async () => {
+    if (searchCenter) {
+      await loadNearbyItems(searchCenter.lat, searchCenter.lng);
+      return;
+    }
+
     if (locationResults.length === 0) {
       setStatus("Najprv vyber lokalitu zo zoznamu návrhov.");
       return;
@@ -364,8 +429,11 @@ export default function ItemsPage() {
       async (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        setLocationQuery("moja poloha");
+        setSelectedLabel("moja poloha");
+        setSearchCenter({ lat, lng });
         setLocationResults([]);
-        await loadNearbyItems(lat, lng, "moja poloha");
+        await loadNearbyItems(lat, lng);
       },
       () => {
         setStatus("Nepodarilo sa získať tvoju polohu.");
@@ -385,6 +453,8 @@ export default function ItemsPage() {
     setCategoryFilter("Všetky kategórie");
     setDateFrom("");
     setDateTo("");
+    setSelectedLabel("");
+    setSearchCenter(null);
     setUnavailableItemIds([]);
     await loadDefaultItems();
   };
@@ -537,7 +607,16 @@ export default function ItemsPage() {
                 className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
                 placeholder="napr. Trnava alebo 91701"
                 value={locationQuery}
-                onChange={(e) => setLocationQuery(e.target.value)}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setLocationQuery(nextValue);
+                  setLocationResults([]);
+
+                  if (selectedLabel && nextValue !== selectedLabel) {
+                    setSelectedLabel("");
+                    setSearchCenter(null);
+                  }
+                }}
               />
 
               {searchingLocation ? (
@@ -841,7 +920,7 @@ export default function ItemsPage() {
                   </div>
 
                   <Link
-                    href={`/items/${item.id}`}
+                    href={buildItemDetailHref(item.id, currentSearchState)}
                     className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/85 hover:bg-white/[0.1]"
                   >
                     Otvoriť detail

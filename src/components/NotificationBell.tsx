@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { NOTIFICATIONS_REFRESH_EVENT } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function NotificationBell() {
@@ -9,7 +10,7 @@ export default function NotificationBell() {
   const [userId, setUserId] = useState<string | null>(null);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadUnreadCount = async (explicitUserId?: string | null) => {
+  const loadUnreadCount = useEffectEvent(async (explicitUserId?: string | null) => {
     const nextUserId =
       explicitUserId ??
       (await supabase.auth.getSession()).data.session?.user.id ??
@@ -22,18 +23,21 @@ export default function NotificationBell() {
       return;
     }
 
-    const { count, error } = await supabase
+    const { count: unreadCount, error } = await supabase
       .from("notifications")
       .select("*", { count: "exact", head: true })
       .eq("user_id", nextUserId)
       .eq("is_read", false);
 
-    if (!error) {
-      setCount(count ?? 0);
+    if (error) {
+      setCount(0);
+      return;
     }
-  };
 
-  const scheduleLoadUnreadCount = (explicitUserId?: string | null) => {
+    setCount(unreadCount ?? 0);
+  });
+
+  const scheduleLoadUnreadCount = useEffectEvent((explicitUserId?: string | null) => {
     if (reloadTimerRef.current) {
       clearTimeout(reloadTimerRef.current);
     }
@@ -41,7 +45,7 @@ export default function NotificationBell() {
     reloadTimerRef.current = setTimeout(() => {
       void loadUnreadCount(explicitUserId);
     }, 150);
-  };
+  });
 
   useEffect(() => {
     void loadUnreadCount();
@@ -81,7 +85,7 @@ export default function NotificationBell() {
     };
 
     window.addEventListener("focus", handleFocus);
-    window.addEventListener("rentulo:notifications-refresh", handleNotificationsRefresh);
+    window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, handleNotificationsRefresh);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const channel = supabase
@@ -102,7 +106,7 @@ export default function NotificationBell() {
 
     return () => {
       window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("rentulo:notifications-refresh", handleNotificationsRefresh);
+      window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, handleNotificationsRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       supabase.removeChannel(channel);
     };

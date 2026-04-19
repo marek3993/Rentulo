@@ -2,40 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import {
+  dispatchNotificationsRefresh,
+  formatNotificationDate,
+  notificationTypeBadgeClass,
+  notificationTypeLabel,
+  type NotificationRow,
+} from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-
-type NotificationRow = {
-  id: number;
-  type: string;
-  title: string;
-  body: string | null;
-  link: string | null;
-  is_read: boolean;
-  created_at: string;
-};
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleString("sk-SK");
-}
-
-function typeLabel(type: string) {
-  if (type === "payment") return "Platba";
-  if (type === "message") return "Správa";
-  if (type === "reservation") return "Rezervácia";
-  if (type === "verification") return "Overenie";
-  return type;
-}
-
-function typeBadgeClass(type: string) {
-  if (type === "payment") return "bg-emerald-500/15 text-emerald-300";
-  if (type === "message") return "bg-indigo-500/15 text-indigo-300";
-  if (type === "reservation") return "bg-sky-500/15 text-sky-300";
-  if (type === "verification") return "bg-amber-500/15 text-amber-300";
-  return "bg-white/10 text-white/75";
-}
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -144,6 +119,7 @@ export default function NotificationsPage() {
 
     if (!error) {
       setRows((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
+      dispatchNotificationsRefresh();
     }
   };
 
@@ -174,6 +150,7 @@ export default function NotificationsPage() {
     setRows((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setStatus("");
     setMarkingAll(false);
+    dispatchNotificationsRefresh();
   };
 
   const unreadCount = rows.filter((r) => !r.is_read).length;
@@ -261,11 +238,11 @@ export default function NotificationsPage() {
               <div className="min-w-0 flex-1 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${typeBadgeClass(
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${notificationTypeBadgeClass(
                       n.type
                     )}`}
                   >
-                    {typeLabel(n.type)}
+                    {notificationTypeLabel(n.type)}
                   </span>
 
                   {!n.is_read ? (
@@ -279,7 +256,7 @@ export default function NotificationsPage() {
 
                 {n.body ? <div className="leading-7 text-white/75">{n.body}</div> : null}
 
-                <div className="text-sm text-white/50">{formatDate(n.created_at)}</div>
+                <div className="text-sm text-white/50">{formatNotificationDate(n.created_at)}</div>
               </div>
 
               <div className="flex flex-wrap gap-2">

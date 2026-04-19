@@ -1,27 +1,50 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
+import { type ToastNotification } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
-
-type ToastNotification = {
-  id: number;
-  title: string;
-  body: string | null;
-  link: string | null;
-};
 
 export default function NotificationToaster() {
   const [toast, setToast] = useState<ToastNotification | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const showToast = useEffectEvent((row: ToastNotification) => {
+    setToast({
+      id: row.id,
+      title: row.title,
+      body: row.body ?? null,
+      link: row.link ?? null,
+    });
+
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+    }
+
+    hideTimer.current = setTimeout(() => {
+      setToast(null);
+    }, 6000);
+  });
+
   useEffect(() => {
+    let active = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    const setup = async () => {
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
-      if (!userId) return;
+    const cleanupChannel = () => {
+      if (!channel) return;
+      supabase.removeChannel(channel);
+      channel = null;
+    };
+
+    const setup = async (explicitUserId?: string | null) => {
+      cleanupChannel();
+
+      const userId =
+        explicitUserId ??
+        (await supabase.auth.getSession()).data.session?.user.id ??
+        null;
+
+      if (!active || !userId) return;
 
       channel = supabase
         .channel(`notifications-toast-${userId}`)
@@ -34,41 +57,29 @@ export default function NotificationToaster() {
             filter: `user_id=eq.${userId}`,
           },
           (payload) => {
-            const row = payload.new as {
-              id: number;
-              title: string;
-              body: string | null;
-              link: string | null;
-            };
-
-            setToast({
-              id: row.id,
-              title: row.title,
-              body: row.body ?? null,
-              link: row.link ?? null,
-            });
-
-            if (hideTimer.current) {
-              clearTimeout(hideTimer.current);
-            }
-
-            hideTimer.current = setTimeout(() => {
-              setToast(null);
-            }, 6000);
+            const row = payload.new as ToastNotification;
+            showToast(row);
           }
         )
         .subscribe();
     };
 
-    setup();
+    void setup();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setToast(null);
+      void setup(session?.user?.id ?? null);
+    });
 
     return () => {
+      active = false;
       if (hideTimer.current) {
         clearTimeout(hideTimer.current);
       }
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      subscription.unsubscribe();
+      cleanupChannel();
     };
   }, []);
 

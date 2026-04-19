@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { DayPicker, type DateRange } from "react-day-picker";
+import {
+  buildItemsHref,
+  buildItemSearchQueryString,
+  parseItemSearchParams,
+} from "@/lib/itemSearchParams";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = {
@@ -36,6 +41,24 @@ type ReviewRow = {
   reviewee_type: string;
 };
 
+type ItemImageDetails = {
+  path: string;
+  is_primary: boolean | null;
+  position: number | null;
+  id: number;
+};
+
+type ReservationDetails = {
+  date_from: string;
+  date_to: string;
+  status: string | null;
+  created_at: string;
+};
+
+type RatingRow = {
+  rating: number | string | null;
+};
+
 function verificationBadgeClass(status: string) {
   if (status === "verified") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
@@ -56,10 +79,25 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("sk-SK");
 }
 
+function buildInitialRange(dateFrom: string, dateTo: string): DateRange | undefined {
+  if (!dateFrom || !dateTo) return undefined;
+
+  const from = new Date(dateFrom);
+  const to = new Date(dateTo);
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return undefined;
+  }
+
+  return { from, to };
+}
+
 export default function ItemDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const itemId = Number(params.id);
+  const itemSearchState = useMemo(() => parseItemSearchParams(searchParams), [searchParams]);
 
   const [status, setStatus] = useState("Načítavam...");
   const [contactingOwner, setContactingOwner] = useState(false);
@@ -72,10 +110,12 @@ export default function ItemDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [reservedRanges, setReservedRanges] = useState<{ from: Date; to: Date }[]>([]);
-  const [range, setRange] = useState<DateRange | undefined>();
+  const [range, setRange] = useState<DateRange | undefined>(() =>
+    buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo)
+  );
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState(() => itemSearchState.dateFrom);
+  const [dateTo, setDateTo] = useState(() => itemSearchState.dateTo);
 
   const [itemReviewAvg, setItemReviewAvg] = useState<number | null>(null);
   const [itemReviewCount, setItemReviewCount] = useState(0);
@@ -88,6 +128,15 @@ export default function ItemDetailPage() {
   const selectedFrom = range?.from ? range.from.toISOString().slice(0, 10) : "";
   const selectedTo = range?.to ? range.to.toISOString().slice(0, 10) : "";
   const activeImage = imageUrls[activeImageIndex] ?? null;
+  const returnToItemsHref = useMemo(
+    () =>
+      buildItemsHref({
+        ...itemSearchState,
+        dateFrom,
+        dateTo,
+      }),
+    [itemSearchState, dateFrom, dateTo]
+  );
 
   const days = useMemo(() => {
     if (!dateFrom || !dateTo) return 0;
@@ -108,6 +157,33 @@ export default function ItemDetailPage() {
     if (!owner?.avatar_path) return null;
     return supabase.storage.from("avatars").getPublicUrl(owner.avatar_path).data.publicUrl;
   }, [owner?.avatar_path]);
+
+  useEffect(() => {
+    if (itemSearchState.dateFrom === dateFrom && itemSearchState.dateTo === dateTo) {
+      return;
+    }
+
+    setDateFrom(itemSearchState.dateFrom);
+    setDateTo(itemSearchState.dateTo);
+    setRange(buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo));
+  }, [itemSearchState.dateFrom, itemSearchState.dateTo, dateFrom, dateTo]);
+
+  useEffect(() => {
+    const nextQuery = buildItemSearchQueryString({
+      ...itemSearchState,
+      dateFrom,
+      dateTo,
+    });
+    const currentQuery = searchParams.toString();
+
+    if (nextQuery === currentQuery) {
+      return;
+    }
+
+    router.replace(nextQuery ? `/items/${itemId}?${nextQuery}` : `/items/${itemId}`, {
+      scroll: false,
+    });
+  }, [dateFrom, dateTo, itemId, itemSearchState, router, searchParams]);
 
   useEffect(() => {
     const run = async () => {
@@ -141,7 +217,7 @@ export default function ItemDetailPage() {
   .order("id", { ascending: true });
 
 if (!imgErr && imgs) {
-  const sorted = [...(imgs as any[])].sort((a, b) => {
+  const sorted = [...(imgs as ItemImageDetails[])].sort((a, b) => {
     if (!!a.is_primary !== !!b.is_primary) return a.is_primary ? -1 : 1;
 
     const aPos = Number.isFinite(Number(a.position)) ? Number(a.position) : 999999;
@@ -182,7 +258,7 @@ if (!imgErr && imgs) {
         const now = Date.now();
         const ttlMs = 15 * 60 * 1000;
 
-        const ranges = (reservations as any[])
+        const ranges = (reservations as ReservationDetails[])
           .filter((r) => {
             if (r.status === "confirmed") return true;
             if (r.status !== "pending") return false;
@@ -204,7 +280,7 @@ if (!imgErr && imgs) {
 
       if (itemAgg) {
         const ratings = itemAgg
-          .map((x: any) => Number(x.rating))
+          .map((x: RatingRow) => Number(x.rating))
           .filter((n) => Number.isFinite(n));
         setItemReviewCount(ratings.length);
         setItemReviewAvg(
@@ -223,7 +299,7 @@ if (!imgErr && imgs) {
 
       if (ownerAgg) {
         const ratings = ownerAgg
-          .map((x: any) => Number(x.rating))
+          .map((x: RatingRow) => Number(x.rating))
           .filter((n) => Number.isFinite(n));
         setOwnerReviewCount(ratings.length);
         setOwnerReviewAvg(
@@ -241,7 +317,7 @@ if (!imgErr && imgs) {
         .eq("item_id", itemId)
         .order("id", { ascending: false });
 
-      setReviews(((list ?? []) as any) as ReviewRow[]);
+      setReviews((list ?? []) as ReviewRow[]);
       setStatus("");
     };
 
@@ -422,7 +498,7 @@ if (!imgErr && imgs) {
   if (status === "Nenájdené") {
     return (
       <main className="space-y-4">
-        <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href="/items">
+        <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href={returnToItemsHref}>
           ← Späť na ponuky
         </Link>
 
@@ -438,7 +514,7 @@ if (!imgErr && imgs) {
 
   return (
     <main className="space-y-6">
-      <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href="/items">
+      <Link className="inline-flex text-sm text-indigo-300 hover:text-indigo-200" href={returnToItemsHref}>
         ← Späť na ponuky
       </Link>
 
