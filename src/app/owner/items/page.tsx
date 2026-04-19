@@ -19,16 +19,41 @@
     id: number;
     item_id: number;
     path: string;
-    is_primary: boolean;
+    is_primary: boolean | null;
+    position: number | null;
   };
 
   type ItemImageView = {
     id: number;
     item_id: number;
     path: string;
-    is_primary: boolean;
+    is_primary: boolean | null;
+    position: number | null;
     publicUrl: string;
   };
+
+  const getImagePositionValue = (position: number | null, fallbackIndex: number) => {
+    const parsed = Number(position);
+    return Number.isFinite(parsed) ? parsed : fallbackIndex;
+  };
+
+  const sortItemImages = <T extends { id: number; is_primary: boolean | null; position: number | null }>(
+    images: T[]
+  ) =>
+    [...images].sort((a, b) => {
+      if (!!a.is_primary !== !!b.is_primary) {
+        return a.is_primary ? -1 : 1;
+      }
+
+      const aPosition = getImagePositionValue(a.position, Number.MAX_SAFE_INTEGER);
+      const bPosition = getImagePositionValue(b.position, Number.MAX_SAFE_INTEGER);
+
+      if (aPosition !== bPosition) {
+        return aPosition - bPosition;
+      }
+
+      return a.id - b.id;
+    });
 
   export default function OwnerItemsPage() {
     const router = useRouter();
@@ -44,6 +69,7 @@
     const [uploadingForItemId, setUploadingForItemId] = useState<number | null>(null);
     const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
     const [settingPrimaryImageId, setSettingPrimaryImageId] = useState<number | null>(null);
+    const [reorderingImageId, setReorderingImageId] = useState<number | null>(null);
 
     const filtered = useMemo(() => {
       let out = [...items];
@@ -106,9 +132,10 @@
 
       const { data: imgs, error: imgsError } = await supabase
         .from("item_images")
-        .select("id,item_id,path,is_primary")
+        .select("id,item_id,path,is_primary,position")
         .in("item_id", ids)
         .order("is_primary", { ascending: false })
+        .order("position", { ascending: true })
         .order("id", { ascending: true });
 
       if (imgsError) {
@@ -130,8 +157,14 @@
           item_id: im.item_id,
           path: im.path,
           is_primary: im.is_primary,
+          position: im.position,
           publicUrl: pub.publicUrl,
         });
+      }
+
+      for (const itemId of Object.keys(nextMap)) {
+        const numericItemId = Number(itemId);
+        nextMap[numericItemId] = sortItemImages(nextMap[numericItemId]);
       }
 
       setImageMap(nextMap);
@@ -176,6 +209,12 @@
 
         const currentImages = imageMap[itemId] ?? [];
         const shouldMakeFirstPrimary = currentImages.length === 0;
+        const nextBasePosition =
+          currentImages.reduce(
+            (maxPosition, image, index) =>
+              Math.max(maxPosition, getImagePositionValue(image.position, index)),
+            -1
+          ) + 1;
 
         let uploadedIndex = 0;
 
@@ -202,6 +241,7 @@
               item_id: itemId,
               owner_id: userId,
               path: filePath,
+              position: nextBasePosition + uploadedIndex,
               is_primary: shouldMakeFirstPrimary && uploadedIndex === 0,
             });
 
@@ -214,8 +254,9 @@
 
         setStatus("Fotky nahraté ✅");
         await load();
-      } catch (e: any) {
-        setStatus("Chyba: " + (e?.message || "upload zlyhal"));
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "upload zlyhal";
+        setStatus("Chyba: " + message);
       } finally {
         setUploadingForItemId(null);
       }
@@ -241,10 +282,63 @@
 
         setStatus("Hlavná fotka uložená ✅");
         await load();
-      } catch (e: any) {
-        setStatus("Chyba: " + (e?.message || "uloženie zlyhalo"));
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "uloženie zlyhalo";
+        setStatus("Chyba: " + message);
       } finally {
         setSettingPrimaryImageId(null);
+      }
+    };
+
+    const reorderImage = async (itemId: number, imageId: number, direction: "left" | "right") => {
+      const currentImages = sortItemImages(imageMap[itemId] ?? []);
+      const currentIndex = currentImages.findIndex((image) => image.id === imageId);
+
+      if (currentIndex === -1) {
+        return;
+      }
+
+      const firstMovableIndex = currentImages[0]?.is_primary ? 1 : 0;
+      if (currentIndex < firstMovableIndex) {
+        return;
+      }
+
+      const targetIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < firstMovableIndex || targetIndex >= currentImages.length) {
+        return;
+      }
+
+      const reorderedImages = [...currentImages];
+      const [movedImage] = reorderedImages.splice(currentIndex, 1);
+
+      if (!movedImage) {
+        return;
+      }
+
+      reorderedImages.splice(targetIndex, 0, movedImage);
+
+      setReorderingImageId(imageId);
+      setStatus(direction === "left" ? "Posúvam fotku vľavo..." : "Posúvam fotku vpravo...");
+
+      try {
+        for (let index = 0; index < reorderedImages.length; index += 1) {
+          const { error } = await supabase
+            .from("item_images")
+            .update({ position: index })
+            .eq("id", reorderedImages[index].id);
+
+          if (error) {
+            throw new Error(error.message);
+          }
+        }
+
+        setStatus("Poradie fotiek uložené ✅");
+        await load();
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "zmena poradia zlyhala";
+        setStatus("Chyba: " + message);
+      } finally {
+        setReorderingImageId(null);
       }
     };
 
@@ -292,8 +386,9 @@
 
         setStatus("Fotka vymazaná ✅");
         await load();
-      } catch (e: any) {
-        setStatus("Chyba: " + (e?.message || "mazanie zlyhalo"));
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "mazanie zlyhalo";
+        setStatus("Chyba: " + message);
       } finally {
         setDeletingImageId(null);
       }
@@ -442,46 +537,71 @@
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-                        {images.map((img) => (
-                          <div
-                            key={img.id}
-                            className="rounded-xl border border-white/10 bg-black/20 p-2"
-                          >
-                            <img
-                              src={img.publicUrl}
-                              alt="fotka ponuky"
-                              className="h-24 w-full rounded-lg object-cover"
-                            />
+                        {images.map((img, index) => {
+                          const firstMovableIndex = images[0]?.is_primary ? 1 : 0;
+                          const canMoveLeft = index > firstMovableIndex;
+                          const canMoveRight =
+                            index >= firstMovableIndex && index < images.length - 1;
 
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {img.is_primary ? (
-                                <span className="rounded-full bg-green-600/90 px-2 py-1 text-xs text-white">
-                                  Hlavná
-                                </span>
-                              ) : (
+                          return (
+                            <div
+                              key={img.id}
+                              className="rounded-xl border border-white/10 bg-black/20 p-2"
+                            >
+                              <img
+                                src={img.publicUrl}
+                                alt="fotka ponuky"
+                                className="h-24 w-full rounded-lg object-cover"
+                              />
+
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {img.is_primary ? (
+                                  <span className="rounded-full bg-green-600/90 px-2 py-1 text-xs text-white">
+                                    Hlavná
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="text-xs text-white/70 hover:text-white disabled:opacity-50"
+                                    disabled={settingPrimaryImageId === img.id}
+                                    onClick={() => setPrimaryImage(item.id, img.id)}
+                                  >
+                                    {settingPrimaryImageId === img.id
+                                      ? "Ukladám..."
+                                      : "Nastaviť ako hlavnú"}
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   className="text-xs text-white/70 hover:text-white disabled:opacity-50"
-                                  disabled={settingPrimaryImageId === img.id}
-                                  onClick={() => setPrimaryImage(item.id, img.id)}
+                                  disabled={reorderingImageId !== null || !canMoveLeft}
+                                  onClick={() => reorderImage(item.id, img.id, "left")}
                                 >
-                                  {settingPrimaryImageId === img.id
-                                    ? "Ukladám..."
-                                    : "Nastaviť ako hlavnú"}
+                                  {reorderingImageId === img.id ? "Ukladám..." : "Posunúť vľavo"}
                                 </button>
-                              )}
 
-                              <button
-                                type="button"
-                                className="text-xs text-red-300 hover:text-red-200 disabled:opacity-50"
-                                disabled={deletingImageId === img.id}
-                                onClick={() => deleteImage(item.id, img.id, img.path)}
-                              >
-                                {deletingImageId === img.id ? "Mažem..." : "Vymazať"}
-                              </button>
+                                <button
+                                  type="button"
+                                  className="text-xs text-white/70 hover:text-white disabled:opacity-50"
+                                  disabled={reorderingImageId !== null || !canMoveRight}
+                                  onClick={() => reorderImage(item.id, img.id, "right")}
+                                >
+                                  {reorderingImageId === img.id ? "Ukladám..." : "Posunúť vpravo"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="text-xs text-red-300 hover:text-red-200 disabled:opacity-50"
+                                  disabled={deletingImageId === img.id}
+                                  onClick={() => deleteImage(item.id, img.id, img.path)}
+                                >
+                                  {deletingImageId === img.id ? "Mažem..." : "Vymazať"}
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -512,6 +632,13 @@
                       className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
                     >
                       Detail
+                    </Link>
+
+                    <Link
+                      href={`/items/edit/${item.id}`}
+                      className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
+                    >
+                      Upraviť
                     </Link>
 
                     <Link
