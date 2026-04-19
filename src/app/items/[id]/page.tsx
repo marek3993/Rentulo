@@ -456,6 +456,16 @@ if (!imgErr && imgs) {
                         {item.city}
                       </span>
                     ) : null}
+
+                    {owner?.verification_status ? (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${verificationBadgeClass(
+                          owner.verification_status
+                        )}`}
+                      >
+                        {verificationLabel(owner.verification_status)}
+                      </span>
+                    ) : null}
                   </div>
 
                   <h1 className="mt-4 text-3xl font-semibold md:text-4xl">{item.title}</h1>
@@ -464,6 +474,20 @@ if (!imgErr && imgs) {
                     <strong className="text-white">{item.price_per_day} €</strong>
                     <span className="ml-1 text-white/60">/ deň</span>
                     {item.city ? <span className="text-white/60"> · {item.city}</span> : null}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+                      {itemReviewAvg !== null
+                        ? `${itemReviewAvg.toFixed(2)} ⭐ · ${itemReviewCount} hodnotení položky`
+                        : "Položka zatiaľ bez hodnotenia"}
+                    </span>
+
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+                      {ownerReviewAvg !== null
+                        ? `${ownerReviewAvg.toFixed(2)} ⭐ · ${ownerReviewCount} hodnotení prenajímateľa`
+                        : "Prenajímateľ zatiaľ bez hodnotenia"}
+                    </span>
                   </div>
                 </div>
               </div>
