@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   buildItemDetailHref,
@@ -85,7 +85,7 @@ const NON_BLOCKING_RESERVATION_STATUSES = new Set([
   "vratene",
 ]);
 
-export default function ItemsPage() {
+function ItemsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialSearchState = useMemo(() => parseItemSearchParams(searchParams), [searchParams]);
@@ -933,6 +933,22 @@ export default function ItemsPage() {
         </ul>
       </section>
     </main>
+  );
+}
+
+export default function ItemsPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="space-y-8 lg:space-y-10">
+          <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4 text-white/80">
+            Načítavam ponuky...
+          </div>
+        </main>
+      }
+    >
+      <ItemsPageInner />
+    </Suspense>
   );
 }
 
