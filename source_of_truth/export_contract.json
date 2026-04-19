@@ -171,6 +171,47 @@
       "outputs": "unknown",
       "notes": "Item detail route remains path-confirmed only."
     },
+    "item_delivery_options_contract": {
+      "status": "patch_ready_app_contract_only",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/lib/itemDeliveryOptionsContract.ts",
+        "src/app/items/new/page.tsx",
+        "src/app/items/edit/[id]/page.tsx",
+        "src/app/items/[id]/page.tsx"
+      ],
+      "inputs": {
+        "proposed_form_shape": {
+          "mode": "pickup_only | delivery_available",
+          "ratePerKm": "string",
+          "feeCap": "string",
+          "maxRadiusKm": "string"
+        }
+      },
+      "outputs": {
+        "proposed_normalized_shape": {
+          "mode": "pickup_only | delivery_available",
+          "ratePerKm": "number | null",
+          "feeCap": "number | null",
+          "maxRadiusKm": "number | null"
+        },
+        "detail_copy_contract": {
+          "pickup_only_title": "Osobný odber",
+          "pickup_only_summary": "Prenajímateľ momentálne neponúka doručenie.",
+          "delivery_title": "Doručenie dostupné",
+          "delivery_summary": "Doručenie sa do finálnej ceny zatiaľ nezapočítava automaticky."
+        }
+      },
+      "unknowns": [
+        "Exact persistence shape in DATA layer is not confirmed in repo.",
+        "Exact item columns or JSON field names for delivery options are not confirmed in repo.",
+        "It is not confirmed whether create_item_with_location should accept delivery arguments directly or via follow-up update.",
+        "It is not confirmed whether delivery fee is one-way, round-trip, or final per-order surcharge.",
+        "It is not confirmed where delivery options should appear downstream in reservation/payment surfaces."
+      ],
+      "notes": "APP contract is intentionally patch-ready only. Repo evidence does not confirm a safe backend contract for saving these fields yet, so UI persistence must not be invented in app code."
+    },
     "item_create": {
       "status": "route_confirmed_contract_not_yet_formalized",
       "source_owner": "RENTULO INZERÁTY A FOTKY",
@@ -215,6 +256,48 @@
       "inputs": "unknown",
       "outputs": "unknown",
       "notes": "Owner items route remains path-confirmed only."
+    },
+    "blocked_dates_availability": {
+      "status": "app_contract_proposed_waiting_data_contract",
+      "source_owner": "RENTULO APP",
+      "data_owner": "RENTULO DATA",
+      "paths": [
+        "src/app/items/edit/[id]/page.tsx",
+        "src/app/items/[id]/page.tsx",
+        "src/app/items/page.tsx"
+      ],
+      "inputs": {
+        "owner_blocked_ranges": [
+          {
+            "id": "string | number",
+            "item_id": "number",
+            "date_from": "YYYY-MM-DD",
+            "date_to": "YYYY-MM-DD",
+            "note": "string | null"
+          }
+        ],
+        "selected_search_range": {
+          "date_from": "YYYY-MM-DD",
+          "date_to": "YYYY-MM-DD"
+        },
+        "merge_rule": "Owner blocked ranges must use the same inclusive overlap logic as reservation date_from/date_to."
+      },
+      "outputs": {
+        "owner_edit_surface": {
+          "behavior": "Owner can add and remove blocked ranges for an item without creating fake reservations."
+        },
+        "item_detail_calendar": {
+          "disabled_day_sources": [
+            "reservation",
+            "owner_blocked_range"
+          ],
+          "behavior": "Blocked and reserved days are both non-selectable in the calendar."
+        },
+        "items_search_availability": {
+          "behavior": "A date-filtered search excludes items whose reservations or owner-blocked ranges overlap the selected range."
+        }
+      },
+      "notes": "Repo currently confirms only reservation-based availability. This app contract defines the exact blocked-dates surface DATA must provide before safe UI wiring can land."
     },
     "owner_reservations": {
       "status": "route_confirmed_contract_not_yet_formalized",

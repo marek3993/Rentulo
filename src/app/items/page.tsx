@@ -27,6 +27,7 @@ type ReservationRow = {
   date_from: string;
   date_to: string;
   status: string | null;
+  payment_status: string | null;
 };
 
 type ItemImageRow = {
@@ -84,6 +85,21 @@ const NON_BLOCKING_RESERVATION_STATUSES = new Set([
   "ukoncene",
   "vratene",
 ]);
+
+function isBlockingReservation(reservation: ReservationRow) {
+  const normalizedStatus = (reservation.status ?? "").trim().toLowerCase();
+  const normalizedPaymentStatus = (reservation.payment_status ?? "").trim().toLowerCase();
+
+  if (NON_BLOCKING_RESERVATION_STATUSES.has(normalizedStatus)) {
+    return false;
+  }
+
+  if (normalizedPaymentStatus === "failed") {
+    return false;
+  }
+
+  return true;
+}
 
 function ItemsPageInner() {
   const router = useRouter();
@@ -351,7 +367,7 @@ function ItemsPageInner() {
 
       const { data, error } = await supabase
         .from("reservations")
-        .select("item_id,date_from,date_to,status")
+        .select("item_id,date_from,date_to,status,payment_status")
         .in("item_id", itemIds)
         .lte("date_from", dateTo)
         .gte("date_to", dateFrom);
@@ -367,9 +383,7 @@ function ItemsPageInner() {
       const blocked = new Set<number>();
 
       for (const reservation of (data ?? []) as ReservationRow[]) {
-        const normalizedStatus = (reservation.status ?? "").trim().toLowerCase();
-
-        if (!NON_BLOCKING_RESERVATION_STATUSES.has(normalizedStatus)) {
+        if (isBlockingReservation(reservation)) {
           blocked.add(reservation.item_id);
         }
       }
@@ -482,6 +496,24 @@ function ItemsPageInner() {
     const current = activeImageIndexMap[itemId] ?? 0;
     const next = current === images.length - 1 ? 0 : current + 1;
     setItemImageIndex(itemId, next);
+  };
+
+  const openItemDetail = (itemId: number) => {
+    router.push(buildItemDetailHref(itemId, currentSearchState));
+  };
+
+  const handleItemCardKeyDown = (
+    event: React.KeyboardEvent<HTMLLIElement>,
+    itemId: number
+  ) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openItemDetail(itemId);
+    }
   };
 
   return (
@@ -799,7 +831,12 @@ function ItemsPageInner() {
           return (
             <li
               key={item.id}
-              className="group overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)]"
+              className="group cursor-pointer overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-black"
+              onClick={() => openItemDetail(item.id)}
+              onKeyDown={(event) => handleItemCardKeyDown(event, item.id)}
+              tabIndex={0}
+              role="link"
+              aria-label={`Otvoriť detail ponuky ${item.title}`}
             >
               <div className="relative h-64 overflow-hidden">
                 {activeImage ? (
@@ -840,7 +877,10 @@ function ItemsPageInner() {
                   <>
                     <button
                       type="button"
-                      onClick={() => showPrevImage(item.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        showPrevImage(item.id);
+                      }}
                       className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
                       ←
@@ -848,7 +888,10 @@ function ItemsPageInner() {
 
                     <button
                       type="button"
-                      onClick={() => showNextImage(item.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        showNextImage(item.id);
+                      }}
                       className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
                     >
                       →
@@ -902,7 +945,10 @@ function ItemsPageInner() {
                       <button
                         key={`${item.id}-${index}`}
                         type="button"
-                        onClick={() => setItemImageIndex(item.id, index)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setItemImageIndex(item.id, index);
+                        }}
                         className={`h-2.5 rounded-full transition ${
                           activeIndex === index
                             ? "w-8 bg-white"
@@ -922,6 +968,7 @@ function ItemsPageInner() {
                   <Link
                     href={buildItemDetailHref(item.id, currentSearchState)}
                     className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/85 hover:bg-white/[0.1]"
+                    onClick={(event) => event.stopPropagation()}
                   >
                     Otvoriť detail
                   </Link>
