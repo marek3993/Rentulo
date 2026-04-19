@@ -2,7 +2,10 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
-import { type ToastNotification } from "@/lib/notifications";
+import {
+  dispatchNotificationsRefresh,
+  type ToastNotification,
+} from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function NotificationToaster() {
@@ -25,6 +28,17 @@ export default function NotificationToaster() {
       setToast(null);
     }, 6000);
   });
+
+  const markToastRead = async (notificationId: number) => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    if (!error) {
+      dispatchNotificationsRefresh();
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -107,7 +121,10 @@ export default function NotificationToaster() {
           <Link
             href={toast.link}
             className="rounded bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
-            onClick={() => setToast(null)}
+            onClick={() => {
+              void markToastRead(toast.id);
+              setToast(null);
+            }}
           >
             Otvoriť
           </Link>

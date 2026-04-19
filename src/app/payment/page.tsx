@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -8,6 +8,8 @@ import { supabase } from "@/lib/supabaseClient";
 type ReservationRow = {
   id: number;
   item_id: number;
+  date_from: string;
+  date_to: string;
   payment_status: string | null;
   payment_provider: string | null;
   payment_due_at: string | null;
@@ -43,7 +45,7 @@ function PaymentInner() {
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,payment_status,payment_provider,payment_due_at,status")
+      .select("id,item_id,date_from,date_to,payment_status,payment_provider,payment_due_at,status")
       .eq("id", reservationId)
       .maybeSingle();
 
@@ -282,6 +284,17 @@ function PaymentInner() {
     reservation.payment_status !== "paid" &&
     !(reservation.status === "cancelled" && reservation.payment_status === "failed");
 
+  const itemDetailHref = useMemo(() => {
+    if (!reservation) return null;
+
+    const params = new URLSearchParams();
+    if (reservation.date_from) params.set("date_from", reservation.date_from);
+    if (reservation.date_to) params.set("date_to", reservation.date_to);
+
+    const query = params.toString();
+    return query ? `/items/${reservation.item_id}?${query}` : `/items/${reservation.item_id}`;
+  }, [reservation]);
+
   return (
     <main className="max-w-xl">
       <h1 className="text-2xl font-semibold">Platba</h1>
@@ -343,9 +356,15 @@ function PaymentInner() {
       </div>
 
       <div className="mt-6 flex gap-4">
-        <Link className="underline" href="/items">
-          Späť na ponuky
-        </Link>
+        {itemDetailHref ? (
+          <Link className="underline" href={itemDetailHref}>
+            Späť na detail položky
+          </Link>
+        ) : (
+          <Link className="underline" href="/items">
+            Späť na ponuky
+          </Link>
+        )}
         <Link className="underline" href="/reservations">
           Moje rezervácie
         </Link>
