@@ -1,18 +1,9 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-
-type DisputeStatus = "open" | "under_review" | "resolved" | "closed" | string;
-type ReservationStatusAfter =
-  | "confirmed"
-  | "in_rental"
-  | "return_pending_confirmation"
-  | "completed"
-  | "cancelled"
-  | "disputed";
 
 type DisputeRow = {
   id: number;
@@ -20,16 +11,20 @@ type DisputeRow = {
   item_id: number;
   renter_id: string;
   owner_id: string;
-  reason: string;
+  status: string;
+  dispute_type: string | null;
+  title: string | null;
+  description: string | null;
+  reason: string | null;
   details: string | null;
-  status: DisputeStatus;
+  resolution_note: string | null;
+  reservation_status_after_dispute: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type ReservationRow = {
   id: number;
-  item_id: number;
   date_from: string;
   date_to: string;
   status: string;
@@ -53,96 +48,127 @@ type CurrentUserRow = {
 };
 
 const PAGE_SIZE = 12;
-const RESERVATION_STATUS_AFTER_OPTIONS: Array<{
-  value: ReservationStatusAfter;
-  label: string;
-}> = [
-  { value: "confirmed", label: "confirmed" },
-  { value: "in_rental", label: "in_rental" },
-  {
-    value: "return_pending_confirmation",
-    label: "return_pending_confirmation",
-  },
-  { value: "completed", label: "completed" },
-  { value: "cancelled", label: "cancelled" },
-  { value: "disputed", label: "disputed" },
+const BASE_STATUSES = ["open", "under_review", "resolved", "rejected", "closed"];
+const RESERVATION_STATUS_OPTIONS = [
+  "confirmed",
+  "in_rental",
+  "return_pending_confirmation",
+  "completed",
+  "cancelled",
+  "disputed",
 ];
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("sk-SK");
+function getDisputeTypeLabel(type: string) {
+  if (type === "damage") return "Poskodenie alebo skoda";
+  if (type === "not_as_described") return "Vec nezodpoveda popisu";
+  if (type === "missing_accessories") return "Chybajuce prislusenstvo";
+  if (type === "handover_issue") return "Problem pri odovzdani";
+  if (type === "return_issue") return "Problem pri vrateni";
+  if (type === "other") return "Ina reklamacia";
+  return type.replaceAll("_", " ");
 }
 
-function shortId(id: string) {
-  if (!id) return "-";
-  if (id.length <= 12) return id;
-  return `${id.slice(0, 8)}...${id.slice(-4)}`;
+function getReservationStatusLabel(status: string) {
+  if (status === "confirmed") return "Potvrdena";
+  if (status === "in_rental") return "Prebieha prenajom";
+  if (status === "return_pending_confirmation") return "Caka na potvrdenie vratenia";
+  if (status === "completed") return "Dokoncena";
+  if (status === "cancelled") return "Zrusena";
+  if (status === "disputed") return "V reklamacii";
+  return status.replaceAll("_", " ");
 }
 
-function disputeLabel(status: DisputeStatus) {
-  if (status === "open") return "Otvorený";
-  if (status === "under_review") return "V riešení";
-  if (status === "resolved") return "Vyriešený";
-  if (status === "closed") return "Uzavretý";
-  return status;
+function getPaymentStatusLabel(status: string | null) {
+  if (status === "paid") return "Uhradene";
+  if (status === "failed") return "Platba zlyhala";
+  if (status === "unpaid") return "Neuhradene";
+  return status ?? "-";
 }
 
-function disputeBadgeClass(status: DisputeStatus) {
+function formatDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("sk-SK");
+}
+
+function getStatusLabel(status: string) {
+  if (status === "open") return "Otvorena";
+  if (status === "under_review") return "V rieseni";
+  if (status === "resolved") return "Vyriesena";
+  if (status === "rejected") return "Zamietnuta";
+  if (status === "closed") return "Uzatvorena";
+  return status.replaceAll("_", " ");
+}
+
+function getStatusBadge(status: string) {
   if (status === "open") return "bg-red-600/90 text-white";
   if (status === "under_review") return "bg-yellow-400 text-black";
   if (status === "resolved") return "bg-emerald-600/90 text-white";
+  if (status === "rejected") return "bg-slate-500/90 text-white";
   if (status === "closed") return "bg-white/10 text-white";
-  return "bg-white/10 text-white";
+  return "bg-blue-600/90 text-white";
 }
 
-function pageCount(total: number) {
-  return Math.max(1, Math.ceil(total / PAGE_SIZE));
+function getTitle(row: DisputeRow) {
+  return row.title || row.reason || `Reklamacia #${row.id}`;
+}
+
+function getDescription(row: DisputeRow) {
+  return row.description || row.details || "";
+}
+
+function shortId(value: string) {
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function needsReservationStatus(status: string) {
+  return status === "resolved" || status === "rejected" || status === "closed";
 }
 
 export default function AdminDisputesPage() {
   const router = useRouter();
 
-  const [statusText, setStatusText] = useState("Načítavam...");
+  const [statusText, setStatusText] = useState("Nacitavam...");
   const [rows, setRows] = useState<DisputeRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("newest");
 
   const [itemTitleMap, setItemTitleMap] = useState<Record<number, string>>({});
   const [reservationMap, setReservationMap] = useState<Record<number, ReservationRow>>({});
   const [profileMap, setProfileMap] = useState<Record<string, ProfileRow>>({});
+  const [availableStatuses, setAvailableStatuses] = useState<string[]>(BASE_STATUSES);
 
-  const [page, setPage] = useState(1);
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sort, setSort] = useState("newest");
-
+  const [nextStatusMap, setNextStatusMap] = useState<Record<number, string>>({});
+  const [resolutionNoteMap, setResolutionNoteMap] = useState<Record<number, string>>({});
+  const [reservationStatusAfterMap, setReservationStatusAfterMap] = useState<Record<number, string>>({});
   const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [reservationStatusAfterMap, setReservationStatusAfterMap] = useState<
-    Record<number, ReservationStatusAfter | "">
-  >({});
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setPage(1);
-      setDebouncedQ(q.trim());
+      setDebouncedQuery(query.trim());
     }, 250);
 
-    return () => clearTimeout(t);
-  }, [q]);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  const load = useCallback(async () => {
-    setStatusText("Načítavam...");
+  const load = async () => {
+    setStatusText("Nacitavam...");
 
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
 
     if (!userId) {
       router.replace("/login");
       return;
     }
 
-    const { data: me, error: meError } = await supabase
+    const { data: meData, error: meError } = await supabase
       .from("profiles")
       .select("id,role")
       .eq("id", userId)
@@ -153,44 +179,41 @@ export default function AdminDisputesPage() {
       return;
     }
 
-    const meRow = me as CurrentUserRow | null;
-
-    if (!meRow || meRow.role !== "admin") {
+    const me = (meData ?? null) as CurrentUserRow | null;
+    if (!me || me.role !== "admin") {
       router.replace("/");
       return;
     }
 
-    let req = supabase
+    let request = supabase
       .from("disputes")
       .select(
-        "id,reservation_id,item_id,renter_id,owner_id,reason,details,status,created_at,updated_at",
+        "id,reservation_id,item_id,renter_id,owner_id,status,dispute_type,title,description,reason,details,resolution_note,reservation_status_after_dispute,created_at,updated_at",
         { count: "exact" }
       );
 
     if (statusFilter !== "all") {
-      req = req.eq("status", statusFilter);
+      request = request.eq("status", statusFilter);
     }
 
-    const queryText = debouncedQ.replace(/,/g, " ").trim();
-
-    if (queryText) {
-      if (/^\d+$/.test(queryText)) {
-        req = req.or(
-          `id.eq.${Number(queryText)},reservation_id.eq.${Number(
-            queryText
-          )},item_id.eq.${Number(queryText)}`
+    if (debouncedQuery) {
+      if (/^\d+$/.test(debouncedQuery)) {
+        request = request.or(
+          `id.eq.${Number(debouncedQuery)},reservation_id.eq.${Number(debouncedQuery)},item_id.eq.${Number(debouncedQuery)}`
         );
       } else {
-        req = req.or(`reason.ilike.%${queryText}%,details.ilike.%${queryText}%`);
+        request = request.or(
+          `title.ilike.%${debouncedQuery}%,description.ilike.%${debouncedQuery}%,reason.ilike.%${debouncedQuery}%,details.ilike.%${debouncedQuery}%`
+        );
       }
     }
 
-    req = req.order("id", { ascending: sort === "oldest" });
+    request = request.order("id", { ascending: sort === "oldest" });
 
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const { data, error, count } = await req.range(from, to);
+    const { data, error, count } = await request.range(from, to);
 
     if (error) {
       setStatusText("Chyba: " + error.message);
@@ -200,83 +223,88 @@ export default function AdminDisputesPage() {
     const disputeRows = (data ?? []) as DisputeRow[];
     setRows(disputeRows);
     setTotal(count ?? 0);
+    setAvailableStatuses(Array.from(new Set([...BASE_STATUSES, ...disputeRows.map((row) => row.status)])));
+
+    setNextStatusMap(Object.fromEntries(disputeRows.map((row) => [row.id, row.status])));
+    setResolutionNoteMap(Object.fromEntries(disputeRows.map((row) => [row.id, row.resolution_note ?? ""])));
+    setReservationStatusAfterMap(
+      Object.fromEntries(disputeRows.map((row) => [row.id, row.reservation_status_after_dispute ?? ""]))
+    );
 
     const itemIds = Array.from(new Set(disputeRows.map((row) => row.item_id)));
     const reservationIds = Array.from(new Set(disputeRows.map((row) => row.reservation_id)));
     const profileIds = Array.from(
-      new Set(disputeRows.flatMap((row) => [row.renter_id, row.owner_id]))
+      new Set(disputeRows.flatMap((row) => [row.renter_id, row.owner_id]).filter(Boolean))
     );
 
-    if (itemIds.length > 0) {
-      const { data: itemsData } = await supabase.from("items").select("id,title").in("id", itemIds);
-      const nextItemMap: Record<number, string> = {};
-      for (const item of (itemsData ?? []) as ItemRow[]) {
-        nextItemMap[item.id] = item.title;
-      }
-      setItemTitleMap(nextItemMap);
-    } else {
-      setItemTitleMap({});
+    const [itemsResult, reservationsResult, profilesResult] = await Promise.all([
+      itemIds.length > 0
+        ? supabase.from("items").select("id,title").in("id", itemIds)
+        : Promise.resolve({ data: [] as ItemRow[], error: null }),
+      reservationIds.length > 0
+        ? supabase
+            .from("reservations")
+            .select("id,date_from,date_to,status,payment_status")
+            .in("id", reservationIds)
+        : Promise.resolve({ data: [] as ReservationRow[], error: null }),
+      profileIds.length > 0
+        ? supabase.from("profiles").select("id,full_name,city").in("id", profileIds)
+        : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+    ]);
+
+    const itemMap: Record<number, string> = {};
+    for (const row of (itemsResult.data ?? []) as ItemRow[]) {
+      itemMap[row.id] = row.title;
     }
+    setItemTitleMap(itemMap);
 
-    if (reservationIds.length > 0) {
-      const { data: reservationData } = await supabase
-        .from("reservations")
-        .select("id,item_id,date_from,date_to,status,payment_status")
-        .in("id", reservationIds);
-
-      const nextReservationMap: Record<number, ReservationRow> = {};
-      for (const reservation of (reservationData ?? []) as ReservationRow[]) {
-        nextReservationMap[reservation.id] = reservation;
-      }
-      setReservationMap(nextReservationMap);
-    } else {
-      setReservationMap({});
+    const nextReservationMap: Record<number, ReservationRow> = {};
+    for (const row of (reservationsResult.data ?? []) as ReservationRow[]) {
+      nextReservationMap[row.id] = row;
     }
+    setReservationMap(nextReservationMap);
 
-    if (profileIds.length > 0) {
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id,full_name,city")
-        .in("id", profileIds);
-
-      const nextProfileMap: Record<string, ProfileRow> = {};
-      for (const profile of (profilesData ?? []) as ProfileRow[]) {
-        nextProfileMap[profile.id] = profile;
-      }
-      setProfileMap(nextProfileMap);
-    } else {
-      setProfileMap({});
+    const nextProfileMap: Record<string, ProfileRow> = {};
+    for (const row of (profilesResult.data ?? []) as ProfileRow[]) {
+      nextProfileMap[row.id] = row;
     }
+    setProfileMap(nextProfileMap);
 
     setStatusText("");
-  }, [debouncedQ, page, router, sort, statusFilter]);
+  };
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      void load();
-    }, 0);
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, sort, statusFilter, debouncedQuery]);
 
-    return () => clearTimeout(timeoutId);
-  }, [load]);
+  const updateStatus = async (row: DisputeRow) => {
+    const nextStatus = (nextStatusMap[row.id] || "").trim();
+    const resolutionNote = (resolutionNoteMap[row.id] || "").trim();
+    const reservationStatusAfter = (reservationStatusAfterMap[row.id] || "").trim();
 
-  const changeDisputeStatus = async (
-    disputeId: number,
-    nextStatus: "under_review" | "resolved" | "closed",
-    reservationStatusAfter: ReservationStatusAfter | null = null
-  ) => {
-    if ((nextStatus === "resolved" || nextStatus === "closed") && !reservationStatusAfter) {
-      setStatusText("Vyber výsledný stav rezervácie.");
-      alert("Vyber výsledný stav rezervácie.");
+    if (!nextStatus) {
+      setStatusText("Zadajte dalsi status reklamacie.");
+      alert("Zadajte dalsi status reklamacie.");
       return;
     }
 
-    setUpdatingId(disputeId);
-    setStatusText("Ukladám zmenu...");
+    if (needsReservationStatus(nextStatus) && !reservationStatusAfter) {
+      setStatusText("Vyberte vysledny stav rezervacie.");
+      alert("Vyberte vysledny stav rezervacie.");
+      return;
+    }
 
-    const { error } = await supabase.rpc("dispute_set_status", {
-      p_dispute_id: disputeId,
+    setUpdatingId(row.id);
+    setStatusText("Ukladam zmenu...");
+
+    const { error } = await supabase.rpc("dispute_set_status_v2", {
+      p_dispute_id: row.id,
       p_next_status: nextStatus,
-      p_reservation_status_after: nextStatus === "under_review" ? null : reservationStatusAfter,
+      p_resolution_note: resolutionNote || null,
+      p_reservation_status_after_dispute: needsReservationStatus(nextStatus)
+        ? reservationStatusAfter
+        : null,
     });
 
     if (error) {
@@ -287,29 +315,27 @@ export default function AdminDisputesPage() {
     }
 
     setUpdatingId(null);
-    setStatusText("Stav sporu bol uložený ✅");
     await load();
   };
 
-  const openCount = useMemo(() => rows.filter((r) => r.status === "open").length, [rows]);
-  const reviewCount = useMemo(
-    () => rows.filter((r) => r.status === "under_review").length,
+  const openCount = useMemo(() => rows.filter((row) => row.status === "open").length, [rows]);
+  const reviewCount = useMemo(() => rows.filter((row) => row.status === "under_review").length, [rows]);
+  const closedCount = useMemo(
+    () =>
+      rows.filter(
+        (row) => row.status === "resolved" || row.status === "rejected" || row.status === "closed"
+      ).length,
     [rows]
   );
-  const resolvedCount = useMemo(
-    () => rows.filter((r) => r.status === "resolved" || r.status === "closed").length,
-    [rows]
-  );
-
-  const totalPages = pageCount(total);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <main className="space-y-6">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Admin · Spory</h1>
-            <p className="mt-1 text-white/60">Prehľad všetkých sporov v systéme.</p>
+            <h1 className="text-2xl font-semibold">Admin · Reklamacie</h1>
+            <p className="mt-1 text-white/60">V2 baseline pre reklamacie bez notif patchu.</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -330,40 +356,33 @@ export default function AdminDisputesPage() {
       <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
         <div className="grid gap-3 md:grid-cols-3">
           <label className="block">
-            <div className="mb-1 text-sm text-white/70">Hľadať</div>
+            <div className="mb-1 text-sm text-white/70">Hladat</div>
             <input
               className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none placeholder:text-white/35"
-              placeholder="ID, dôvod alebo detail"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
+              placeholder="ID, nazov, popis"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
             />
           </label>
 
           <label className="block">
-            <div className="mb-1 text-sm text-white/70">Stav</div>
+            <div className="mb-1 text-sm text-white/70">Status</div>
             <select
               className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
+              onChange={(event) => {
+                setStatusFilter(event.target.value);
                 setPage(1);
               }}
             >
               <option value="all" className="text-black">
-                Všetky
+                Vsetky
               </option>
-              <option value="open" className="text-black">
-                Otvorené
-              </option>
-              <option value="under_review" className="text-black">
-                V riešení
-              </option>
-              <option value="resolved" className="text-black">
-                Vyriešené
-              </option>
-              <option value="closed" className="text-black">
-                Uzavreté
-              </option>
+              {availableStatuses.map((status) => (
+                <option key={status} value={status} className="text-black">
+                  {getStatusLabel(status)}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -372,16 +391,16 @@ export default function AdminDisputesPage() {
             <select
               className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
               value={sort}
-              onChange={(e) => {
-                setSort(e.target.value);
+              onChange={(event) => {
+                setSort(event.target.value);
                 setPage(1);
               }}
             >
               <option value="newest" className="text-black">
-                Najnovšie
+                Najnovsie
               </option>
               <option value="oldest" className="text-black">
-                Najstaršie
+                Najstarsie
               </option>
             </select>
           </label>
@@ -390,34 +409,34 @@ export default function AdminDisputesPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="text-sm text-white/60">Otvorené</div>
+          <div className="text-sm text-white/60">Otvorene</div>
           <div className="mt-2 text-2xl font-semibold">{openCount}</div>
         </div>
-
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="text-sm text-white/60">V riešení</div>
+          <div className="text-sm text-white/60">V rieseni</div>
           <div className="mt-2 text-2xl font-semibold">{reviewCount}</div>
         </div>
-
         <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-          <div className="text-sm text-white/60">Vyriešené / uzavreté</div>
-          <div className="mt-2 text-2xl font-semibold">{resolvedCount}</div>
+          <div className="text-sm text-white/60">Uzatvorene</div>
+          <div className="mt-2 text-2xl font-semibold">{closedCount}</div>
         </div>
       </div>
 
+      <datalist id="admin-dispute-status-suggestions">
+        {availableStatuses.map((status) => (
+          <option key={status} value={status} />
+        ))}
+      </datalist>
+
       <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Zoznam sporov</h2>
-            <p className="mt-1 text-sm text-white/60">
-              Zobrazené: {rows.length} z {total}
-            </p>
-          </div>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Zoznam reklamacii</h2>
+          <p className="mt-1 text-sm text-white/60">Zobrazene: {rows.length} z {total}</p>
         </div>
 
         {rows.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
-            Žiadne spory podľa zvolených filtrov.
+            Zatial nic pre zvolene filtre.
           </div>
         ) : (
           <ul className="space-y-3">
@@ -425,175 +444,158 @@ export default function AdminDisputesPage() {
               const reservation = reservationMap[row.reservation_id];
               const renter = profileMap[row.renter_id];
               const owner = profileMap[row.owner_id];
-              const reservationStatusAfter = reservationStatusAfterMap[row.id] ?? "";
-
-              const canMoveToReview = row.status === "open";
-              const canResolve = row.status === "open" || row.status === "under_review";
-              const canClose =
-                row.status === "open" ||
-                row.status === "under_review" ||
-                row.status === "resolved";
+              const selectedStatus = nextStatusMap[row.id] ?? row.status;
+              const description = getDescription(row);
 
               return (
                 <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-white/50">Spor</span>
+                        <span className="text-sm text-white/50">Reklamacia</span>
                         <strong className="text-base">#{row.id}</strong>
-                        <span
-                          className={`rounded-full px-3 py-1 text-sm font-medium ${disputeBadgeClass(
-                            row.status
-                          )}`}
-                        >
-                          {disputeLabel(row.status)}
+                        <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusBadge(row.status)}`}>
+                          {getStatusLabel(row.status)}
                         </span>
                       </div>
 
-                      <div className="text-white/85">
-                        <span className="text-white/50">Položka:</span>{" "}
+                      <div className="text-lg font-semibold text-white">{getTitle(row)}</div>
+
+                      <div className="text-white/80">
+                        <span className="text-white/50">Polozka:</span>{" "}
                         <strong>{itemTitleMap[row.item_id] ?? `#${row.item_id}`}</strong>
                       </div>
 
                       <div className="text-white/80">
-                        <span className="text-white/50">Rezervácia:</span> #{row.reservation_id}
+                        <span className="text-white/50">Rezervacia:</span> #{row.reservation_id}
                       </div>
 
                       {reservation ? (
                         <>
                           <div className="text-white/80">
-                            <span className="text-white/50">Termín:</span>{" "}
-                            {formatDate(reservation.date_from)} → {formatDate(reservation.date_to)}
+                            <span className="text-white/50">Termin:</span>{" "}
+                            {formatDate(reservation.date_from)} - {formatDate(reservation.date_to)}
                           </div>
-
                           <div className="text-white/80">
-                            <span className="text-white/50">Stav rezervácie:</span>{" "}
-                            {reservation.status}
+                            <span className="text-white/50">Stav rezervacie:</span>{" "}
+                            {getReservationStatusLabel(reservation.status)}
                           </div>
-
-                          {reservation.payment_status ? (
-                            <div className="text-white/80">
-                              <span className="text-white/50">Platba:</span>{" "}
-                              {reservation.payment_status}
-                            </div>
-                          ) : null}
+                          <div className="text-white/80">
+                            <span className="text-white/50">Stav platby:</span>{" "}
+                            {getPaymentStatusLabel(reservation.payment_status)}
+                          </div>
                         </>
                       ) : null}
 
                       <div className="text-white/80">
-                        <span className="text-white/50">Nájomca:</span>{" "}
-                        {renter?.full_name?.trim() || shortId(row.renter_id)}
+                        <span className="text-white/50">Najomca:</span>{" "}
+                        {renter?.full_name || shortId(row.renter_id)}
                         {renter?.city ? ` · ${renter.city}` : ""}
                       </div>
 
                       <div className="text-white/80">
-                        <span className="text-white/50">Prenajímateľ:</span>{" "}
-                        {owner?.full_name?.trim() || shortId(row.owner_id)}
+                        <span className="text-white/50">Prenajimatel:</span>{" "}
+                        {owner?.full_name || shortId(row.owner_id)}
                         {owner?.city ? ` · ${owner.city}` : ""}
                       </div>
 
-                      <div className="text-white/80">
-                        <span className="text-white/50">Dôvod:</span> {row.reason}
-                      </div>
+                      {row.dispute_type ? (
+                        <div className="text-white/80">
+                          <span className="text-white/50">Typ:</span> {getDisputeTypeLabel(row.dispute_type)}
+                        </div>
+                      ) : null}
 
-                      {row.details ? (
+                      {description ? (
                         <div className="max-w-4xl whitespace-pre-wrap text-sm text-white/70">
-                          {row.details}
+                          {description}
                         </div>
                       ) : null}
 
                       <div className="text-sm text-white/50">
-                        Vytvorené: {formatDate(row.created_at)} · Aktualizované:{" "}
-                        {formatDate(row.updated_at)}
+                        Vytvorene: {formatDate(row.created_at)} · Aktualizovane: {formatDate(row.updated_at)}
                       </div>
                     </div>
                   </div>
 
-                  {canResolve || canClose ? (
-                    <div className="mt-4 max-w-sm">
+                  <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_1.2fr_1fr]">
+                    <label className="block">
+                      <div className="mb-1 text-sm text-white/70">Dalsi status</div>
+                      <input
+                        className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
+                        list="admin-dispute-status-suggestions"
+                        value={selectedStatus}
+                        onChange={(event) =>
+                          setNextStatusMap((prev) => ({
+                            ...prev,
+                            [row.id]: event.target.value,
+                          }))
+                        }
+                        disabled={updatingId === row.id}
+                      />
+                    </label>
+
+                    <label className="block">
+                      <div className="mb-1 text-sm text-white/70">Poznamka k rozhodnutiu</div>
+                      <textarea
+                        className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
+                        rows={3}
+                        value={resolutionNoteMap[row.id] ?? ""}
+                        onChange={(event) =>
+                          setResolutionNoteMap((prev) => ({
+                            ...prev,
+                            [row.id]: event.target.value,
+                          }))
+                        }
+                        disabled={updatingId === row.id}
+                      />
+                    </label>
+
+                    {needsReservationStatus(selectedStatus.trim()) ? (
                       <label className="block">
-                        <div className="mb-1 text-sm text-white/70">
-                          Stav rezervácie po vyriešení / uzavretí
-                        </div>
+                        <div className="mb-1 text-sm text-white/70">Vysledny stav rezervacie</div>
                         <select
-                          className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none disabled:opacity-50"
-                          value={reservationStatusAfter}
-                          onChange={(e) =>
+                          className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-white outline-none"
+                          value={reservationStatusAfterMap[row.id] ?? ""}
+                          onChange={(event) =>
                             setReservationStatusAfterMap((prev) => ({
                               ...prev,
-                              [row.id]: e.target.value as ReservationStatusAfter | "",
+                              [row.id]: event.target.value,
                             }))
                           }
                           disabled={updatingId === row.id}
                         >
                           <option value="" className="text-black">
-                            Vyber stav rezervácie
+                            Vyberte stav rezervacie
                           </option>
-                          {RESERVATION_STATUS_AFTER_OPTIONS.map((option) => (
-                            <option
-                              key={option.value}
-                              value={option.value}
-                              className="text-black"
-                            >
-                              {option.label}
+                          {RESERVATION_STATUS_OPTIONS.map((option) => (
+                            <option key={option} value={option} className="text-black">
+                              {getReservationStatusLabel(option)}
                             </option>
                           ))}
                         </select>
                       </label>
-                    </div>
-                  ) : null}
+                    ) : (
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/55">
+                        Vysledny stav rezervacie je povinny pri vyrieseni, zamietnuti a uzatvoreni.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {canMoveToReview ? (
-                      <button
-                        type="button"
-                        className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                        disabled={updatingId === row.id}
-                        onClick={() => changeDisputeStatus(row.id, "under_review")}
-                      >
-                        {updatingId === row.id ? "Ukladám..." : "Označiť ako v riešení"}
-                      </button>
-                    ) : null}
-
-                    {canResolve ? (
-                      <button
-                        type="button"
-                        className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                        disabled={updatingId === row.id}
-                        onClick={() =>
-                          changeDisputeStatus(
-                            row.id,
-                            "resolved",
-                            reservationStatusAfter || null
-                          )
-                        }
-                      >
-                        {updatingId === row.id ? "Ukladám..." : "Označiť ako vyriešené"}
-                      </button>
-                    ) : null}
-
-                    {canClose ? (
-                      <button
-                        type="button"
-                        className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
-                        disabled={updatingId === row.id}
-                        onClick={() =>
-                          changeDisputeStatus(
-                            row.id,
-                            "closed",
-                            reservationStatusAfter || null
-                          )
-                        }
-                      >
-                        {updatingId === row.id ? "Ukladám..." : "Uzavrieť"}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
+                      disabled={updatingId === row.id}
+                      onClick={() => updateStatus(row)}
+                    >
+                      {updatingId === row.id ? "Ukladam..." : "Ulozit stav"}
+                    </button>
 
                     <Link
                       href={`/admin/disputes/${row.id}`}
                       className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10"
                     >
-                      Detail sporu
+                      Detail reklamacie
                     </Link>
 
                     <Link
@@ -614,22 +616,20 @@ export default function AdminDisputesPage() {
             type="button"
             className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
             disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
           >
-            Predchádzajúca
+            Predchadzajuca
           </button>
 
-          <div className="text-sm text-white/60">
-            Strana {page} z {totalPages}
-          </div>
+          <div className="text-sm text-white/60">Strana {page} z {totalPages}</div>
 
           <button
             type="button"
             className="rounded-xl border border-white/15 px-4 py-2 hover:bg-white/10 disabled:opacity-50"
             disabled={page >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
           >
-            Ďalšia
+            Dalsia
           </button>
         </div>
       </section>

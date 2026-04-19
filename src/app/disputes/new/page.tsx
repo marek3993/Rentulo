@@ -1,9 +1,11 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+
+type ViewerKind = "renter" | "owner";
 
 type ReservationRow = {
   id: number;
@@ -12,7 +14,7 @@ type ReservationRow = {
   date_from: string;
   date_to: string;
   status: string;
-  payment_status: string;
+  payment_status: string | null;
 };
 
 type ItemRow = {
@@ -21,144 +23,244 @@ type ItemRow = {
   owner_id: string;
 };
 
+const ACTIVE_RESERVATION_STATUSES = new Set([
+  "confirmed",
+  "in_rental",
+  "return_pending_confirmation",
+  "disputed",
+]);
+
+const DISPUTE_TYPE_OPTIONS = [
+  { value: "damage", label: "Poskodenie alebo skoda" },
+  { value: "not_as_described", label: "Vec nezodpoveda popisu" },
+  { value: "missing_accessories", label: "Chybajuce prislusenstvo" },
+  { value: "handover_issue", label: "Problem pri odovzdani" },
+  { value: "return_issue", label: "Problem pri vrateni" },
+  { value: "other", label: "Ina reklamacia" },
+];
+
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("sk-SK");
+  const value = new Date(dateStr);
+  if (Number.isNaN(value.getTime())) return dateStr;
+  return value.toLocaleDateString("sk-SK");
+}
+
+function extractDisputeId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return extractDisputeId(record.id ?? record.dispute_id ?? record.p_dispute_id);
+  }
+  return null;
+}
+
+function getBackHref(viewer: ViewerKind) {
+  return viewer === "owner" ? "/owner/disputes" : "/reservations";
+}
+
+function getListHref(viewer: ViewerKind) {
+  return viewer === "owner" ? "/owner/disputes" : "/disputes";
 }
 
 function NewDisputePageInner() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const reservationIdParam = Number(searchParams.get("reservation_id") || "");
+  const viewer: ViewerKind = pathname.startsWith("/owner/") ? "owner" : "renter";
+  const reservationId = Number(searchParams.get("reservation_id") || "");
 
-  const [status, setStatus] = useState("Načítavam...");
+  const [statusText, setStatusText] = useState("Nacitavam...");
   const [saving, setSaving] = useState(false);
 
   const [reservation, setReservation] = useState<ReservationRow | null>(null);
   const [item, setItem] = useState<ItemRow | null>(null);
 
-  const [reason, setReason] = useState("");
-  const [details, setDetails] = useState("");
+  const [disputeType, setDisputeType] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
-  const reasonOptions = useMemo(
-    () => [
-      "Poškodená vec",
-      "Vec nezodpovedá popisu",
-      "Chýbajúce príslušenstvo",
-      "Problém pri odovzdaní",
-      "Problém pri vrátení",
-      "Prenajímateľ nereaguje",
-      "Iný problém",
-    ],
-    []
-  );
+  const heading = viewer === "owner" ? "Nova reklamacia od prenajimatela" : "Nova reklamacia";
+  const subtitle =
+    viewer === "owner"
+      ? "Pouzi pri realnom probleme so zverenou rezervaciou, odovzdanim alebo vratenim."
+      : "Pouzi pri realnom probleme s prenajmom, odovzdanim alebo vratenim.";
 
   useEffect(() => {
-    const run = async () => {
-      setStatus("Načítavam...");
+    const load = async () => {
+      setStatusText("Nacitavam...");
 
-      const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
 
       if (!userId) {
         router.push("/login");
         return;
       }
 
-      if (!Number.isFinite(reservationIdParam)) {
-        setStatus("Chýba rezervácia.");
+      if (!Number.isFinite(reservationId)) {
+        setStatusText("Chyba rezervacia.");
         return;
       }
 
       const { data: reservationData, error: reservationError } = await supabase
         .from("reservations")
         .select("id,item_id,renter_id,date_from,date_to,status,payment_status")
-        .eq("id", reservationIdParam)
+        .eq("id", reservationId)
         .maybeSingle();
 
       if (reservationError) {
-        setStatus("Chyba: " + reservationError.message);
+        setStatusText("Chyba: " + reservationError.message);
         return;
       }
 
       if (!reservationData) {
-        setStatus("Rezervácia neexistuje.");
+        setStatusText("Rezervacia neexistuje.");
         return;
       }
 
-      const typedReservation = reservationData as ReservationRow;
+      const reservationRow = reservationData as ReservationRow;
 
-      if (typedReservation.renter_id !== userId) {
-        setStatus("Nemáš prístup k tejto rezervácii.");
+      if (!ACTIVE_RESERVATION_STATUSES.has(reservationRow.status)) {
+        setStatusText("Reklamaciu je mozne otvorit len pri aktivnej rezervacii.");
         return;
       }
-
-      if (
-        typedReservation.status !== "confirmed" &&
-        typedReservation.status !== "in_rental" &&
-        typedReservation.status !== "return_pending_confirmation" &&
-        typedReservation.status !== "disputed"
-      ) {
-        setStatus("Spor je možné nahlásiť len pri aktívnej rezervácii.");
-        return;
-      }
-
-      setReservation(typedReservation);
 
       const { data: itemData, error: itemError } = await supabase
         .from("items")
         .select("id,title,owner_id")
-        .eq("id", typedReservation.item_id)
+        .eq("id", reservationRow.item_id)
         .maybeSingle();
 
       if (itemError) {
-        setStatus("Chyba: " + itemError.message);
+        setStatusText("Chyba: " + itemError.message);
         return;
       }
 
       if (!itemData) {
-        setStatus("Položka neexistuje.");
+        setStatusText("Polozka neexistuje.");
         return;
       }
 
-      setItem(itemData as ItemRow);
-      setStatus("");
+      const itemRow = itemData as ItemRow;
+
+      if (viewer === "owner") {
+        if (itemRow.owner_id !== userId) {
+          setStatusText("Nemate pristup k tejto rezervacii.");
+          return;
+        }
+      } else if (reservationRow.renter_id !== userId) {
+        setStatusText("Nemate pristup k tejto rezervacii.");
+        return;
+      }
+
+      setReservation(reservationRow);
+      setItem(itemRow);
+      setStatusText("");
     };
 
-    run();
-  }, [reservationIdParam, router]);
+    void load();
+  }, [reservationId, router, viewer]);
+
+  const summaryLines = useMemo(() => {
+    if (!reservation || !item) return [];
+    return [
+      `Rezervacia #${reservation.id}`,
+      `Polozka: ${item.title}`,
+      `Termin: ${formatDate(reservation.date_from)} -> ${formatDate(reservation.date_to)}`,
+      `Stav rezervacie: ${reservation.status}`,
+    ];
+  }, [item, reservation]);
 
   const submitDispute = async () => {
-    if (!reservation || !item) return;
+    if (!reservation) return;
 
-    if (!reason.trim()) {
-      alert("Vyber dôvod problému.");
-      setStatus("Vyber dôvod problému.");
+    const trimmedType = disputeType.trim();
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+
+    if (!trimmedType) {
+      setStatusText("Zadajte typ reklamacie.");
+      alert("Zadajte typ reklamacie.");
+      return;
+    }
+
+    if (!trimmedTitle) {
+      setStatusText("Zadajte nazov reklamacie.");
+      alert("Zadajte nazov reklamacie.");
+      return;
+    }
+
+    if (!trimmedDescription) {
+      setStatusText("Zadajte popis reklamacie.");
+      alert("Zadajte popis reklamacie.");
       return;
     }
 
     setSaving(true);
-    setStatus("Ukladám spor...");
+    setStatusText("Ukladam reklamaciu...");
 
-    const { error } = await supabase.rpc("dispute_open", {
-      p_reservation_id: reservation.id,
-      p_reason: reason.trim(),
-      p_details: details.trim() ? details.trim() : null,
-    });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user.id;
 
-    if (error) {
+      if (!userId) {
+        router.push("/login");
+        return;
+      }
+
+      const { data, error } = await supabase.rpc("dispute_open_v2", {
+        p_reservation_id: reservation.id,
+        p_dispute_type: trimmedType,
+        p_title: trimmedTitle,
+        p_description: trimmedDescription,
+      });
+
+      if (error) throw new Error(error.message);
+
+      const disputeId = extractDisputeId(data);
+
+      if (evidenceFile) {
+        if (!disputeId) {
+          throw new Error("dispute_open_v2 nevratil dispute ID potrebne pre upload dokazov.");
+        }
+
+        const ext = (evidenceFile.name.split(".").pop() || "jpg").toLowerCase();
+        const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+        const storagePath = `${disputeId}/${userId}/${crypto.randomUUID()}.${safeExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("dispute-evidence")
+          .upload(storagePath, evidenceFile, {
+            upsert: false,
+            contentType: evidenceFile.type || "image/jpeg",
+            cacheControl: "3600",
+          });
+
+        if (uploadError) throw new Error(uploadError.message);
+
+        const { error: evidenceError } = await supabase.rpc("dispute_add_evidence", {
+          p_dispute_id: disputeId,
+          p_storage_path: storagePath,
+          p_caption: null,
+        });
+
+        if (evidenceError) throw new Error(evidenceError.message);
+      }
+
+      router.push(disputeId ? `${getListHref(viewer)}/${disputeId}` : getListHref(viewer));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Neznama chyba pri ukladani reklamacie.";
+      setStatusText("Chyba: " + message);
+      alert(message);
+    } finally {
       setSaving(false);
-      setStatus("Chyba: " + error.message);
-      alert(error.message);
-      return;
     }
-
-    setSaving(false);
-    setStatus("Spor bol úspešne odoslaný ✅");
-    alert("Spor bol úspešne odoslaný.");
-    router.push("/disputes");
   };
 
   return (
@@ -166,79 +268,94 @@ function NewDisputePageInner() {
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Nahlásiť problém</h1>
-            <p className="mt-1 text-white/60">
-              Použi len pri reálnom probléme s prenájmom, odovzdaním alebo vrátením.
-            </p>
+            <h1 className="text-2xl font-semibold">{heading}</h1>
+            <p className="mt-1 text-white/60">{subtitle}</p>
           </div>
 
           <Link
-            href="/reservations"
+            href={getBackHref(viewer)}
             className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
           >
-            Späť na rezervácie
+            Spat
           </Link>
         </div>
       </div>
 
-      {status ? (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
+      {statusText ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{statusText}</div>
       ) : null}
 
       {reservation && item ? (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1.4fr]">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-3">
-            <div className="font-semibold">Rezervácia</div>
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.35fr]">
+          <section className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-lg font-semibold">Rezervacia</div>
 
-            <div className="text-white/80">
-              <span className="text-white/50">ID rezervácie:</span> #{reservation.id}
-            </div>
+            {summaryLines.map((line) => (
+              <div key={line} className="text-white/80">
+                {line}
+              </div>
+            ))}
+          </section>
 
-            <div className="text-white/80">
-              <span className="text-white/50">Položka:</span> {item.title}
-            </div>
-
-            <div className="text-white/80">
-              <span className="text-white/50">Termín:</span> {formatDate(reservation.date_from)} →{" "}
-              {formatDate(reservation.date_to)}
-            </div>
-
-            <div className="text-white/80">
-              <span className="text-white/50">Stav rezervácie:</span> {reservation.status}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
-            <div className="font-semibold">Detaily problému</div>
+          <section className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="text-lg font-semibold">Detaily reklamacie</div>
 
             <label className="block">
-              <div className="mb-1 text-white/80">Dôvod</div>
+              <div className="mb-1 text-white/80">Typ reklamacie</div>
               <select
                 className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                value={disputeType}
+                onChange={(event) => setDisputeType(event.target.value)}
                 disabled={saving}
               >
-                <option value="">Vyber dôvod</option>
-                {reasonOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
+                <option value="">Vyberte typ reklamacie</option>
+                {DISPUTE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="block">
-              <div className="mb-1 text-white/80">Popis problému</div>
-              <textarea
+              <div className="mb-1 text-white/80">Nazov</div>
+              <input
                 className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                rows={7}
-                placeholder="Stručne a vecne opíš, čo sa stalo."
-                value={details}
-                onChange={(e) => setDetails(e.target.value)}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
                 disabled={saving}
+                placeholder="Strucny nazov problemu"
               />
             </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Popis</div>
+              <textarea
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                rows={8}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={saving}
+                placeholder="Vecne popiste, co sa stalo a preco otvarate reklamaciu."
+              />
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Dokazova fotka (volitelne)</div>
+              <input
+                type="file"
+                accept="image/*"
+                className="block w-full text-sm text-white/80"
+                disabled={saving}
+                onChange={(event) => setEvidenceFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            {evidenceFile ? (
+              <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+                Vybrany subor: <strong className="text-white">{evidenceFile.name}</strong>
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap gap-2">
               <button
@@ -247,17 +364,17 @@ function NewDisputePageInner() {
                 onClick={submitDispute}
                 disabled={saving}
               >
-                {saving ? "Odosielam..." : "Odoslať spor"}
+                {saving ? "Ukladam..." : "Otvorit reklamaciu"}
               </button>
 
               <Link
-                href="/reservations"
+                href={getBackHref(viewer)}
                 className="rounded border border-white/15 px-4 py-2 hover:bg-white/10"
               >
-                Zrušiť
+                Zrusit
               </Link>
             </div>
-          </div>
+          </section>
         </div>
       ) : null}
     </main>
@@ -269,9 +386,7 @@ export default function NewDisputePage() {
     <Suspense
       fallback={
         <main className="space-y-6">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            Načítavam...
-          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Nacitavam...</div>
         </main>
       }
     >
