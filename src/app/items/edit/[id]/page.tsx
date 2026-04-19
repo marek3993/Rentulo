@@ -331,7 +331,7 @@ export default function EditItemPage() {
               {saving ? "Ukladám..." : "Uložiť zmeny"}
             </button>
 
-            {status && pageState !== "loading" ? <p className="text-white/80">{status}</p> : null}
+            {status ? <p className="text-white/80">{status}</p> : null}
           </div>
         </form>
       ) : null}
