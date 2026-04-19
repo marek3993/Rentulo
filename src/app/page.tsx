@@ -286,72 +286,58 @@ export default function Home() {
 
   return (
     <div className="space-y-6 pb-8 lg:space-y-8">
-      <section
-        id="pomocnik"
-        className="mx-auto max-w-[86rem] scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,14,22,0.98),rgba(15,19,29,0.9))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.3)] sm:p-5 md:p-6"
-      >
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-white/8 bg-black/55">
-          <div className="pointer-events-none absolute inset-0">
-            <div
-              className="absolute inset-0 hidden bg-cover bg-center bg-no-repeat md:block"
-              style={{ backgroundImage: "url('/rentulo-home-hero-desktop-final.png')" }}
-            />
-            <div
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat md:hidden"
-              style={{ backgroundImage: "url('/rentulo-home-hero-mobile-final.png')" }}
-            />
-            <div className="absolute inset-0 hidden md:block bg-[linear-gradient(90deg,rgba(2,3,7,0.94),rgba(2,3,7,0.74)_56%,rgba(2,3,7,0.24)_78%,transparent)]" />
-            <div className="absolute inset-0 md:hidden bg-[linear-gradient(180deg,rgba(0,0,0,0.18),rgba(0,0,0,0.2)_34%,rgba(0,0,0,0.76)_72%,rgba(0,0,0,0.92))]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.16),transparent_36%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.08),transparent_30%)]" />
-            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
+      <section id="pomocnik" className="mx-auto max-w-[86rem] scroll-mt-32">
+        <div className="relative grid gap-6 overflow-hidden px-1 py-2 sm:px-2 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8">
+          <div className="pointer-events-none absolute left-[-3rem] top-14 h-36 w-36 rounded-full bg-violet-500/6 blur-3xl" />
+          <div className="pointer-events-none absolute right-[6%] top-20 h-32 w-32 rounded-full bg-sky-400/6 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-[-3rem] right-0 h-48 w-48 rounded-full bg-violet-400/8 blur-3xl" />
+
+          <div className="relative order-2 max-w-[31rem] px-3 py-3 lg:order-1 lg:px-0">
+            <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
+            <h1 className="mt-3 text-[2.45rem] font-semibold leading-[0.96] tracking-tight text-white md:text-[3.35rem] xl:text-[4.2rem]">
+              Napíš,
+              <br />
+              čo chceš <span className="text-violet-400">robiť.</span>
+            </h1>
+            <p className="mt-3 max-w-[30rem] text-base leading-7 text-white/72 md:text-lg md:leading-7">
+              Ty len napíšeš, čo chceš urobiť. AI za teba prehľadá ponuky na Rentule
+              a nájde tie najrelevantnejšie v okolí, bez zdĺhavého filtrovania.
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              <Link
+                href="/items"
+                className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/88 backdrop-blur-sm transition hover:bg-white/[0.1]"
+              >
+                Preskúmať ponuku
+              </Link>
+              <Link
+                href="#ako-to-funguje"
+                className="inline-flex items-center rounded-full border border-white/10 bg-transparent px-4 py-2.5 text-sm font-medium text-white/68 transition hover:border-white/16 hover:text-white/84"
+              >
+                Ako to funguje
+              </Link>
+            </div>
           </div>
 
-          <div className="relative mx-auto grid max-w-[77rem] gap-5 px-4 py-5 sm:px-5 sm:py-6 lg:min-h-[38rem] lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-5 lg:px-6 lg:py-7 xl:max-w-[79rem] xl:gap-6">
-            <div className="order-2 max-w-[30rem] px-1 py-1 lg:order-1 lg:px-0 lg:py-0">
-              <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
-              <h1 className="mt-3 text-[2.45rem] font-semibold leading-[0.96] tracking-tight text-white md:text-[3.35rem] xl:text-[4.2rem]">
-                Požičaj si,
-                <br />
-                čo práve <span className="text-violet-400">potrebuješ.</span>
-              </h1>
-              <p className="mt-3 max-w-[30rem] text-base leading-7 text-white/72 md:text-lg md:leading-7">
-                Napíš prirodzene, čo hľadáš. Rentulo ti ukáže relevantné ponuky v okolí
-                a pomôže rýchlo nájsť správnu vec bez zdĺhavého filtrovania.
-              </p>
-
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link
-                  href="/items"
-                  className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/88 backdrop-blur-sm transition hover:bg-white/[0.1]"
-                >
-                  Preskúmať ponuku
-                </Link>
-                <Link
-                  href="#ako-to-funguje"
-                  className="inline-flex items-center rounded-full border border-white/10 bg-transparent px-4 py-2.5 text-sm font-medium text-white/68 transition hover:border-white/16 hover:text-white/84"
-                >
-                  Ako to funguje
-                </Link>
-              </div>
-            </div>
-
-            <div className="order-1 lg:order-2 lg:w-full lg:max-w-[43rem] lg:justify-self-end xl:max-w-[44rem]">
-              <div className="rounded-[1.65rem] border border-white/12 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.05))] p-4 shadow-[0_28px_80px_rgba(0,0,0,0.38)] backdrop-blur-md sm:p-5 md:p-[1.25rem]">
+            <div className="relative order-1 lg:order-2 lg:w-full lg:max-w-[42rem] lg:justify-self-end xl:max-w-[43rem]">
+              <div className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)] ring-1 ring-white/10 backdrop-blur-sm sm:p-5 md:p-6">
                 <div>
                   <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-violet-200/78">
-                    Hlavné vyhľadávanie
+                    AI vyhľadávanie
                   </div>
                   <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-white md:text-3xl">
-                    Nájdi rýchlo vhodné ponuky
+                    AI nájde vhodné ponuky za teba
                   </h2>
                   <p className="mt-1.5 text-sm leading-6 text-white/62">
-                    Zadaj, čo potrebuješ, nastav okruh a zobrazíme odporúčané ponuky.
+                    Napíš prirodzene, čo chceš robiť. AI vyberie z ponúk na Rentule
+                    tie najrelevantnejšie podľa tvojej potreby a okolia.
                   </p>
                 </div>
 
                 <div className="mt-4 space-y-3.5">
                   <textarea
-                    className="min-h-[104px] w-full rounded-[1.4rem] border border-white/10 bg-black/30 px-4 py-3.5 text-white outline-none sm:min-h-[120px] md:min-h-[132px]"
+                    className="min-h-[104px] w-full rounded-[1.4rem] border border-white/10 bg-black/20 px-4 py-3.5 text-white outline-none sm:min-h-[120px] md:min-h-[132px]"
                     value={task}
                     onChange={(e) => {
                       clearTaskHelperState();
@@ -473,7 +459,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
         </div>
       </section>
 

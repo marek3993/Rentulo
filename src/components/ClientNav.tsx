@@ -1,48 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 
-function NavLink({
+type VerificationStatus = "unverified" | "pending" | "verified" | "rejected" | string;
+
+function ActionLink({
   href,
   children,
+  primary = false,
+  muted = false,
+  title,
+  ariaLabel,
 }: {
   href: string;
   children: React.ReactNode;
+  primary?: boolean;
+  muted?: boolean;
+  title?: string;
+  ariaLabel?: string;
+}) {
+  const className = primary
+    ? muted
+      ? "inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-3.5 py-2 text-sm font-medium text-amber-100 transition hover:border-amber-300/30 hover:bg-amber-500/15"
+      : "inline-flex items-center rounded-full bg-white px-3.5 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
+    : "inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white";
+
+  return (
+    <Link aria-label={ariaLabel} className={className} href={href} title={title}>
+      {children}
+    </Link>
+  );
+}
+
+function DropdownLink({
+  href,
+  children,
+  onNavigate,
+}: {
+  href: string;
+  children: React.ReactNode;
+  onNavigate?: () => void;
 }) {
   return (
     <Link
-      className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+      className="block rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/8 hover:text-white"
       href={href}
+      onClick={onNavigate}
     >
       {children}
     </Link>
   );
 }
 
-function SecondaryNavLink({
-  href,
-  children,
-  primary = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  primary?: boolean;
-}) {
-  return (
-    <Link
-      className={
-        primary
-          ? "rounded-full bg-white px-3.5 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
-          : "rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:bg-white/[0.08] hover:text-white"
-      }
-      href={href}
-    >
-      {children}
-    </Link>
-  );
+function verificationLabel(status: VerificationStatus) {
+  if (status === "verified" || status === "approved") return "Overený profil";
+  if (status === "pending") return "Čaká na overenie";
+  if (status === "rejected") return "Overenie zamietnuté";
+  return "Neoverený profil";
 }
 
 function MessagesNavLink() {
@@ -151,7 +169,7 @@ function MessagesNavLink() {
 
   return (
     <Link
-      className="relative rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+      className="relative inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
       href="/messages"
     >
       Správy
@@ -165,10 +183,28 @@ function MessagesNavLink() {
 }
 
 export default function ClientNav() {
+  const pathname = usePathname();
+
   const [hidden, setHidden] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus>("unverified");
+  const [openMenuPath, setOpenMenuPath] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const isMenuOpen = openMenuPath === pathname;
+
+  const avatarUrl = useMemo(() => {
+    if (!avatarPath) return null;
+    return supabase.storage.from("avatars").getPublicUrl(avatarPath).data.publicUrl;
+  }, [avatarPath]);
+
+  const avatarFallback = fullName.trim().charAt(0).toUpperCase() || "R";
+  const isVerified = verificationStatus === "verified" || verificationStatus === "approved";
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -220,12 +256,15 @@ export default function ClientNav() {
 
       if (!userId) {
         setIsAdmin(false);
+        setAvatarPath(null);
+        setFullName("");
+        setVerificationStatus("unverified");
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role,avatar_path,full_name,verification_status")
         .eq("id", userId)
         .maybeSingle();
 
@@ -233,10 +272,16 @@ export default function ClientNav() {
 
       if (error || !data) {
         setIsAdmin(false);
+        setAvatarPath(null);
+        setFullName("");
+        setVerificationStatus("unverified");
         return;
       }
 
       setIsAdmin(data.role === "admin");
+      setAvatarPath(data.avatar_path ?? null);
+      setFullName(data.full_name ?? "");
+      setVerificationStatus(data.verification_status ?? "unverified");
     };
 
     void loadAuthState();
@@ -253,8 +298,31 @@ export default function ClientNav() {
     };
   }, []);
 
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpenMenuPath(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenuPath(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
   const handleSignOut = async () => {
     setSigningOut(true);
+    setOpenMenuPath(null);
     await supabase.auth.signOut();
     window.location.href = "/";
   };
@@ -265,64 +333,131 @@ export default function ClientNav() {
         hidden ? "-translate-y-full" : "translate-y-0"
       }`}
     >
-      <div className="mx-auto flex max-w-[1280px] flex-col gap-3 rounded-[1.6rem] border border-white/10 bg-neutral-950/75 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.35),rgba(217,70,239,0.2))] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)]">
-              R
-            </span>
-            <span>
-              <span className="block text-lg font-semibold tracking-tight text-white">
-                Rentulo
-              </span>
-              <span className="hidden text-xs uppercase tracking-[0.22em] text-white/40 sm:block">
-                Trust-first marketplace
-              </span>
-            </span>
-          </Link>
+      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-white/10 bg-neutral-950/75 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
+        <Link href="/" className="flex items-center gap-3">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.35),rgba(217,70,239,0.2))] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)]">
+            R
+          </span>
+          <span className="text-lg font-semibold tracking-tight text-white">Rentulo</span>
+        </Link>
 
-          <div className="text-sm text-white/50 lg:hidden">
-            Prenájom vecí jednoducho
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:flex-1 lg:pl-6">
-          <nav className="flex flex-wrap items-center gap-2">
-            <NavLink href="/items">Ponuky</NavLink>
-
-            {isLoggedIn ? (
-              <>
-                <NavLink href="/reservations">Moje rezervácie</NavLink>
-                <NavLink href="/owner/items">Prenajímam</NavLink>
-                <MessagesNavLink />
-                <NavLink href="/profile">Profil</NavLink>
-
-                {isAdmin ? <NavLink href="/admin">Administrácia</NavLink> : null}
-
-                <NotificationBell />
-              </>
-            ) : null}
-          </nav>
-
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-            {isLoggedIn ? (
-              <button
-                type="button"
-                className="rounded-full bg-white px-4 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90 disabled:opacity-50"
-                onClick={handleSignOut}
-                disabled={signingOut}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isLoggedIn ? (
+            <>
+              <ActionLink
+                href={isVerified ? "/items/new" : "/verification"}
+                primary
+                muted={!isVerified}
+                title={
+                  isVerified
+                    ? "Pridať novú ponuku"
+                    : "Pre pridanie ponuky najprv dokončite overenie profilu."
+                }
+                ariaLabel={
+                  isVerified
+                    ? "Pridať novú ponuku"
+                    : "Pridať ponuku, najprv dokončite overenie profilu"
+                }
               >
-                {signingOut ? "Odhlasujem..." : "Odhlásiť"}
-              </button>
-            ) : (
-              <>
-                <SecondaryNavLink href="/login">Prihlásiť</SecondaryNavLink>
-                <SecondaryNavLink href="/register" primary>
-                  Registrovať
-                </SecondaryNavLink>
-              </>
-            )}
-          </div>
+                <span>Pridať ponuku</span>
+                {!isVerified ? (
+                  <span className="ml-2 hidden rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium sm:inline-flex">
+                    Najprv over profil
+                  </span>
+                ) : null}
+              </ActionLink>
+
+              <MessagesNavLink />
+              <NotificationBell />
+
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.03] text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.08]"
+                  onClick={() =>
+                    setOpenMenuPath((value) => (value === pathname ? null : pathname))
+                  }
+                  aria-expanded={isMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Otvoriť používateľské menu"
+                >
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt="Profilová fotka"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{avatarFallback}</span>
+                  )}
+                </button>
+
+                {isMenuOpen ? (
+                  <div className="absolute right-0 top-full mt-3 w-64 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+                    <div className="border-b border-white/10 px-3 py-3">
+                      <div className="text-sm font-medium text-white">
+                        {fullName.trim() || "Môj účet"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/50">
+                        {verificationLabel(verificationStatus)}
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
+                        Profil
+                      </DropdownLink>
+                      <DropdownLink
+                        href="/reservations"
+                        onNavigate={() => setOpenMenuPath(null)}
+                      >
+                        Moje rezervácie
+                      </DropdownLink>
+
+                      {isVerified ? (
+                        <DropdownLink
+                          href="/owner/items"
+                          onNavigate={() => setOpenMenuPath(null)}
+                        >
+                          Moje inzeráty
+                        </DropdownLink>
+                      ) : null}
+
+                      <DropdownLink
+                        href="/notifications"
+                        onNavigate={() => setOpenMenuPath(null)}
+                      >
+                        Nastavenie notifikácií
+                      </DropdownLink>
+
+                      {isAdmin ? (
+                        <DropdownLink href="/admin" onNavigate={() => setOpenMenuPath(null)}>
+                          Administrácia
+                        </DropdownLink>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="mt-1 block w-full rounded-xl px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/8 hover:text-white disabled:opacity-50"
+                        onClick={handleSignOut}
+                        disabled={signingOut}
+                      >
+                        {signingOut ? "Odhlasujem..." : "Odhlásiť"}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <ActionLink href="/login">Prihlásiť</ActionLink>
+              <ActionLink href="/register" primary>
+                Registrovať
+              </ActionLink>
+            </>
+          )}
         </div>
       </div>
     </header>
