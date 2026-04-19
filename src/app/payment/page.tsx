@@ -14,6 +14,11 @@ type ReservationRow = {
   status: string | null;
 };
 
+type CheckoutAvailabilityResponse = {
+  available?: boolean;
+  error?: string;
+};
+
 function formatDateTime(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -30,6 +35,8 @@ function PaymentInner() {
   const [status, setStatus] = useState("Načítavam platbu...");
   const [reservation, setReservation] = useState<ReservationRow | null>(null);
   const [busy, setBusy] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [availabilityChecking, setAvailabilityChecking] = useState(false);
 
   const loadReservation = async () => {
     if (!Number.isFinite(reservationId)) return null;
@@ -45,6 +52,64 @@ function PaymentInner() {
     const row = (data ?? null) as ReservationRow | null;
     setReservation(row);
     return row;
+  };
+
+  const recheckAvailability = async (loadingStatus: string) => {
+    if (!Number.isFinite(reservationId)) {
+      const nextError = "Chýba reservation_id.";
+      setAvailabilityError(nextError);
+      setStatus(nextError);
+      return false;
+    }
+
+    setAvailabilityChecking(true);
+    setStatus(loadingStatus);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        const nextError = "Pre pokračovanie sa musíš prihlásiť.";
+        setAvailabilityError(nextError);
+        setStatus(nextError);
+        return false;
+      }
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ reservationId }),
+      });
+
+      const payload = (await res.json().catch(() => null)) as CheckoutAvailabilityResponse | null;
+
+      if (!res.ok) {
+        const nextError =
+          payload?.error ??
+          (res.status === 409
+            ? "Zvolený termín už nie je voľný. Vyber si prosím iný termín."
+            : "Nepodarilo sa overiť dostupnosť termínu.");
+
+        setAvailabilityError(nextError);
+        setStatus(nextError);
+        return false;
+      }
+
+      setAvailabilityError("");
+      return true;
+    } catch {
+      const nextError = "Nepodarilo sa overiť dostupnosť termínu. Skús to znova.";
+      setAvailabilityError(nextError);
+      setStatus(nextError);
+      return false;
+    } finally {
+      setAvailabilityChecking(false);
+    }
   };
 
   const insertNotification = async (
@@ -87,25 +152,42 @@ function PaymentInner() {
         return;
       }
 
+      const available = await recheckAvailability("Kontrolujem dostupnosť termínu...");
+      if (!available) {
+        return;
+      }
+
       setStatus("Demo režim: vyber výsledok platby.");
     };
 
-    run();
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservationId]);
 
   const markPaidDemo = async () => {
     if (!Number.isFinite(reservationId) || busy) return;
 
     setBusy(true);
-    setStatus("Označujem ako zaplatené (demo)...");
 
     const { data: sess } = await supabase.auth.getSession();
     const userId = sess.session?.user.id;
 
     if (!userId) {
+      setBusy(false);
       router.push("/login");
       return;
     }
+
+    const available = await recheckAvailability(
+      "Kontrolujem dostupnosť termínu pred pokračovaním..."
+    );
+
+    if (!available) {
+      setBusy(false);
+      return;
+    }
+
+    setStatus("Označujem ako zaplatené (demo)...");
 
     const currentReservation = await loadReservation();
     if (!currentReservation) {
@@ -163,6 +245,7 @@ function PaymentInner() {
     const userId = sess.session?.user.id;
 
     if (!userId) {
+      setBusy(false);
       router.push("/login");
       return;
     }
@@ -194,6 +277,8 @@ function PaymentInner() {
   const showActions =
     Number.isFinite(reservationId) &&
     !!reservation &&
+    !availabilityError &&
+    !availabilityChecking &&
     reservation.payment_status !== "paid" &&
     !(reservation.status === "cancelled" && reservation.payment_status === "failed");
 
@@ -214,12 +299,25 @@ function PaymentInner() {
         </div>
       ) : null}
 
+      {availabilityError ? (
+        <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
+          <div className="font-semibold">Termín už nie je voľný.</div>
+          <div className="mt-1">{availabilityError}</div>
+        </div>
+      ) : null}
+
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
         <p className="font-medium">{status}</p>
 
         <div className="mt-4 text-sm text-white/70">
           Aktívny je iba demo payment flow. Stripe sa bude riešiť neskôr.
         </div>
+
+        {availabilityChecking ? (
+          <div className="mt-4 text-sm text-white/60">
+            Prebieha kontrola dostupnosti termínu...
+          </div>
+        ) : null}
 
         {showActions ? (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -258,7 +356,7 @@ function PaymentInner() {
 
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<main className="p-8">Načítavam platbu…</main>}>
+    <Suspense fallback={<main className="p-8">Načítavam platbu...</main>}>
       <PaymentInner />
     </Suspense>
   );
