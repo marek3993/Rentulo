@@ -424,13 +424,6 @@ export default function ClientNav() {
                         </DropdownLink>
                       ) : null}
 
-                      <DropdownLink
-                        href="/notifications"
-                        onNavigate={() => setOpenMenuPath(null)}
-                      >
-                        Nastavenie notifikácií
-                      </DropdownLink>
-
                       {isAdmin ? (
                         <DropdownLink href="/admin" onNavigate={() => setOpenMenuPath(null)}>
                           Administrácia
