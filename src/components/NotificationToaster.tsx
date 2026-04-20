@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  dispatchNotificationsRefresh,
+  markNotificationRead,
   type ToastNotification,
 } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
@@ -30,14 +30,7 @@ export default function NotificationToaster() {
   });
 
   const markToastRead = async (notificationId: number) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", notificationId);
-
-    if (!error) {
-      dispatchNotificationsRefresh();
-    }
+    await markNotificationRead(notificationId);
   };
 
   useEffect(() => {
