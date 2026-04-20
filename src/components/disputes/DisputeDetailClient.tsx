@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { insertNotification } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 
 type ViewerKind = "renter" | "owner" | "admin";
@@ -225,6 +226,10 @@ function getViewerTitle(viewer: ViewerKind) {
   if (viewer === "owner") return "Detail reklamacie pre prenajimatela";
   if (viewer === "admin") return "Admin detail reklamacie";
   return "Detail reklamacie";
+}
+
+function getDisputeLinkForUser(disputeId: number, userKind: "renter" | "owner") {
+  return userKind === "owner" ? `/owner/disputes/${disputeId}` : `/disputes/${disputeId}`;
 }
 
 export default function DisputeDetailClient({ disputeId, viewer }: Props) {
@@ -462,6 +467,21 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       return;
     }
 
+    const replyRecipientId =
+      currentUserId && currentUserId === dispute?.renterId ? dispute.ownerId : currentUserId === dispute?.ownerId ? dispute.renterId : null;
+    const replyRecipientKind =
+      currentUserId && currentUserId === dispute?.renterId ? "owner" : currentUserId === dispute?.ownerId ? "renter" : null;
+
+    if (replyRecipientId && replyRecipientKind) {
+      await insertNotification({
+        userId: replyRecipientId,
+        type: "dispute",
+        title: `Nova sprava k reklamacii #${disputeId}`,
+        body: "Druha strana pridala vyjadrenie.",
+        link: getDisputeLinkForUser(disputeId, replyRecipientKind),
+      });
+    }
+
     setReplyBody("");
     setReplySaving(false);
     await loadDispute();
@@ -547,6 +567,33 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       alert(error.message);
       return;
     }
+
+    const notificationTargets = [
+      dispute?.renterId
+        ? {
+            userId: dispute.renterId,
+            link: getDisputeLinkForUser(disputeId, "renter"),
+          }
+        : null,
+      dispute?.ownerId
+        ? {
+            userId: dispute.ownerId,
+            link: getDisputeLinkForUser(disputeId, "owner"),
+          }
+        : null,
+    ].filter((target): target is { userId: string; link: string } => !!target);
+
+    await Promise.all(
+      notificationTargets.map((target) =>
+        insertNotification({
+          userId: target.userId,
+          type: "dispute",
+          title: `Aktualizacia reklamacie #${disputeId}`,
+          body: `Stav reklamacie bol zmeneny na: ${trimmedStatus}`,
+          link: target.link,
+        })
+      )
+    );
 
     setStatusSaving(false);
     await loadDispute();

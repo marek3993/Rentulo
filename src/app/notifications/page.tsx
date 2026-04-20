@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
-  dispatchNotificationsRefresh,
   formatNotificationDate,
+  listNotificationsForUser,
+  markAllNotificationsRead,
+  markNotificationRead,
+  notificationCardClass,
   notificationTypeBadgeClass,
   notificationTypeLabel,
   type NotificationRow,
@@ -36,11 +39,7 @@ export default function NotificationsPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("id,type,title,body,link,is_read,created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await listNotificationsForUser(userId);
 
     if (loadId !== loadIdRef.current) return;
 
@@ -112,14 +111,10 @@ export default function NotificationsPage() {
   }, []);
 
   const markOneRead = async (id: number) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", id);
+    const { error } = await markNotificationRead(id);
 
     if (!error) {
       setRows((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
-      dispatchNotificationsRefresh();
     }
   };
 
@@ -135,11 +130,7 @@ export default function NotificationsPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", userId)
-      .eq("is_read", false);
+    const { error } = await markAllNotificationsRead(userId);
 
     if (error) {
       setStatus("Chyba: " + error.message);
@@ -150,7 +141,6 @@ export default function NotificationsPage() {
     setRows((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setStatus("");
     setMarkingAll(false);
-    dispatchNotificationsRefresh();
   };
 
   const unreadCount = rows.filter((r) => !r.is_read).length;
@@ -228,11 +218,7 @@ export default function NotificationsPage() {
         {rows.map((n) => (
           <li
             key={n.id}
-            className={`rounded-2xl border p-5 transition ${
-              n.is_read
-                ? "border-white/10 bg-white/5"
-                : "border-indigo-400/20 bg-indigo-500/[0.07]"
-            }`}
+            className={`rounded-2xl border p-5 transition ${notificationCardClass(n.type, n.is_read)}`}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0 flex-1 space-y-2">

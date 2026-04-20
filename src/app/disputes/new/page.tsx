@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { insertNotification } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 
 type ViewerKind = "renter" | "owner";
@@ -64,6 +65,16 @@ function getBackHref(viewer: ViewerKind) {
 
 function getListHref(viewer: ViewerKind) {
   return viewer === "owner" ? "/owner/disputes" : "/disputes";
+}
+
+function getDisputeTypeLabel(type: string) {
+  if (type === "damage") return "Poskodenie alebo skoda";
+  if (type === "not_as_described") return "Vec nezodpoveda popisu";
+  if (type === "missing_accessories") return "Chybajuce prislusenstvo";
+  if (type === "handover_issue") return "Problem pri odovzdani";
+  if (type === "return_issue") return "Problem pri vrateni";
+  if (type === "other") return "Ina reklamacia";
+  return type.replaceAll("_", " ");
 }
 
 function NewDisputePageInner() {
@@ -251,6 +262,23 @@ function NewDisputePageInner() {
         });
 
         if (evidenceError) throw new Error(evidenceError.message);
+      }
+
+      if (disputeId) {
+        const counterpartyUserId = viewer === "owner" ? reservation.renter_id : item?.owner_id;
+        const counterpartyLink =
+          viewer === "owner" ? `/disputes/${disputeId}` : `/owner/disputes/${disputeId}`;
+        const notificationBodySource = trimmedTitle || getDisputeTypeLabel(trimmedType);
+
+        if (counterpartyUserId) {
+          await insertNotification({
+            userId: counterpartyUserId,
+            type: "dispute",
+            title: `Nova reklamacia k rezervacii #${reservation.id}`,
+            body: `${notificationBodySource} · caka na tvoju reakciu`,
+            link: counterpartyLink,
+          });
+        }
       }
 
       router.push(disputeId ? `${getListHref(viewer)}/${disputeId}` : getListHref(viewer));
