@@ -22,12 +22,10 @@ type Item = {
   distance_km?: number | null;
 };
 
-type ReservationRow = {
+type UnavailableRangeRow = {
   item_id: number;
   date_from: string;
   date_to: string;
-  status: string | null;
-  payment_status: string | null;
 };
 
 type ItemImageRow = {
@@ -72,34 +70,6 @@ const CATEGORIES = [
   "Šport a voľný čas",
   "Ostatné",
 ];
-
-const NON_BLOCKING_RESERVATION_STATUSES = new Set([
-  "cancelled",
-  "canceled",
-  "rejected",
-  "completed",
-  "returned",
-  "expired",
-  "zrusene",
-  "zamietnute",
-  "ukoncene",
-  "vratene",
-]);
-
-function isBlockingReservation(reservation: ReservationRow) {
-  const normalizedStatus = (reservation.status ?? "").trim().toLowerCase();
-  const normalizedPaymentStatus = (reservation.payment_status ?? "").trim().toLowerCase();
-
-  if (NON_BLOCKING_RESERVATION_STATUSES.has(normalizedStatus)) {
-    return false;
-  }
-
-  if (normalizedPaymentStatus === "failed") {
-    return false;
-  }
-
-  return true;
-}
 
 function ItemsPageInner() {
   const router = useRouter();
@@ -366,8 +336,8 @@ function ItemsPageInner() {
       setAvailabilityLoading(true);
 
       const { data, error } = await supabase
-        .from("reservations")
-        .select("item_id,date_from,date_to,status,payment_status")
+        .from("item_unavailable_ranges")
+        .select("item_id,date_from,date_to")
         .in("item_id", itemIds)
         .lte("date_from", dateTo)
         .gte("date_to", dateFrom);
@@ -382,10 +352,8 @@ function ItemsPageInner() {
 
       const blocked = new Set<number>();
 
-      for (const reservation of (data ?? []) as ReservationRow[]) {
-        if (isBlockingReservation(reservation)) {
-          blocked.add(reservation.item_id);
-        }
+      for (const range of (data ?? []) as UnavailableRangeRow[]) {
+        blocked.add(range.item_id);
       }
 
       setUnavailableItemIds(Array.from(blocked));

@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import {
+  DEFAULT_ITEM_DELIVERY_OPTIONS_DRAFT,
+  describeItemDeliveryOptions,
+  normalizeItemDeliveryOptionsDraft,
+  validateItemDeliveryOptionsDraft,
+  type ItemDeliveryOptionsDraft,
+} from "@/lib/itemDeliveryOptionsContract";
 
 type SelectedImage = {
   id: string;
@@ -55,6 +62,12 @@ export default function NewItemPage() {
   const [searchingAddress, setSearchingAddress] = useState(false);
 
   const [images, setImages] = useState<SelectedImage[]>([]);
+  const [deliveryOptions, setDeliveryOptions] = useState<ItemDeliveryOptionsDraft>(
+    DEFAULT_ITEM_DELIVERY_OPTIONS_DRAFT
+  );
+  const [deliveryErrors, setDeliveryErrors] = useState<
+    Partial<Record<keyof ItemDeliveryOptionsDraft, string>>
+  >({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -243,6 +256,15 @@ export default function NewItemPage() {
       if (!streetAddress.trim()) throw new Error("Chýba ulica a číslo.");
       if (latitude === null || longitude === null) throw new Error("Chýbajú súradnice adresy.");
 
+      const deliveryValidation = validateItemDeliveryOptionsDraft(deliveryOptions);
+      if (!deliveryValidation.isValid) {
+        setDeliveryErrors(deliveryValidation.errors);
+        throw new Error("Skontroluj nastavenie doruÄŤenia.");
+      }
+
+      setDeliveryErrors({});
+      const normalizedDeliveryOptions = normalizeItemDeliveryOptionsDraft(deliveryOptions);
+
       await ensureProfile(userId);
 
       const { data, error } = await supabase.rpc("create_item_with_location", {
@@ -270,20 +292,35 @@ export default function NewItemPage() {
 
       if (categoryErr) throw new Error(categoryErr.message);
 
+      const { error: deliveryErr } = await supabase.rpc("item_delivery_config_update", {
+        p_item_id: itemId,
+        p_delivery_mode: normalizedDeliveryOptions.mode,
+        p_delivery_rate_per_km: normalizedDeliveryOptions.ratePerKm,
+        p_delivery_fee_cap: normalizedDeliveryOptions.feeCap,
+        p_delivery_max_radius_km: normalizedDeliveryOptions.maxRadiusKm,
+      });
+
+      if (deliveryErr) throw new Error(deliveryErr.message);
+
       if (images.length > 0) {
         await uploadImagesForItem(userId, itemId);
       }
 
       setStatus("Hotovo ✅");
       router.push(`/items/${itemId}`);
-    } catch (err: any) {
-      setStatus("Chyba: " + (err?.message ?? "unknown"));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "unknown";
+      setStatus("Chyba: " + message);
     } finally {
       setSaving(false);
     }
   };
 
   const priceNumber = useMemo(() => Number(pricePerDay || 0), [pricePerDay]);
+  const deliverySummary = useMemo(
+    () => describeItemDeliveryOptions(normalizeItemDeliveryOptionsDraft(deliveryOptions)),
+    [deliveryOptions]
+  );
 
   const mapSrc =
     latitude !== null && longitude !== null && geoKey
@@ -299,6 +336,98 @@ export default function NewItemPage() {
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+            <div className="font-semibold">DoruÄŤenie</div>
+            <div className="text-sm text-white/60">
+              Nastav len aktuĂˇlne dostupnĂ© moĹľnosti pre tĂşto ponuku.
+            </div>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">ReĹľim</div>
+              <select
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={deliveryOptions.mode}
+                onChange={(e) => {
+                  const nextMode = e.target.value as ItemDeliveryOptionsDraft["mode"];
+                  setDeliveryOptions((prev) => ({
+                    ...prev,
+                    mode: nextMode,
+                    ratePerKm: nextMode === "pickup_only" ? "" : prev.ratePerKm,
+                    feeCap: nextMode === "pickup_only" ? "" : prev.feeCap,
+                    maxRadiusKm: nextMode === "pickup_only" ? "" : prev.maxRadiusKm,
+                  }));
+                  setDeliveryErrors({});
+                }}
+                disabled={saving}
+              >
+                <option value="pickup_only">OsobnĂ˝ odber</option>
+                <option value="delivery_available">DoruÄŤenie dostupnĂ©</option>
+              </select>
+            </label>
+
+            {deliveryOptions.mode === "delivery_available" ? (
+              <div className="grid gap-3 md:grid-cols-3">
+                <label className="block">
+                  <div className="mb-1 text-white/80">Sadzba za 1 km</div>
+                  <input
+                    className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                    value={deliveryOptions.ratePerKm}
+                    onChange={(e) => {
+                      setDeliveryOptions((prev) => ({ ...prev, ratePerKm: e.target.value }));
+                      setDeliveryErrors((prev) => ({ ...prev, ratePerKm: undefined }));
+                    }}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    disabled={saving}
+                  />
+                  {deliveryErrors.ratePerKm ? (
+                    <div className="mt-1 text-sm text-red-300">{deliveryErrors.ratePerKm}</div>
+                  ) : null}
+                </label>
+
+                <label className="block">
+                  <div className="mb-1 text-white/80">CenovĂ˝ strop</div>
+                  <input
+                    className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                    value={deliveryOptions.feeCap}
+                    onChange={(e) => {
+                      setDeliveryOptions((prev) => ({ ...prev, feeCap: e.target.value }));
+                      setDeliveryErrors((prev) => ({ ...prev, feeCap: undefined }));
+                    }}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    disabled={saving}
+                  />
+                  {deliveryErrors.feeCap ? (
+                    <div className="mt-1 text-sm text-red-300">{deliveryErrors.feeCap}</div>
+                  ) : null}
+                </label>
+
+                <label className="block">
+                  <div className="mb-1 text-white/80">Max. radius (km)</div>
+                  <input
+                    className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                    value={deliveryOptions.maxRadiusKm}
+                    onChange={(e) => {
+                      setDeliveryOptions((prev) => ({ ...prev, maxRadiusKm: e.target.value }));
+                      setDeliveryErrors((prev) => ({ ...prev, maxRadiusKm: undefined }));
+                    }}
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    disabled={saving}
+                  />
+                  {deliveryErrors.maxRadiusKm ? (
+                    <div className="mt-1 text-sm text-red-300">{deliveryErrors.maxRadiusKm}</div>
+                  ) : null}
+                </label>
+              </div>
+            ) : null}
+          </div>
+
         <div className="space-y-4">
           <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="font-semibold">Základné údaje</div>
@@ -442,6 +571,7 @@ export default function NewItemPage() {
             )}
           </div>
         </div>
+        </div>
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -536,6 +666,12 @@ export default function NewItemPage() {
               <div>Mesto: <strong className="text-white">{city || "-"}</strong></div>
               <div>PSČ: <strong className="text-white">{postalCode || "-"}</strong></div>
               <div>Cena: <strong className="text-white">{pricePerDay || "0"} € / deň</strong></div>
+              <div>DoruÄŤenie: <strong className="text-white">{deliverySummary.title}</strong></div>
+              {deliverySummary.detailRows.map((row) => (
+                <div key={row.label}>
+                  {row.label}: <strong className="text-white">{row.value}</strong>
+                </div>
+              ))}
               <div>Fotky: <strong className="text-white">{images.length}</strong></div>
               <div>Hlavná: <strong className="text-white">{images[0]?.file.name ?? "-"}</strong></div>
             </div>

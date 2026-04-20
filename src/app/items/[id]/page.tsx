@@ -9,9 +9,14 @@ import {
   buildItemSearchQueryString,
   parseItemSearchParams,
 } from "@/lib/itemSearchParams";
+import {
+  describeItemDeliveryOptions,
+  itemDeliveryOptionsNormalizedFromFields,
+  type ItemDeliveryConfigFields,
+} from "@/lib/itemDeliveryOptionsContract";
 import { supabase } from "@/lib/supabaseClient";
 
-type Item = {
+type Item = ItemDeliveryConfigFields & {
   id: number;
   title: string;
   description: string | null;
@@ -48,11 +53,9 @@ type ItemImageDetails = {
   id: number;
 };
 
-type ReservationDetails = {
+type UnavailableRangeDetails = {
   date_from: string;
   date_to: string;
-  status: string | null;
-  created_at: string;
 };
 
 type RatingRow = {
@@ -173,6 +176,22 @@ export default function ItemDetailPage() {
   const syncedDateFrom = hasPartialRange ? itemSearchState.dateFrom : dateFrom;
   const syncedDateTo = hasPartialRange ? itemSearchState.dateTo : dateTo;
   const activeImage = imageUrls[activeImageIndex] ?? null;
+  const deliveryOptions = useMemo(
+    () =>
+      item
+        ? itemDeliveryOptionsNormalizedFromFields({
+            delivery_mode: item.delivery_mode,
+            delivery_rate_per_km: item.delivery_rate_per_km,
+            delivery_fee_cap: item.delivery_fee_cap,
+            delivery_max_radius_km: item.delivery_max_radius_km,
+          })
+        : null,
+    [item]
+  );
+  const deliveryDescription = useMemo(
+    () => (deliveryOptions ? describeItemDeliveryOptions(deliveryOptions) : null),
+    [deliveryOptions]
+  );
   const returnToItemsHref = useMemo(
     () =>
       buildItemsHref({
@@ -234,7 +253,9 @@ export default function ItemDetailPage() {
 
       const { data: itemData, error: itemErr } = await supabase
         .from("items")
-        .select("id,title,description,price_per_day,city,owner_id")
+        .select(
+          "id,title,description,price_per_day,city,owner_id,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km"
+        )
         .eq("id", itemId)
         .maybeSingle();
 
@@ -293,22 +314,23 @@ if (!imgErr && imgs) {
       else setOwner(null);
 
       const { data: reservations, error: rErr } = await supabase
-        .from("reservations")
-        .select("date_from,date_to,status,created_at")
+        .from("item_unavailable_ranges")
+        .select("date_from,date_to")
         .eq("item_id", itemId);
 
       if (!rErr && reservations) {
-        const now = Date.now();
-        const ttlMs = 15 * 60 * 1000;
+        const ranges = (reservations as UnavailableRangeDetails[])
+          .map((r) => {
+            const from = parseDateOnly(r.date_from);
+            const to = parseDateOnly(r.date_to);
 
-        const ranges = (reservations as ReservationDetails[])
-          .filter((r) => {
-            if (r.status === "confirmed") return true;
-            if (r.status !== "pending") return false;
-            const created = new Date(r.created_at).getTime();
-            return Number.isFinite(created) && now - created <= ttlMs;
+            if (!from || !to) {
+              return null;
+            }
+
+            return { from, to };
           })
-          .map((r) => ({ from: new Date(r.date_from), to: new Date(r.date_to) }));
+          .filter((value): value is { from: Date; to: Date } => value !== null);
 
         setReservedRanges(ranges);
       } else {
@@ -619,6 +641,29 @@ if (!imgErr && imgs) {
                 <p className="mt-6 text-white/55">Bez popisu.</p>
               )}
             </section>
+
+            {deliveryDescription ? (
+              <section className="rentulo-card p-6">
+                <div className="text-xl font-semibold">{deliveryDescription.title}</div>
+                <div className="mt-2 text-sm leading-6 text-white/65">
+                  {deliveryDescription.summary}
+                </div>
+
+                {deliveryDescription.detailRows.length > 0 ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    {deliveryDescription.detailRows.map((row) => (
+                      <div
+                        key={row.label}
+                        className="rounded-xl border border-white/10 bg-black/20 p-4"
+                      >
+                        <div className="text-sm text-white/55">{row.label}</div>
+                        <div className="mt-2 text-lg font-semibold text-white">{row.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             {imageUrls.length > 0 ? (
               <section className="space-y-3">

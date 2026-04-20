@@ -14,6 +14,13 @@ export type ItemDeliveryOptionsNormalized = {
   maxRadiusKm: number | null;
 };
 
+export type ItemDeliveryConfigFields = {
+  delivery_mode: string | null;
+  delivery_rate_per_km: number | string | null;
+  delivery_fee_cap: number | string | null;
+  delivery_max_radius_km: number | string | null;
+};
+
 export type ItemDeliveryOptionsValidationResult = {
   isValid: boolean;
   errors: Partial<Record<keyof ItemDeliveryOptionsDraft, string>>;
@@ -37,6 +44,19 @@ function normalizeNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function normalizeDeliveryMode(value: string | null | undefined): ItemDeliveryMode {
+  return value === "delivery_available" ? "delivery_available" : "pickup_only";
+}
+
+function stringifyNumber(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : "";
+}
+
 export function normalizeItemDeliveryOptionsDraft(
   draft: ItemDeliveryOptionsDraft
 ): ItemDeliveryOptionsNormalized {
@@ -50,6 +70,23 @@ export function normalizeItemDeliveryOptionsDraft(
     feeCap: draft.mode === "delivery_available" ? feeCap : null,
     maxRadiusKm: draft.mode === "delivery_available" ? maxRadiusKm : null,
   };
+}
+
+export function itemDeliveryOptionsDraftFromFields(
+  fields: ItemDeliveryConfigFields
+): ItemDeliveryOptionsDraft {
+  return {
+    mode: normalizeDeliveryMode(fields.delivery_mode),
+    ratePerKm: stringifyNumber(fields.delivery_rate_per_km),
+    feeCap: stringifyNumber(fields.delivery_fee_cap),
+    maxRadiusKm: stringifyNumber(fields.delivery_max_radius_km),
+  };
+}
+
+export function itemDeliveryOptionsNormalizedFromFields(
+  fields: ItemDeliveryConfigFields
+): ItemDeliveryOptionsNormalized {
+  return normalizeItemDeliveryOptionsDraft(itemDeliveryOptionsDraftFromFields(fields));
 }
 
 export function validateItemDeliveryOptionsDraft(
