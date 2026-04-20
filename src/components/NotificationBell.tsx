@@ -14,8 +14,6 @@ import {
   listNotificationsForUser,
   markNotificationRead,
   notificationCardClass,
-  notificationTypeBadgeClass,
-  notificationTypeLabel,
   type NotificationRow,
 } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
@@ -319,14 +317,6 @@ export default function NotificationBell() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${notificationTypeBadgeClass(
-                                notification.type
-                              )}`}
-                            >
-                              {notificationTypeLabel(notification.type)}
-                            </span>
-
                             <span
                               className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                                 notification.is_read

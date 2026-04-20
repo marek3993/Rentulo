@@ -127,7 +127,12 @@ export function notificationTypeLabel(type: string) {
   if (type === "message") return "Správa";
   if (type === "reservation") return "Rezervácia";
   if (type === "verification") return "Overenie";
-  return type;
+  if (type.startsWith("dispute_")) return notificationTypeLabel("dispute");
+  if (type.startsWith("payment_")) return notificationTypeLabel("payment");
+  if (type.startsWith("message_")) return notificationTypeLabel("message");
+  if (type.startsWith("reservation_")) return notificationTypeLabel("reservation");
+  if (type.startsWith("verification_")) return notificationTypeLabel("verification");
+  return "Upozornenie";
 }
 
 export function notificationTypeBadgeClass(type: string) {
