@@ -205,7 +205,7 @@ export default function EditItemPage() {
       const deliveryValidation = validateItemDeliveryOptionsDraft(deliveryOptions);
       if (!deliveryValidation.isValid) {
         setDeliveryErrors(deliveryValidation.errors);
-        throw new Error("Skontroluj nastavenie doruÄŤenia.");
+        throw new Error("Skontroluj nastavenie doručenia.");
       }
 
       setDeliveryErrors({});
@@ -252,17 +252,17 @@ export default function EditItemPage() {
     if (!item) return;
 
     if (!blockedDateFrom || !blockedDateTo) {
-      setBlockedRangesStatus("Vyber dĂˇtum od aj do.");
+      setBlockedRangesStatus("Vyber dátum od aj do.");
       return;
     }
 
     if (blockedDateFrom > blockedDateTo) {
-      setBlockedRangesStatus("DĂˇtum od musĂ­ byĹĄ menĹˇĂ­ alebo rovnĂ˝ dĂˇtumu do.");
+      setBlockedRangesStatus("Dátum od musí byť menší alebo rovný dátumu do.");
       return;
     }
 
     setBlockedRangesBusy(true);
-    setBlockedRangesStatus("UkladĂˇm blokovanĂ˝ termĂ­n...");
+    setBlockedRangesStatus("Ukladám blokovaný termín...");
 
     try {
       const { error } = await supabase.rpc("item_blocked_range_create", {
@@ -276,9 +276,9 @@ export default function EditItemPage() {
       await loadBlockedRanges(item.id);
       setBlockedDateFrom("");
       setBlockedDateTo("");
-      setBlockedRangesStatus("BlokovanĂ˝ termĂ­n bol uloĹľenĂ˝.");
+      setBlockedRangesStatus("Blokovaný termín bol uložený.");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "NeznĂˇma chyba.";
+      const message = err instanceof Error ? err.message : "Neznáma chyba.";
       setBlockedRangesStatus("Chyba: " + message);
     } finally {
       setBlockedRangesBusy(false);
@@ -289,7 +289,7 @@ export default function EditItemPage() {
     if (!item) return;
 
     setBlockedRangesBusy(true);
-    setBlockedRangesStatus("MaĹľem blokovanĂ˝ termĂ­n...");
+    setBlockedRangesStatus("Mažem blokovaný termín...");
 
     try {
       const { error } = await supabase.rpc("item_blocked_range_delete", {
@@ -299,9 +299,9 @@ export default function EditItemPage() {
       if (error) throw new Error(error.message);
 
       await loadBlockedRanges(item.id);
-      setBlockedRangesStatus("BlokovanĂ˝ termĂ­n bol odstrĂˇnenĂ˝.");
+      setBlockedRangesStatus("Blokovaný termín bol odstránený.");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "NeznĂˇma chyba.";
+      const message = err instanceof Error ? err.message : "Neznáma chyba.";
       setBlockedRangesStatus("Chyba: " + message);
     } finally {
       setBlockedRangesBusy(false);
@@ -355,8 +355,8 @@ export default function EditItemPage() {
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <h1 className="text-2xl font-semibold">Úprava ponuky</h1>
         <p className="mt-2 text-white/70">
-          Upravuješ existujúcu ponuku. Fotky zostávajú mimo tohto P0 route a spravujú sa v sekcii moje
-          ponuky.
+          Upravuješ existujúcu ponuku. Fotky zostávajú mimo tohto P0 route a spravujú sa v
+          sekcii moje ponuky.
         </p>
       </div>
 
@@ -456,13 +456,13 @@ export default function EditItemPage() {
           </div>
 
           <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="font-semibold">DoruÄŤenie</div>
+            <div className="font-semibold">Doručenie</div>
             <div className="text-sm text-white/70">
-              UpraviĹˇ len aktuĂˇlne hodnoty z delivery contractu.
+              Uprav len aktuálne dostupné možnosti doručenia pre túto ponuku.
             </div>
 
             <label className="block">
-              <div className="mb-1 text-white/80">ReĹľim</div>
+              <div className="mb-1 text-white/80">Režim</div>
               <select
                 className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                 value={deliveryOptions.mode}
@@ -479,8 +479,8 @@ export default function EditItemPage() {
                 }}
                 disabled={saving}
               >
-                <option value="pickup_only">OsobnĂ˝ odber</option>
-                <option value="delivery_available">DoruÄŤenie dostupnĂ©</option>
+                <option value="pickup_only">Osobný odber</option>
+                <option value="delivery_available">Doručenie dostupné</option>
               </select>
             </label>
 
@@ -506,7 +506,7 @@ export default function EditItemPage() {
                 </label>
 
                 <label className="block">
-                  <div className="mb-1 text-white/80">CenovĂ˝ strop</div>
+                  <div className="mb-1 text-white/80">Cenový strop</div>
                   <input
                     className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                     value={deliveryOptions.feeCap}
@@ -546,7 +546,7 @@ export default function EditItemPage() {
             ) : null}
 
             <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-              <div className="font-medium text-white">{deliverySummary.title}</div>
+              <div className="font-medium text-white">Súhrn doručenia: {deliverySummary.title}</div>
               <div className="mt-1">{deliverySummary.summary}</div>
               {deliverySummary.detailRows.map((row) => (
                 <div key={row.label} className="mt-2">
@@ -557,14 +557,14 @@ export default function EditItemPage() {
           </div>
 
           <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="font-semibold">BlokovanĂ© termĂ­ny</div>
+            <div className="font-semibold">Blokované termíny</div>
             <div className="text-sm text-white/70">
-              Tieto termĂ­ny sa zobrazia ako nedostupnĂ© bez vytvĂˇrania rezervĂˇcie.
+              Tieto termíny blokujú novú rezerváciu, ale samy o sebe nevytvárajú rezerváciu.
             </div>
 
             <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
               <label className="block">
-                <div className="mb-1 text-white/80">DĂˇtum od</div>
+                <div className="mb-1 text-white/80">Dátum od</div>
                 <input
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                   type="date"
@@ -575,7 +575,7 @@ export default function EditItemPage() {
               </label>
 
               <label className="block">
-                <div className="mb-1 text-white/80">DĂˇtum do</div>
+                <div className="mb-1 text-white/80">Dátum do</div>
                 <input
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                   type="date"
@@ -592,7 +592,7 @@ export default function EditItemPage() {
                 onClick={addBlockedRange}
                 disabled={saving || blockedRangesBusy}
               >
-                {blockedRangesBusy ? "UkladĂˇm..." : "PridaĹĄ termĂ­n"}
+                {blockedRangesBusy ? "Ukladám..." : "Pridať termín"}
               </button>
             </div>
 
@@ -604,7 +604,7 @@ export default function EditItemPage() {
 
             {blockedRanges.length === 0 ? (
               <div className="rounded-xl border border-dashed border-white/10 bg-black/10 p-4 text-sm text-white/60">
-                ZatiaÄľ bez blokovanĂ˝ch termĂ­nov.
+                Zatiaľ bez blokovaných termínov.
               </div>
             ) : (
               <div className="space-y-3">
@@ -615,7 +615,7 @@ export default function EditItemPage() {
                   >
                     <div className="text-sm text-white/80">
                       <strong className="text-white">{formatDate(range.date_from)}</strong>
-                      {" "}â†’{" "}
+                      {" "}–{" "}
                       <strong className="text-white">{formatDate(range.date_to)}</strong>
                     </div>
 
@@ -625,7 +625,7 @@ export default function EditItemPage() {
                       onClick={() => deleteBlockedRange(range.id)}
                       disabled={saving || blockedRangesBusy}
                     >
-                      OdstrĂˇniĹĄ
+                      Odstrániť
                     </button>
                   </div>
                 ))}

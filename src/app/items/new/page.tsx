@@ -41,6 +41,7 @@ const CATEGORIES = [
 ];
 
 const MAX_IMAGES = 5;
+const PHOTO_REQUIRED_MESSAGE = "Aspoň 1 fotka je povinná.";
 
 export default function NewItemPage() {
   const router = useRouter();
@@ -68,6 +69,7 @@ export default function NewItemPage() {
   const [deliveryErrors, setDeliveryErrors] = useState<
     Partial<Record<keyof ItemDeliveryOptionsDraft, string>>
   >({});
+  const [photoError, setPhotoError] = useState("");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
 
@@ -89,7 +91,7 @@ export default function NewItemPage() {
     guard();
 
     return () => {
-      imagesRef.current.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      imagesRef.current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
     };
   }, [router]);
 
@@ -101,7 +103,7 @@ export default function NewItemPage() {
       return;
     }
 
-    const t = setTimeout(async () => {
+    const timeout = setTimeout(async () => {
       try {
         setSearchingAddress(true);
 
@@ -123,7 +125,7 @@ export default function NewItemPage() {
       }
     }, 350);
 
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeout);
   }, [addressQuery, geoKey]);
 
   const ensureProfile = async (userId: string) => {
@@ -162,16 +164,21 @@ export default function NewItemPage() {
       previewUrl: URL.createObjectURL(file),
     }));
 
+    setPhotoError("");
     setImages((prev) => [...prev, ...next]);
   };
 
   const removeImage = (idx: number) => {
+    const nextLength = images.length - 1;
+
     setImages((prev) => {
       const copy = [...prev];
       const [removed] = copy.splice(idx, 1);
       if (removed) URL.revokeObjectURL(removed.previewUrl);
       return copy;
     });
+
+    setPhotoError(nextLength <= 0 ? PHOTO_REQUIRED_MESSAGE : "");
   };
 
   const moveImage = (fromIndex: number, toIndex: number) => {
@@ -200,22 +207,22 @@ export default function NewItemPage() {
   };
 
   const selectAddress = (feature: GeoapifyFeature) => {
-    const p = feature.properties ?? {};
-    const street = [p.street, p.housenumber].filter(Boolean).join(" ").trim();
+    const properties = feature.properties ?? {};
+    const street = [properties.street, properties.housenumber].filter(Boolean).join(" ").trim();
 
-    setAddressQuery(p.formatted ?? "");
-    setStreetAddress(street || p.formatted || "");
-    setCity(p.city ?? "");
-    setPostalCode(p.postcode ?? "");
-    setLatitude(typeof p.lat === "number" ? p.lat : null);
-    setLongitude(typeof p.lon === "number" ? p.lon : null);
+    setAddressQuery(properties.formatted ?? "");
+    setStreetAddress(street || properties.formatted || "");
+    setCity(properties.city ?? "");
+    setPostalCode(properties.postcode ?? "");
+    setLatitude(typeof properties.lat === "number" ? properties.lat : null);
+    setLongitude(typeof properties.lon === "number" ? properties.lon : null);
     setAddressResults([]);
   };
 
   const uploadImagesForItem = async (userId: string, itemId: number) => {
     for (let i = 0; i < images.length; i++) {
-      const f = images[i].file;
-      const ext = (f.name.split(".").pop() || "jpg").toLowerCase();
+      const file = images[i].file;
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
       const filename = `${crypto.randomUUID()}.${safeExt}`;
       const path = `${userId}/${itemId}/${filename}`;
@@ -224,7 +231,7 @@ export default function NewItemPage() {
 
       const { error: upErr } = await supabase.storage
         .from("item-images")
-        .upload(path, f, { upsert: false });
+        .upload(path, file, { upsert: false });
 
       if (upErr) throw new Error(upErr.message);
 
@@ -242,6 +249,13 @@ export default function NewItemPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (images.length === 0) {
+      setPhotoError(PHOTO_REQUIRED_MESSAGE);
+      setStatus("Chyba: " + PHOTO_REQUIRED_MESSAGE);
+      return;
+    }
+
     setSaving(true);
     setStatus("Ukladám ponuku...");
 
@@ -254,15 +268,18 @@ export default function NewItemPage() {
       if (!city.trim()) throw new Error("Vyber mesto z adresy.");
       if (!postalCode.trim()) throw new Error("Chýba PSČ.");
       if (!streetAddress.trim()) throw new Error("Chýba ulica a číslo.");
-      if (latitude === null || longitude === null) throw new Error("Chýbajú súradnice adresy.");
+      if (latitude === null || longitude === null) {
+        throw new Error("Chýbajú súradnice adresy.");
+      }
 
       const deliveryValidation = validateItemDeliveryOptionsDraft(deliveryOptions);
       if (!deliveryValidation.isValid) {
         setDeliveryErrors(deliveryValidation.errors);
-        throw new Error("Skontroluj nastavenie doruÄŤenia.");
+        throw new Error("Skontroluj nastavenie doručenia.");
       }
 
       setDeliveryErrors({});
+      setPhotoError("");
       const normalizedDeliveryOptions = normalizeItemDeliveryOptionsDraft(deliveryOptions);
 
       await ensureProfile(userId);
@@ -321,6 +338,9 @@ export default function NewItemPage() {
     () => describeItemDeliveryOptions(normalizeItemDeliveryOptionsDraft(deliveryOptions)),
     [deliveryOptions]
   );
+  const hasRequiredPhoto = images.length > 0;
+  const remainingImageSlots = Math.max(MAX_IMAGES - images.length, 0);
+  const canSaveItem = hasRequiredPhoto && !saving;
 
   const mapSrc =
     latitude !== null && longitude !== null && geoKey
@@ -331,20 +351,20 @@ export default function NewItemPage() {
     <main className="max-w-5xl">
       <h1 className="text-2xl font-semibold">Nová ponuka</h1>
       <p className="mt-2 text-white/70">
-        Vyplň údaje, vyber adresu cez našeptávač a pridaj fotky. Verejne sa zobrazí len mesto a PSČ,
-        nie ulica.
+        Vyplň údaje, vyber adresu cez našeptávač a pridaj fotky. Verejne sa zobrazí len
+        mesto a PSČ, nie ulica.
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="font-semibold">DoruÄŤenie</div>
+            <div className="font-semibold">Doručenie</div>
             <div className="text-sm text-white/60">
-              Nastav len aktuĂˇlne dostupnĂ© moĹľnosti pre tĂşto ponuku.
+              Nastav len aktuálne dostupné možnosti doručenia pre túto ponuku.
             </div>
 
             <label className="block">
-              <div className="mb-1 text-white/80">ReĹľim</div>
+              <div className="mb-1 text-white/80">Režim</div>
               <select
                 className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                 value={deliveryOptions.mode}
@@ -361,8 +381,8 @@ export default function NewItemPage() {
                 }}
                 disabled={saving}
               >
-                <option value="pickup_only">OsobnĂ˝ odber</option>
-                <option value="delivery_available">DoruÄŤenie dostupnĂ©</option>
+                <option value="pickup_only">Osobný odber</option>
+                <option value="delivery_available">Doručenie dostupné</option>
               </select>
             </label>
 
@@ -388,7 +408,7 @@ export default function NewItemPage() {
                 </label>
 
                 <label className="block">
-                  <div className="mb-1 text-white/80">CenovĂ˝ strop</div>
+                  <div className="mb-1 text-white/80">Cenový strop</div>
                   <input
                     className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
                     value={deliveryOptions.feeCap}
@@ -428,169 +448,246 @@ export default function NewItemPage() {
             ) : null}
           </div>
 
-        <div className="space-y-4">
-          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="font-semibold">Základné údaje</div>
+          <div className="space-y-4">
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="font-semibold">Základné údaje</div>
 
-            <label className="block">
-              <div className="mb-1 text-white/80">Názov *</div>
-              <input
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                disabled={saving}
-                placeholder="napr. Vrtačka DeWalt 18V"
-              />
-            </label>
-
-            <label className="block">
-              <div className="mb-1 text-white/80">Kategória *</div>
-              <select
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                disabled={saving}
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <div className="mb-1 text-white/80">Popis</div>
-              <textarea
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={5}
-                disabled={saving}
-                placeholder="Stav, príslušenstvo, podmienky prenájmu..."
-              />
-            </label>
-
-            <label className="block">
-              <div className="mb-1 text-white/80">Cena za deň (€) *</div>
-              <input
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={pricePerDay}
-                onChange={(e) => setPricePerDay(e.target.value)}
-                type="number"
-                min="0"
-                step="0.5"
-                required
-                disabled={saving}
-              />
-              <div className="mt-1 text-sm text-white/60">
-                Zobrazí sa ako <strong>{Number.isFinite(priceNumber) ? priceNumber : 0} € / deň</strong>
-              </div>
-            </label>
-          </div>
-
-          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            <div className="font-semibold">Adresa</div>
-            <div className="text-sm text-white/60">
-              Presná adresa sa nezobrazuje verejne. Zákazníci uvidia len mesto a PSČ.
-            </div>
-
-            <label className="block">
-              <div className="mb-1 text-white/80">Vyhľadať adresu *</div>
-              <input
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={addressQuery}
-                onChange={(e) => setAddressQuery(e.target.value)}
-                disabled={saving}
-                placeholder="napr. Hlavná 12, Trnava"
-              />
-            </label>
-
-            {searchingAddress ? (
-              <div className="text-sm text-white/60">Hľadám adresu...</div>
-            ) : null}
-
-            {addressResults.length > 0 ? (
-              <div className="overflow-hidden rounded-xl border border-white/10">
-                {addressResults.map((f, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => selectAddress(f)}
-                    className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10 last:border-b-0"
-                  >
-                    {f.properties?.formatted ?? "Neznáma adresa"}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="grid gap-3 md:grid-cols-2">
               <label className="block">
-                <div className="mb-1 text-white/80">Mesto</div>
+                <div className="mb-1 text-white/80">Názov *</div>
                 <input
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
                   disabled={saving}
+                  placeholder="napr. Vŕtačka DeWalt 18V"
                 />
               </label>
 
               <label className="block">
-                <div className="mb-1 text-white/80">PSČ</div>
+                <div className="mb-1 text-white/80">Kategória *</div>
+                <select
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  disabled={saving}
+                >
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Popis</div>
+                <textarea
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={5}
+                  disabled={saving}
+                  placeholder="Stav, príslušenstvo, podmienky prenájmu..."
+                />
+              </label>
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Cena za deň (€) *</div>
                 <input
                   className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
+                  value={pricePerDay}
+                  onChange={(e) => setPricePerDay(e.target.value)}
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  required
                   disabled={saving}
                 />
+                <div className="mt-1 text-sm text-white/60">
+                  Zobrazí sa ako{" "}
+                  <strong>{Number.isFinite(priceNumber) ? priceNumber : 0} € / deň</strong>
+                </div>
               </label>
             </div>
 
-            <label className="block">
-              <div className="mb-1 text-white/80">Ulica a číslo (skryté)</div>
-              <input
-                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                value={streetAddress}
-                onChange={(e) => setStreetAddress(e.target.value)}
-                disabled={saving}
-              />
-            </label>
-
-            {mapSrc ? (
-              <img
-                src={mapSrc}
-                alt="Mapa adresy"
-                className="h-64 w-full rounded-xl border border-white/10 object-cover"
-              />
-            ) : (
-              <div className="flex h-64 items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/50">
-                Mapa sa zobrazí po výbere adresy.
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="font-semibold">Adresa</div>
+              <div className="text-sm text-white/60">
+                Presná adresa sa nezobrazuje verejne. Zákazníci uvidia len mesto a PSČ.
               </div>
-            )}
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Vyhľadať adresu *</div>
+                <input
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={addressQuery}
+                  onChange={(e) => setAddressQuery(e.target.value)}
+                  disabled={saving}
+                  placeholder="napr. Hlavná 12, Trnava"
+                />
+              </label>
+
+              {searchingAddress ? (
+                <div className="text-sm text-white/60">Hľadám adresu...</div>
+              ) : null}
+
+              {addressResults.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-white/10">
+                  {addressResults.map((feature, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectAddress(feature)}
+                      className="block w-full border-b border-white/10 bg-black/20 px-4 py-3 text-left hover:bg-white/10 last:border-b-0"
+                    >
+                      {feature.properties?.formatted ?? "Neznáma adresa"}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <div className="mb-1 text-white/80">Mesto</div>
+                  <input
+                    className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    disabled={saving}
+                  />
+                </label>
+
+                <label className="block">
+                  <div className="mb-1 text-white/80">PSČ</div>
+                  <input
+                    className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    disabled={saving}
+                  />
+                </label>
+              </div>
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Ulica a číslo (skryté)</div>
+                <input
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
+                  disabled={saving}
+                />
+              </label>
+
+              {mapSrc ? (
+                <img
+                  src={mapSrc}
+                  alt="Mapa adresy"
+                  className="h-64 w-full rounded-xl border border-white/10 object-cover"
+                />
+              ) : (
+                <div className="flex h-64 items-center justify-center rounded-xl border border-white/10 bg-black/20 text-white/50">
+                  Mapa sa zobrazí po výbere adresy.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         </div>
 
         <div className="space-y-4">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="font-semibold">Fotky (max. {MAX_IMAGES})</div>
             <div className="mt-1 text-sm text-white/70">
-              1. fotka je hlavná. Potiahni dlaždice pre zmenu poradia.
+              Aspoň 1 fotka je povinná. Prvá fotka je hlavná a poradie môžeš meniť
+              potiahnutím.
             </div>
 
-            <input
-              className="mt-3 block w-full text-sm"
-              type="file"
-              accept="image/*"
-              multiple
-              disabled={saving || images.length >= MAX_IMAGES}
-              onChange={(e) => {
-                onPickImages(e.target.files);
-                e.currentTarget.value = "";
-              }}
-            />
+            <div
+              className={`mt-4 rounded-2xl border border-dashed p-4 transition ${
+                hasRequiredPhoto
+                  ? "border-emerald-400/40 bg-emerald-500/10"
+                  : "border-amber-400/50 bg-amber-500/10"
+              }`}
+            >
+              <div className="text-sm font-medium text-white">
+                {hasRequiredPhoto
+                  ? `Pripravené ${images.length}/${MAX_IMAGES} fotiek`
+                  : "Nahraj prvú fotku, bez nej sa ponuka neuloží"}
+              </div>
+              <div className="mt-1 text-sm text-white/70">
+                {remainingImageSlots > 0
+                  ? `Pridať môžeš ešte ${remainingImageSlots} ${
+                      remainingImageSlots === 1
+                        ? "fotku"
+                        : remainingImageSlots < 5
+                          ? "fotky"
+                          : "fotiek"
+                    }.`
+                  : "Dosiahol si limit fotiek pre túto ponuku."}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label
+                  className={`flex cursor-pointer flex-col rounded-2xl border px-4 py-4 transition ${
+                    saving || images.length >= MAX_IMAGES
+                      ? "pointer-events-none border-white/10 bg-white/5 text-white/35"
+                      : "border-white/20 bg-white text-black shadow-[0_12px_30px_rgba(255,255,255,0.12)] hover:bg-white/90"
+                  }`}
+                >
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={saving || images.length >= MAX_IMAGES}
+                    onChange={(e) => {
+                      onPickImages(e.target.files);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <span className="text-base font-semibold">Nahrať z galérie</span>
+                  <span className="mt-1 text-sm opacity-75">
+                    Vyber viac fotiek naraz zo zariadenia.
+                  </span>
+                </label>
+
+                <label
+                  className={`flex cursor-pointer flex-col rounded-2xl border px-4 py-4 transition ${
+                    saving || images.length >= MAX_IMAGES
+                      ? "pointer-events-none border-white/10 bg-white/5 text-white/35"
+                      : "border-white/15 bg-black/30 text-white hover:bg-black/40"
+                  }`}
+                >
+                  <input
+                    className="sr-only"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={saving || images.length >= MAX_IMAGES}
+                    onChange={(e) => {
+                      onPickImages(e.target.files);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <span className="text-base font-semibold">Odfotiť mobilom</span>
+                  <span className="mt-1 text-sm text-white/65">
+                    Otvorí kameru na rýchle pridanie aktuálnej fotky.
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div
+              className={`mt-4 rounded-xl border p-3 text-sm ${
+                hasRequiredPhoto
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
+                  : "border-red-500/30 bg-red-500/10 text-red-200"
+              }`}
+            >
+              {hasRequiredPhoto
+                ? "Fotka je povinná a podmienka je splnená."
+                : PHOTO_REQUIRED_MESSAGE}
+            </div>
 
             {images.length > 0 ? (
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -653,7 +750,7 @@ export default function NewItemPage() {
                 ))}
               </div>
             ) : (
-              <div className="mt-4 text-sm text-white/60">Zatiaľ neboli vybrané žiadne fotky.</div>
+              <div className="mt-4 text-sm text-white/60">Zatiaľ si nevybral žiadne fotky.</div>
             )}
           </div>
 
@@ -666,7 +763,7 @@ export default function NewItemPage() {
               <div>Mesto: <strong className="text-white">{city || "-"}</strong></div>
               <div>PSČ: <strong className="text-white">{postalCode || "-"}</strong></div>
               <div>Cena: <strong className="text-white">{pricePerDay || "0"} € / deň</strong></div>
-              <div>DoruÄŤenie: <strong className="text-white">{deliverySummary.title}</strong></div>
+              <div>Doručenie: <strong className="text-white">{deliverySummary.title}</strong></div>
               {deliverySummary.detailRows.map((row) => (
                 <div key={row.label}>
                   {row.label}: <strong className="text-white">{row.value}</strong>
@@ -677,10 +774,14 @@ export default function NewItemPage() {
             </div>
 
             <button
-              className="w-full rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-              disabled={saving}
+              className={`w-full rounded-xl px-4 py-3 font-semibold transition ${
+                canSaveItem
+                  ? "bg-white text-black shadow-[0_14px_34px_rgba(255,255,255,0.2)] hover:bg-white/90"
+                  : "cursor-not-allowed border border-white/10 bg-white/10 text-white/45"
+              }`}
+              disabled={!canSaveItem}
             >
-              {saving ? "Ukladám..." : "Uložiť ponuku"}
+              {saving ? "Ukladám..." : hasRequiredPhoto ? "Uložiť ponuku" : "Nahraj aspoň 1 fotku"}
             </button>
 
             {status ? <p className="text-white/80">{status}</p> : null}
