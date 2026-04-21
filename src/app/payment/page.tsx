@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
 import { supabase } from "@/lib/supabaseClient";
 
 type ReservationRow = {
@@ -16,32 +17,52 @@ type ReservationRow = {
   status: string | null;
 };
 
-type CheckoutAvailabilityResponse = {
+type CheckoutResponse = {
   available?: boolean;
+  checkoutUrl?: string;
+  demo?: boolean;
   error?: string;
+  fallback?: boolean;
+  live?: boolean;
+  reason?: string;
 };
 
 function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleString("sk-SK");
+  const date = new Date(dateStr);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateStr;
+  }
+
+  return date.toLocaleString("sk-SK");
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function PaymentInner() {
-  const sp = useSearchParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
 
-  const reservationIdRaw = sp.get("reservation_id");
+  const reservationIdRaw = searchParams.get("reservation_id");
   const reservationId = reservationIdRaw ? Number(reservationIdRaw) : NaN;
+  const success = searchParams.get("success") === "1";
+  const cancel = searchParams.get("cancel") === "1";
 
-  const [status, setStatus] = useState("Načítavam platbu...");
+  const [status, setStatus] = useState("Nacitavam platbu...");
   const [reservation, setReservation] = useState<ReservationRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
-  const [availabilityChecking, setAvailabilityChecking] = useState(false);
+  const [fallbackMessage, setFallbackMessage] = useState("");
+  const [launchAttempted, setLaunchAttempted] = useState(false);
 
   const loadReservation = async () => {
-    if (!Number.isFinite(reservationId)) return null;
+    if (!Number.isFinite(reservationId)) {
+      return null;
+    }
 
     const { data, error } = await supabase
       .from("reservations")
@@ -49,23 +70,27 @@ function PaymentInner() {
       .eq("id", reservationId)
       .maybeSingle();
 
-    if (error) return null;
+    if (error) {
+      return null;
+    }
 
     const row = (data ?? null) as ReservationRow | null;
     setReservation(row);
     return row;
   };
 
-  const recheckAvailability = async (loadingStatus: string) => {
+  const createCheckout = async (loadingStatus: string) => {
     if (!Number.isFinite(reservationId)) {
-      const nextError = "Chýba reservation_id.";
+      const nextError = "Chyba reservation_id.";
       setAvailabilityError(nextError);
       setStatus(nextError);
-      return false;
+      return null;
     }
 
-    setAvailabilityChecking(true);
+    setBusy(true);
     setStatus(loadingStatus);
+    setAvailabilityError("");
+    setFallbackMessage("");
 
     try {
       const {
@@ -73,13 +98,13 @@ function PaymentInner() {
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        const nextError = "Pre pokračovanie sa musíš prihlásiť.";
+        const nextError = "Pre pokracovanie sa musis prihlasit.";
         setAvailabilityError(nextError);
         setStatus(nextError);
-        return false;
+        return null;
       }
 
-      const res = await fetch("/api/checkout", {
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,285 +113,239 @@ function PaymentInner() {
         body: JSON.stringify({ reservationId }),
       });
 
-      const payload = (await res.json().catch(() => null)) as CheckoutAvailabilityResponse | null;
+      const payload = (await response.json().catch(() => null)) as CheckoutResponse | null;
 
-      if (!res.ok) {
+      if (!response.ok) {
         const nextError =
           payload?.error ??
-          (res.status === 409
-            ? "Zvolený termín už nie je voľný. Vyber si prosím iný termín."
-            : "Nepodarilo sa overiť dostupnosť termínu.");
+          (response.status === 409
+            ? "Zvoleny termin uz nie je volny. Vyber si prosim iny termin."
+            : "Nepodarilo sa pripravit platbu.");
 
         setAvailabilityError(nextError);
         setStatus(nextError);
-        return false;
+        return null;
       }
 
-      setAvailabilityError("");
-      return true;
-    } catch {
-      const nextError = "Nepodarilo sa overiť dostupnosť termínu. Skús to znova.";
+      if (payload?.checkoutUrl) {
+        return payload;
+      }
+
+      if (payload?.fallback || payload?.demo) {
+        const nextMessage =
+          "Platobna brana este nie je dokoncene nakonfigurovana. Rezervacia zostava nezaplatena, skus to neskor znova.";
+        setFallbackMessage(nextMessage);
+        setStatus(nextMessage);
+        return payload;
+      }
+
+      const nextError = payload?.error ?? "Nepodarilo sa pripravit platbu.";
       setAvailabilityError(nextError);
       setStatus(nextError);
-      return false;
+      return null;
+    } catch {
+      const nextError = "Nepodarilo sa pripravit platbu. Skus to znova.";
+      setAvailabilityError(nextError);
+      setStatus(nextError);
+      return null;
     } finally {
-      setAvailabilityChecking(false);
+      setBusy(false);
     }
   };
 
-  const insertNotification = async (
-    userId: string,
-    title: string,
-    body: string,
-    link: string
-  ) => {
-    await supabase.from("notifications").insert({
-      user_id: userId,
-      type: "payment",
-      title,
-      body,
-      link,
-      is_read: false,
-    });
+  const waitForPaidReservation = async () => {
+    setStatus("Platba prebehla. Cakam na potvrdenie webhookom...");
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const nextReservation = await loadReservation();
+
+      if (nextReservation?.payment_status === "paid") {
+        setStatus("Platba bola uspesne zaevidovana.");
+        window.setTimeout(() => {
+          router.replace("/reservations");
+        }, 1200);
+        return;
+      }
+
+      if (nextReservation?.payment_status === "failed") {
+        setStatus("Platba sa nepodarila zaevidovat ako uspesna.");
+        return;
+      }
+
+      await wait(2000);
+    }
+
+    setStatus(
+      "Platba sa este spracovava. Obnov tuto stranku o chvilu alebo skontroluj Moje rezervacie."
+    );
   };
 
   useEffect(() => {
+    let active = true;
+
     const run = async () => {
       if (!Number.isFinite(reservationId)) {
-        setStatus("Chýba reservation_id.");
+        if (active) {
+          setStatus("Chyba reservation_id.");
+        }
         return;
       }
 
       const row = await loadReservation();
 
+      if (!active) {
+        return;
+      }
+
       if (!row) {
-        setStatus("Rezervácia neexistuje.");
+        setStatus("Rezervacia neexistuje.");
+        return;
+      }
+
+      if (success) {
+        if (row.payment_status === "paid") {
+          setStatus("Platba bola uspesne zaevidovana.");
+          window.setTimeout(() => {
+            router.replace("/reservations");
+          }, 1200);
+          return;
+        }
+
+        void waitForPaidReservation();
+        return;
+      }
+
+      if (cancel) {
+        setStatus("Platba bola zrusena. Rezervacia zostava nezaplatena.");
         return;
       }
 
       if (row.payment_status === "paid") {
-        setStatus("Táto rezervácia je už zaplatená ✅");
+        setStatus("Tato rezervacia je uz zaplatena.");
         return;
       }
 
-      if (row.status === "cancelled" && row.payment_status === "failed") {
-        setStatus("Táto platba už expirovala alebo zlyhala.");
+      if (row.payment_status === "failed") {
+        setStatus("Predosla platba zlyhala alebo expirovala.");
         return;
       }
 
-      const available = await recheckAvailability("Kontrolujem dostupnosť termínu...");
-      if (!available) {
+      if (row.status === "cancelled") {
+        setStatus("Tato rezervacia je zrusena.");
         return;
       }
 
-      setStatus("Demo režim: vyber výsledok platby.");
+      if (launchAttempted) {
+        return;
+      }
+
+      setLaunchAttempted(true);
+      const payload = await createCheckout("Presmerovavam na Stripe Checkout...");
+
+      if (!active || !payload?.checkoutUrl) {
+        return;
+      }
+
+      window.location.assign(payload.checkoutUrl);
     };
 
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reservationId]);
 
-  const markPaidDemo = async () => {
-    if (!Number.isFinite(reservationId) || busy) return;
-
-    setBusy(true);
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
-
-    if (!userId) {
-      setBusy(false);
-      router.push("/login");
-      return;
-    }
-
-    const available = await recheckAvailability(
-      "Kontrolujem dostupnosť termínu pred pokračovaním..."
-    );
-
-    if (!available) {
-      setBusy(false);
-      return;
-    }
-
-    setStatus("Označujem ako zaplatené (demo)...");
-
-    const currentReservation = await loadReservation();
-    if (!currentReservation) {
-      setStatus("Chyba: rezervácia neexistuje.");
-      setBusy(false);
-      return;
-    }
-
-    const { error } = await supabase.rpc("payment_record_event", {
-      p_reservation_id: reservationId,
-      p_provider: "demo",
-      p_event_type: "payment_demo_paid",
-      p_note: "Používateľ simuloval úspešnú demo platbu.",
-    });
-
-    if (error) {
-      setStatus("Chyba: " + error.message);
-      setBusy(false);
-      return;
-    }
-
-    const { data: itemRow } = await supabase
-      .from("items")
-      .select("owner_id,title")
-      .eq("id", currentReservation.item_id)
-      .maybeSingle();
-
-    if (itemRow?.owner_id) {
-      await insertNotification(
-        itemRow.owner_id,
-        "Platba prijatá",
-        `Rezervácia #${reservationId} bola zaplatená.`,
-        "/owner/reservations"
-      );
-    }
-
-    await insertNotification(
-      userId,
-      "Platba úspešná",
-      `Rezervácia #${reservationId} bola úspešne zaplatená.`,
-      "/reservations"
-    );
-
-    setStatus("Platba úspešná ✅ (demo)");
-    router.replace("/reservations");
-  };
-
-  const markFailedDemo = async () => {
-    if (!Number.isFinite(reservationId) || busy) return;
-
-    setBusy(true);
-    setStatus("Simulujem zlyhanie platby...");
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
-
-    if (!userId) {
-      setBusy(false);
-      router.push("/login");
-      return;
-    }
-
-    const { error } = await supabase.rpc("payment_record_event", {
-      p_reservation_id: reservationId,
-      p_provider: "demo",
-      p_event_type: "payment_demo_failed",
-      p_note: "Používateľ simuloval zlyhanie demo platby.",
-    });
-
-    if (error) {
-      setStatus("Chyba: " + error.message);
-      setBusy(false);
-      return;
-    }
-
-    await insertNotification(
-      userId,
-      "Platba zlyhala",
-      `Platba pre rezerváciu #${reservationId} zlyhala.`,
-      "/reservations"
-    );
-
-    setStatus("Platba zlyhala (demo)");
-    router.replace("/reservations");
-  };
-
-  const showActions =
-    Number.isFinite(reservationId) &&
-    !!reservation &&
-    !availabilityError &&
-    !availabilityChecking &&
-    reservation.payment_status !== "paid" &&
-    !(reservation.status === "cancelled" && reservation.payment_status === "failed");
+    return () => {
+      active = false;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cancel, launchAttempted, reservationId, router, success]);
 
   const itemDetailHref = useMemo(() => {
-    if (!reservation) return null;
+    if (!reservation) {
+      return null;
+    }
 
     const params = new URLSearchParams();
-    if (reservation.date_from) params.set("date_from", reservation.date_from);
-    if (reservation.date_to) params.set("date_to", reservation.date_to);
+
+    if (reservation.date_from) {
+      params.set("date_from", reservation.date_from);
+    }
+
+    if (reservation.date_to) {
+      params.set("date_to", reservation.date_to);
+    }
 
     const query = params.toString();
     return query ? `/items/${reservation.item_id}?${query}` : `/items/${reservation.item_id}`;
   }, [reservation]);
+
+  const showProcessingState =
+    success && reservation?.payment_status !== "paid" && reservation?.payment_status !== "failed";
 
   return (
     <main className="max-w-xl">
       <h1 className="text-2xl font-semibold">Platba</h1>
 
       <p className="mt-4">
-        Rezervácia: <strong>#{reservationIdRaw ?? "-"}</strong>
+        Rezervacia: <strong>#{reservationIdRaw ?? "-"}</strong>
       </p>
 
       {reservation?.payment_due_at ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-          Platbu treba dokončiť do:{" "}
-          <strong className="text-white">
-            {formatDateTime(reservation.payment_due_at)}
-          </strong>
+          Platbu treba dokoncit do: {" "}
+          <strong className="text-white">{formatDateTime(reservation.payment_due_at)}</strong>
         </div>
       ) : null}
 
       {availabilityError ? (
         <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-100">
-          <div className="font-semibold">Termín už nie je voľný.</div>
+          <div className="font-semibold">Platbu sa nepodarilo pripravit.</div>
           <div className="mt-1">{availabilityError}</div>
+        </div>
+      ) : null}
+
+      {fallbackMessage ? (
+        <div className="mt-4 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm text-yellow-50">
+          <div className="font-semibold">Stripe este nie je aktivny.</div>
+          <div className="mt-1">{fallbackMessage}</div>
+        </div>
+      ) : null}
+
+      {cancel ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/80">
+          Platba bola v Stripe zrusena. Rezervacia nebola oznacena ako zaplatena.
         </div>
       ) : null}
 
       <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-6">
         <p className="font-medium">{status}</p>
 
-        <div className="mt-4 text-sm text-white/70">
-          Aktívny je iba demo payment flow. Stripe sa bude riešiť neskôr.
-        </div>
-
-        {availabilityChecking ? (
+        {showProcessingState ? (
           <div className="mt-4 text-sm text-white/60">
-            Prebieha kontrola dostupnosti termínu...
+            Ak sa webhook este nespracoval, stav sa zmeni az po doruceni potvrdenia zo Stripe.
           </div>
         ) : null}
 
-        {showActions ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={markPaidDemo}
-              type="button"
-              disabled={busy}
-            >
-              Simulovať úspešnú platbu
-            </button>
-
-            <button
-              className="rounded border border-white/15 px-4 py-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={markFailedDemo}
-              type="button"
-              disabled={busy}
-            >
-              Simulovať zlyhanie
-            </button>
+        {!success && !cancel && !fallbackMessage && reservation?.payment_status !== "paid" ? (
+          <div className="mt-4 text-sm text-white/70">
+            Po priprave checkoutu budes presmerovany na bezpecnu platobnu stranku Stripe.
           </div>
+        ) : null}
+
+        {busy ? (
+          <div className="mt-4 text-sm text-white/60">Pripravujem checkout...</div>
         ) : null}
       </div>
 
       <div className="mt-6 flex gap-4">
         {itemDetailHref ? (
           <Link className="underline" href={itemDetailHref}>
-            Späť na detail položky
+            Spat na detail polozky
           </Link>
         ) : (
           <Link className="underline" href="/items">
-            Späť na ponuky
+            Spat na ponuky
           </Link>
         )}
         <Link className="underline" href="/reservations">
-          Moje rezervácie
+          Moje rezervacie
         </Link>
       </div>
     </main>
@@ -375,7 +354,7 @@ function PaymentInner() {
 
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<main className="p-8">Načítavam platbu...</main>}>
+    <Suspense fallback={<main className="p-8">Nacitavam platbu...</main>}>
       <PaymentInner />
     </Suspense>
   );

@@ -61,10 +61,10 @@
       "purpose": "Cron jobs, background workers, schedulers"
     },
     "webhook_handlers": {
-      "path": "src/app/api/stripe/webhook",
-      "status": "confirmed_directory_from_local_output",
+      "path": "src/app/api/stripe/webhook/route.ts",
+      "status": "confirmed_from_local_output",
       "owner": "RENTULO AUTOMATION",
-      "purpose": "Stripe webhook receiver"
+      "purpose": "Stripe webhook receiver route for payment confirmation and failure events"
     },
     "maintenance_routes": {
       "path": "src/app/api/maintenance",

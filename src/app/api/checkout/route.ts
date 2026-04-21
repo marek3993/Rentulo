@@ -1,14 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { getStripe, isStripeConfigured } from "@/lib/stripe";
+
+export const runtime = "nodejs";
+
 type ReservationRow = {
   id: number;
   item_id: number;
+  renter_id: string | null;
   date_from: string;
   date_to: string;
   status: string | null;
   payment_status: string | null;
   payment_due_at: string | null;
+};
+
+type CheckoutRequestBody = {
+  reservationId?: number | string | null;
+  reservation_id?: number | string | null;
+};
+
+type ItemRow = {
+  id: number;
+  title: string | null;
+  price_per_day: number | null;
 };
 
 const NON_BLOCKING_RESERVATION_STATUSES = new Set([
@@ -29,12 +45,16 @@ function buildSupabaseClient(req: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase nie je nakonfigurovaný.");
+    throw new Error("Supabase nie je nakonfigurovany.");
   }
 
   const authorization = req.headers.get("authorization")?.trim();
 
   return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
     global: authorization
       ? {
           headers: {
@@ -60,31 +80,110 @@ function isBlockingReservation(reservation: ReservationRow) {
   return true;
 }
 
+function parseReservationId(body: CheckoutRequestBody | null) {
+  const rawValue = body?.reservationId ?? body?.reservation_id;
+  const reservationId = Number(rawValue);
+
+  if (!Number.isInteger(reservationId) || reservationId <= 0) {
+    return null;
+  }
+
+  return reservationId;
+}
+
+function parseDateOnly(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return null;
+  }
+
+  const parsed = Date.UTC(year, month - 1, day);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getReservationDays(dateFrom: string, dateTo: string) {
+  const fromUtc = parseDateOnly(dateFrom);
+  const toUtc = parseDateOnly(dateTo);
+
+  if (fromUtc === null || toUtc === null) {
+    return null;
+  }
+
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const diff = Math.floor((toUtc - fromUtc) / msPerDay) + 1;
+
+  return diff > 0 ? diff : null;
+}
+
+function normalizeBaseUrl(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+function resolveSiteUrl(req: NextRequest) {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configuredUrl) {
+    return normalizeBaseUrl(configuredUrl);
+  }
+
+  const forwardedHost = req.headers.get("x-forwarded-host")?.trim();
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.trim() || "https";
+
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  return normalizeBaseUrl(req.nextUrl.origin);
+}
+
+function buildCheckoutUrls(req: NextRequest, reservationId: number) {
+  const siteUrl = resolveSiteUrl(req);
+
+  return {
+    successUrl: `${siteUrl}/payment?reservation_id=${reservationId}&success=1`,
+    cancelUrl: `${siteUrl}/payment?reservation_id=${reservationId}&cancel=1`,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authorization = req.headers.get("authorization")?.trim();
     if (!authorization) {
-      return NextResponse.json({ error: "Chýba prihlásenie." }, { status: 401 });
+      return NextResponse.json({ error: "Chyba prihlasenie." }, { status: 401 });
     }
 
-    const body = (await req.json().catch(() => null)) as { reservationId?: number } | null;
-    const reservationId = Number(body?.reservationId);
+    const body = (await req.json().catch(() => null)) as CheckoutRequestBody | null;
+    const reservationId = parseReservationId(body);
 
-    if (!Number.isInteger(reservationId) || reservationId <= 0) {
-      return NextResponse.json({ error: "Neplatné reservationId." }, { status: 400 });
+    if (!reservationId) {
+      return NextResponse.json({ error: "Neplatne reservationId." }, { status: 400 });
     }
 
     const supabase = buildSupabaseClient(req);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Chyba prihlasenie." }, { status: 401 });
+    }
 
     const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,status,payment_status,payment_due_at")
+      .select("id,item_id,renter_id,date_from,date_to,status,payment_status,payment_due_at")
       .eq("id", reservationId)
       .maybeSingle();
 
     if (reservationError) {
       return NextResponse.json(
-        { error: "Nepodarilo sa načítať rezerváciu." },
+        { error: "Nepodarilo sa nacitat rezervaciu." },
         { status: 500 }
       );
     }
@@ -92,12 +191,16 @@ export async function POST(req: NextRequest) {
     const reservation = (reservationData ?? null) as ReservationRow | null;
 
     if (!reservation) {
-      return NextResponse.json({ error: "Rezervácia neexistuje." }, { status: 404 });
+      return NextResponse.json({ error: "Rezervacia neexistuje." }, { status: 404 });
+    }
+
+    if (reservation.renter_id && reservation.renter_id !== user.id) {
+      return NextResponse.json({ error: "K rezervacii nemas pristup." }, { status: 403 });
     }
 
     const { data: overlappingRows, error: overlapError } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,status,payment_status,payment_due_at")
+      .select("id,item_id,renter_id,date_from,date_to,status,payment_status,payment_due_at")
       .eq("item_id", reservation.item_id)
       .neq("id", reservation.id)
       .lte("date_from", reservation.date_to)
@@ -105,7 +208,7 @@ export async function POST(req: NextRequest) {
 
     if (overlapError) {
       return NextResponse.json(
-        { error: "Nepodarilo sa overiť dostupnosť termínu." },
+        { error: "Nepodarilo sa overit dostupnost terminu." },
         { status: 500 }
       );
     }
@@ -117,20 +220,121 @@ export async function POST(req: NextRequest) {
         {
           available: false,
           error:
-            "Zvolený termín už nie je voľný. Rezervácia bola medzitým obsadená iným používateľom.",
+            "Zvoleny termin uz nie je volny. Rezervacia bola medzitym obsadena inym pouzivatelom.",
         },
         { status: 409 }
+      );
+    }
+
+    const { data: itemData, error: itemError } = await supabase
+      .from("items")
+      .select("id,title,price_per_day")
+      .eq("id", reservation.item_id)
+      .maybeSingle();
+
+    if (itemError) {
+      return NextResponse.json(
+        { error: "Nepodarilo sa nacitat cenu polozky." },
+        { status: 500 }
+      );
+    }
+
+    const item = (itemData ?? null) as ItemRow | null;
+
+    if (!item) {
+      return NextResponse.json({ error: "Polozka rezervacie neexistuje." }, { status: 404 });
+    }
+
+    const reservationDays = getReservationDays(reservation.date_from, reservation.date_to);
+    const pricePerDay = Number(item.price_per_day);
+
+    if (!reservationDays || !Number.isFinite(pricePerDay) || pricePerDay <= 0) {
+      return NextResponse.json(
+        { error: "Nepodarilo sa urcit cenu rezervacie." },
+        { status: 400 }
+      );
+    }
+
+    const unitAmount = Math.round(pricePerDay * reservationDays * 100);
+
+    if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
+      return NextResponse.json(
+        { error: "Nepodarilo sa pripravit platbu pre tuto rezervaciu." },
+        { status: 400 }
+      );
+    }
+
+    if (!isStripeConfigured()) {
+      return NextResponse.json({
+        ok: true,
+        available: true,
+        demo: true,
+        fallback: true,
+        reason: "stripe_not_configured",
+      });
+    }
+
+    const stripe = getStripe();
+
+    if (!stripe) {
+      return NextResponse.json({
+        ok: true,
+        available: true,
+        demo: true,
+        fallback: true,
+        reason: "stripe_not_configured",
+      });
+    }
+
+    const { successUrl, cancelUrl } = buildCheckoutUrls(req, reservation.id);
+    const metadata: Record<string, string> = {
+      reservationId: String(reservation.id),
+      itemId: String(reservation.item_id),
+      renterId: reservation.renter_id ?? user.id,
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      client_reference_id: String(reservation.id),
+      metadata,
+      payment_intent_data: {
+        metadata,
+      },
+      customer_email: user.email ?? undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "eur",
+            unit_amount: unitAmount,
+            product_data: {
+              name: item.title?.trim() || `Rezervacia #${reservation.id}`,
+              description: `${reservation.date_from} az ${reservation.date_to} (${reservationDays} dni)`,
+            },
+          },
+        },
+      ],
+    });
+
+    if (!session.url) {
+      return NextResponse.json(
+        { error: "Stripe neposkytol checkout URL." },
+        { status: 500 }
       );
     }
 
     return NextResponse.json({
       ok: true,
       available: true,
-      demo: true,
+      live: true,
+      checkoutUrl: session.url,
+      sessionId: session.id,
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Nepodarilo sa overiť dostupnosť termínu.";
+      error instanceof Error ? error.message : "Nepodarilo sa pripravit checkout.";
 
     return NextResponse.json({ error: message }, { status: 500 });
   }

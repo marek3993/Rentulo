@@ -336,18 +336,107 @@
       "notes": "Only nav-level behavior explicitly visible in ClientNav was formalized."
     },
     "payments_surfaces": {
-      "status": "route_confirmed_contract_not_yet_formalized",
+      "status": "mvp_payment_policy_locked_from_repo_evidence",
       "source_owner": "RENTULO PLATBY",
       "data_owner": "RENTULO DATA",
       "runtime_owner": "RENTULO AUTOMATION",
       "paths": [
         "src/app/payment/page.tsx",
         "src/app/api/checkout/route.ts",
-        "src/app/api/stripe/webhook"
+        "src/app/api/stripe/webhook/route.ts"
       ],
-      "inputs": "unknown",
-      "outputs": "unknown",
-      "notes": "Payment page and related API/webhook paths remain path-confirmed only."
+      "payment_policy_truths": {
+        "booking_model": "owner_confirmation",
+        "instant_booking_mvp": false,
+        "current_runtime_mode": "stripe_checkout_live_when_env_present_else_safe_fallback",
+        "future_live_payment_model_target": "auth_now_capture_later",
+        "owner_confirmation_rule": "owner_may_confirm_only_after_successful_payment_phase",
+        "owner_no_response_rule_target": "auto_cancel_after_12_hours_and_release_payment_auth",
+        "checkout_availability_lock_target": "15_minutes",
+        "pricing_model_mvp": "daily_only",
+        "hourly_pricing_mvp": false,
+        "weekly_pricing_mvp": false,
+        "half_day_mvp": false,
+        "daily_cap_mvp": false,
+        "cancellation_policy_target": {
+          "renter_cancel_gte_72h": "full_refund",
+          "renter_cancel_lt_72h_gte_24h": "50_percent_refund",
+          "renter_cancel_lt_24h": "no_refund",
+          "owner_decline_or_timeout_or_unavailable": "full_refund_or_auth_release"
+        }
+      },
+      "payment_page_contract": {
+        "status": "route_confirmed_partial_contract",
+        "path": "src/app/payment/page.tsx",
+        "inputs": {
+          "reservation_id_query_param": "required_for_reservation_lookup"
+        },
+        "outputs": {
+          "shows_reservation_id": true,
+          "may_show_payment_due_at": true,
+          "shows_demo_only_payment_messaging": false,
+          "supports_demo_success_failure_simulation": false,
+          "supports_live_stripe_checkout_when_env_present": true,
+          "keeps_safe_fallback_when_stripe_env_missing": true
+        },
+        "notes": [
+          "Current page loads the reservation by reservation_id, starts Stripe Checkout when /api/checkout returns a live URL, and handles success/cancel query states.",
+          "If Stripe env is missing, the page stays non-crashing and shows a safe fallback message instead of a fake success."
+        ]
+      },
+      "checkout_route_contract": {
+        "status": "route_confirmed_partial_contract",
+        "path": "src/app/api/checkout/route.ts",
+        "inputs": {
+          "method": "POST",
+          "body": {
+            "reservationId": "required"
+          }
+        },
+        "outputs": {
+          "availability_recheck_behavior": "Re-reads the reservation, checks overlapping reservations for the same item, treats non-cancelled and non-failed overlaps as blocking, and returns 409 when the selected term is no longer available.",
+          "safe_fallback_behavior_when_env_missing": "Returns a safe non-crashing JSON response with ok: true, available: true, demo: true, fallback: true after the availability recheck passes.",
+          "live_stripe_session_contract": "Creates a Stripe Checkout Session when Stripe env is present and returns checkoutUrl for the payment page redirect."
+        },
+        "notes": [
+          "Current route still rechecks availability first, and now also creates a live Stripe Checkout Session when runtime env is configured."
+        ]
+      },
+      "stripe_webhook_contract": {
+        "status": "route_confirmed_partial_contract",
+        "path": "src/app/api/stripe/webhook/route.ts",
+        "inputs": {
+          "method": "POST",
+          "signature_header": "stripe-signature",
+          "env_requirements": [
+            "STRIPE_SECRET_KEY",
+            "STRIPE_WEBHOOK_SECRET",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "SUPABASE_SERVICE_ROLE_KEY"
+          ]
+        },
+        "outputs": {
+          "success_behavior": "For checkout.session.completed, verifies the Stripe signature, marks the reservation payment_status as paid, and records a payment_events row with provider stripe.",
+          "failure_behavior": "For checkout.session.expired and payment_intent.payment_failed, marks the reservation payment_status as failed and records a payment_events row.",
+          "safe_skip_behavior_when_env_missing": "Returns ok: true, skipped: true when Stripe or service-role env is not configured, instead of crashing the route."
+        },
+        "notes": [
+          "Webhook processing is present in the working tree and is the route that turns a successful Stripe checkout into reservation payment_status=paid.",
+          "Current implementation deduplicates payment_events by reservation_id, event_type, and note before inserting."
+        ]
+      },
+      "unknowns": [
+        "Deposit/hold amount is not formalized.",
+        "Current runtime is immediate-charge checkout, not the future auth-now/capture-later target.",
+        "Pricing beyond daily-only MVP is not locked in runtime yet.",
+        "Any payment provider contract not explicit in the current repo remains unknown."
+      ],
+      "notes": [
+        "Current runtime can create live Stripe Checkout Sessions when env is present and otherwise stays in safe fallback mode.",
+        "Owner confirmation is already implied by owner reservations UI and is now locked as requiring a successful payment phase first.",
+        "Item detail must not promise deposit/hold wording before formal contract exists.",
+        "Payments_surfaces is now the truth anchor for MVP booking/payment/storno policy until a fuller live contract is formalized."
+      ]
     },
     "disputes_surfaces": {
       "status": "route_confirmed_contract_not_yet_formalized",
