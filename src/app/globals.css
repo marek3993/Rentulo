@@ -262,6 +262,18 @@ textarea::placeholder {
   background: rgba(5, 7, 10, 0.9);
 }
 
+.rentulo-violet-eyebrow {
+  border: 1px solid rgba(167, 139, 250, 0.18);
+  background: rgba(139, 92, 246, 0.08);
+  color: rgba(221, 214, 254, 0.8);
+}
+
+:root[data-theme="light"] .rentulo-violet-eyebrow {
+  border-color: rgba(109, 40, 217, 0.18);
+  background: rgba(139, 92, 246, 0.14);
+  color: rgba(91, 33, 182, 0.92);
+}
+
 @keyframes rentuloFloat {
   0% {
     transform: translateY(0px);

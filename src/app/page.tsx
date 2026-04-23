@@ -64,7 +64,7 @@ const radiusOptions = [5, 10, 20, 50] as const;
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex rounded-full border border-violet-400/18 bg-violet-500/8 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-violet-200/80">
+    <div className="rentulo-violet-eyebrow inline-flex rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em]">
       {children}
     </div>
   );
