@@ -799,7 +799,7 @@ function ItemsPageInner() {
           return (
             <li
               key={item.id}
-              className="group cursor-pointer overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-black"
+              className="rentulo-theme-preserve-dark group cursor-pointer overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-black"
               onClick={() => openItemDetail(item.id)}
               onKeyDown={(event) => handleItemCardKeyDown(event, item.id)}
               tabIndex={0}
@@ -819,24 +819,24 @@ function ItemsPageInner() {
                   </div>
                 )}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="rentulo-image-overlay absolute inset-0" />
 
                 <div className="absolute left-4 right-4 top-4 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-2">
                     {item.category ? (
-                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      <span className="rentulo-image-chip rounded-full px-3 py-1 text-xs font-medium">
                         {item.category}
                       </span>
                     ) : null}
 
                     {item.distance_km !== null && item.distance_km !== undefined ? (
-                      <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur-sm">
+                      <span className="rentulo-image-chip rounded-full px-3 py-1 text-xs font-medium text-white/80">
                         {item.distance_km} km
                       </span>
                     ) : null}
                   </div>
 
-                  <span className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs text-white/80 backdrop-blur-sm">
+                  <span className="rentulo-image-chip rounded-full px-3 py-1 text-xs text-white/80">
                     {images.length > 0 ? `${activeIndex + 1}/${images.length} fotiek` : "Bez fotiek"}
                   </span>
                 </div>
@@ -849,7 +849,7 @@ function ItemsPageInner() {
                         event.stopPropagation();
                         showPrevImage(item.id);
                       }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
+                      className="rentulo-image-control absolute left-4 top-1/2 -translate-y-1/2 rounded-full px-3 py-2 text-sm"
                     >
                       ←
                     </button>
@@ -860,7 +860,7 @@ function ItemsPageInner() {
                         event.stopPropagation();
                         showNextImage(item.id);
                       }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-sm text-white backdrop-blur-sm hover:bg-black/65"
+                      className="rentulo-image-control absolute right-4 top-1/2 -translate-y-1/2 rounded-full px-3 py-2 text-sm"
                     >
                       →
                     </button>
@@ -877,7 +877,7 @@ function ItemsPageInner() {
                     </div>
                   </div>
 
-                  <div className="rounded-[1.2rem] border border-white/10 bg-black/40 px-4 py-3 text-right backdrop-blur-sm">
+                  <div className="rentulo-image-price rounded-[1.2rem] px-4 py-3 text-right">
                     <div className="text-lg font-semibold text-white">{item.price_per_day} €</div>
                     <div className="text-xs text-white/65">za deň</div>
                   </div>

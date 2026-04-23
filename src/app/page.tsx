@@ -462,7 +462,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="rentulo-theme-preserve-dark grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {categoryTiles.map((tile) => (
           <Link
             key={tile.title}
@@ -517,7 +517,7 @@ export default function Home() {
       </section>
 
       <section className="space-y-4">
-        <div className="hidden overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-[0_36px_120px_rgba(0,0,0,0.42)] md:block">
+        <div className="rentulo-theme-preserve-dark hidden overflow-hidden rounded-[2.25rem] border border-white/10 bg-black shadow-[0_36px_120px_rgba(0,0,0,0.42)] md:block">
           <div className="relative aspect-[1831/720] xl:aspect-[1831/650]">
             <Image
               src="/rentulo-home-hero-desktop-final.png"
@@ -544,7 +544,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_28px_100px_rgba(0,0,0,0.38)] md:hidden">
+        <div className="rentulo-theme-preserve-dark overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_28px_100px_rgba(0,0,0,0.38)] md:hidden">
           <div className="relative aspect-[1477/980]">
             <Image
               src="/rentulo-home-hero-mobile-final.png"

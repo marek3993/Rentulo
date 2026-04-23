@@ -666,7 +666,7 @@ if (!imgErr && imgs) {
             ) : null}
 
             {imageUrls.length > 0 ? (
-              <section className="space-y-3">
+              <section className="rentulo-theme-preserve-dark space-y-3">
                 <div className="relative overflow-hidden rounded-2xl border border-white/10">
                   <button type="button" onClick={() => setLightboxOpen(true)} className="block w-full">
                     <img
@@ -681,7 +681,7 @@ if (!imgErr && imgs) {
                       <button
                         type="button"
                         onClick={showPrevImage}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-white hover:bg-black/70"
+                        className="rentulo-image-control absolute left-4 top-1/2 -translate-y-1/2 rounded-full px-3 py-2"
                       >
                         ←
                       </button>
@@ -689,12 +689,12 @@ if (!imgErr && imgs) {
                       <button
                         type="button"
                         onClick={showNextImage}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-3 py-2 text-white hover:bg-black/70"
+                        className="rentulo-image-control absolute right-4 top-1/2 -translate-y-1/2 rounded-full px-3 py-2"
                       >
                         →
                       </button>
 
-                      <div className="absolute bottom-4 right-4 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+                      <div className="rentulo-image-chip absolute bottom-4 right-4 rounded-full px-3 py-1 text-xs text-white">
                         {activeImageIndex + 1}/{imageUrls.length}
                       </div>
                     </>
@@ -959,10 +959,10 @@ if (!imgErr && imgs) {
       ) : null}
 
       {lightboxOpen && activeImage ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+        <div className="rentulo-lightbox-backdrop fixed inset-0 z-[100] flex items-center justify-center p-4">
           <button
             type="button"
-            className="absolute right-4 top-4 rounded-full border border-white/20 bg-black/50 px-4 py-2 text-white hover:bg-black/70"
+            className="rentulo-image-control absolute right-4 top-4 rounded-full px-4 py-2"
             onClick={() => setLightboxOpen(false)}
           >
             Zavrieť
@@ -972,7 +972,7 @@ if (!imgErr && imgs) {
             <>
               <button
                 type="button"
-                className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-4 py-3 text-white hover:bg-black/70"
+                className="rentulo-image-control absolute left-4 top-1/2 -translate-y-1/2 rounded-full px-4 py-3"
                 onClick={showPrevImage}
               >
                 ←
@@ -980,7 +980,7 @@ if (!imgErr && imgs) {
 
               <button
                 type="button"
-                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 px-4 py-3 text-white hover:bg-black/70"
+                className="rentulo-image-control absolute right-4 top-1/2 -translate-y-1/2 rounded-full px-4 py-3"
                 onClick={showNextImage}
               >
                 →

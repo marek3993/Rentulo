@@ -11,6 +11,28 @@
 
   --text-muted: #a1a8b3;
 
+  --app-shell-bg:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(217, 70, 239, 0.08), transparent 24%),
+    linear-gradient(180deg, #09090b 0%, #0b0c10 100%);
+
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-bg-2: rgba(0, 0, 0, 0.2);
+  --card-border: rgba(255, 255, 255, 0.1);
+
+  --btn-secondary-bg: transparent;
+  --btn-secondary-border: rgba(255, 255, 255, 0.15);
+  --btn-secondary-text: #ffffff;
+  --btn-secondary-hover: rgba(255, 255, 255, 0.08);
+
+  --input-light-border: rgba(15, 23, 42, 0.16);
+  --input-light-bg: #ffffff;
+  --input-light-text: #0f172a;
+
+  --input-dark-border: rgba(255, 255, 255, 0.12);
+  --input-dark-bg: rgba(0, 0, 0, 0.2);
+  --input-dark-text: #ffffff;
+
   --primary: #6366f1;
   --primary-hover: #5458ee;
   --primary-dark: #4338ca;
@@ -19,6 +41,48 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --info: #38bdf8;
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --background: #eef2f7;
+  --foreground: #0f172a;
+
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --border: #d6dee8;
+
+  --text-muted: #5f6b7a;
+
+  --app-shell-bg:
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.14), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.12), transparent 22%),
+    linear-gradient(180deg, #f8fbff 0%, #edf2f8 42%, #e7edf5 100%);
+
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --card-bg-2: rgba(255, 255, 255, 0.72);
+  --card-border: rgba(15, 23, 42, 0.12);
+
+  --btn-secondary-bg: rgba(255, 255, 255, 0.78);
+  --btn-secondary-border: rgba(15, 23, 42, 0.12);
+  --btn-secondary-text: #0f172a;
+  --btn-secondary-hover: rgba(226, 232, 240, 0.95);
+
+  --input-light-border: rgba(15, 23, 42, 0.14);
+  --input-light-bg: #ffffff;
+  --input-light-text: #0f172a;
+
+  --input-dark-border: rgba(15, 23, 42, 0.12);
+  --input-dark-bg: rgba(255, 255, 255, 0.86);
+  --input-dark-text: #0f172a;
+
+  --color-white: #0f172a;
+  --color-black: #ffffff;
+  --color-neutral-950: #f4f7fb;
+  --color-neutral-900: #ffffff;
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -80,11 +144,11 @@ input[type="file"] + label {
 
 input::placeholder,
 textarea::placeholder {
-  color: rgba(0, 0, 0, 0.45);
+  color: color-mix(in oklab, var(--foreground) 45%, transparent);
 }
 
-.dark input::placeholder,
-.dark textarea::placeholder {
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -93,16 +157,27 @@ textarea::placeholder {
   color: #ffffff;
 }
 
-/* základné shared utility feel */
+.rentulo-app-shell {
+  background: var(--app-shell-bg);
+}
+
+.rentulo-theme-preserve-dark {
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-neutral-950: #0a0a0a;
+  --color-neutral-900: #171717;
+  color-scheme: dark;
+}
+
 .rentulo-card {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
   border-radius: 1rem;
 }
 
 .rentulo-card-2 {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg-2);
   border-radius: 1rem;
 }
 
@@ -118,34 +193,73 @@ textarea::placeholder {
 }
 
 .rentulo-btn-secondary {
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: white;
+  border: 1px solid var(--btn-secondary-border);
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
   border-radius: 0.75rem;
 }
 
 .rentulo-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--btn-secondary-hover);
 }
 
 .rentulo-input-light {
   width: 100%;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: white;
-  color: black;
+  border: 1px solid var(--input-light-border);
+  background: var(--input-light-bg);
+  color: var(--input-light-text);
 }
 
 .rentulo-input-dark {
   width: 100%;
   border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.2);
-  color: white;
+  border: 1px solid var(--input-dark-border);
+  background: var(--input-dark-bg);
+  color: var(--input-dark-text);
 }
 
 .rdp {
   --rdp-accent-color: var(--primary);
   --rdp-background-color: rgba(99, 102, 241, 0.2);
+}
+
+.rentulo-image-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(9, 9, 11, 0) 0%,
+    rgba(9, 9, 11, 0.18) 36%,
+    rgba(9, 9, 11, 0.82) 100%
+  );
+}
+
+.rentulo-image-chip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(9, 9, 11, 0.42);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+}
+
+.rentulo-image-control {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(9, 9, 11, 0.55);
+  color: #ffffff;
+  backdrop-filter: blur(14px);
+}
+
+.rentulo-image-control:hover {
+  background: rgba(9, 9, 11, 0.72);
+}
+
+.rentulo-image-price {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(9, 9, 11, 0.58);
+  color: #ffffff;
+  backdrop-filter: blur(14px);
+}
+
+.rentulo-lightbox-backdrop {
+  background: rgba(5, 7, 10, 0.9);
 }
 
 @keyframes rentuloFloat {

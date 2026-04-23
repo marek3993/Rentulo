@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type VerificationStatus = "unverified" | "pending" | "verified" | "rejected" | string;
 
@@ -342,6 +343,8 @@ export default function ClientNav() {
         </Link>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <ThemeToggle />
+
           {isLoggedIn ? (
             <>
               <ActionLink
