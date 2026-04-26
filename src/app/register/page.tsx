@@ -1,22 +1,62 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { buildAuthCallbackUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
+type AccountType = "private" | "sole_trader" | "company";
+
+const ACCOUNT_TYPE_OPTIONS: Array<{
+  value: AccountType;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "private",
+    label: "Sukromna osoba",
+    description: "Ucet pre bezne poziciavanie a prenajimanie ako fyzicka osoba.",
+  },
+  {
+    value: "sole_trader",
+    label: "SZCO",
+    description: "Ucet pre podnikanie na zivnost alebo ako samostatne zarobkovo cinna osoba.",
+  },
+  {
+    value: "company",
+    label: "Firma",
+    description: "Ucet pre s.r.o., a.s. alebo inu firmu.",
+  },
+];
+
 export default function RegisterPage() {
+  const router = useRouter();
+
+  const [accountType, setAccountType] = useState<AccountType>("private");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setSubmitting(true);
-    setStatus("Vytváram účet...");
+    setStatus("Vytvaram ucet...");
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const normalizedEmail = email.trim();
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: {
+        emailRedirectTo: buildAuthCallbackUrl({ next: "/profile" }),
+        data: {
+          account_type: accountType,
+        },
+      },
+    });
 
     if (error) {
       setStatus("Chyba: " + error.message);
@@ -24,7 +64,16 @@ export default function RegisterPage() {
       return;
     }
 
-    setStatus("Účet vytvorený ✅ Teraz sa môžeš prihlásiť.");
+    if (data.session) {
+      setStatus("Ucet bol vytvoreny a si prihlaseny.");
+      router.push("/profile");
+      router.refresh();
+      return;
+    }
+
+    setPendingEmail(normalizedEmail);
+    setPassword("");
+    setStatus("");
     setSubmitting(false);
   };
 
@@ -36,14 +85,55 @@ export default function RegisterPage() {
             Rentulo
           </div>
 
-          <h1 className="text-3xl font-semibold">Registrácia</h1>
+          <h1 className="text-3xl font-semibold">Registracia</h1>
 
           <p className="text-sm leading-6 text-white/70">
-            Vytvor si účet a začni si požičiavať veci alebo zarábať na tom, čo už máš doma.
+            Vytvor si ucet a po potvrdeni e-mailu sa vrat spat do aplikacie.
           </p>
         </div>
 
+        {pendingEmail ? (
+          <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+            Na adresu <strong>{pendingEmail}</strong> sme poslali odkaz na potvrdenie e-mailu.
+            Otvor ho a dokonc registraciu. Odkaz ta vrati spat do Rentulo.
+          </div>
+        ) : null}
+
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-white/85">Typ uctu</legend>
+
+            <div className="grid gap-3">
+              {ACCOUNT_TYPE_OPTIONS.map((option) => {
+                const selected = option.value === accountType;
+
+                return (
+                  <label
+                    key={option.value}
+                    className={`block cursor-pointer rounded-2xl border p-4 transition ${
+                      selected
+                        ? "border-indigo-400/60 bg-indigo-500/10"
+                        : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
+                    } ${submitting || pendingEmail ? "pointer-events-none opacity-60" : ""}`}
+                  >
+                    <input
+                      className="sr-only"
+                      type="radio"
+                      name="account-type"
+                      value={option.value}
+                      checked={selected}
+                      onChange={() => setAccountType(option.value)}
+                      disabled={submitting || !!pendingEmail}
+                    />
+
+                    <div className="text-sm font-medium text-white">{option.label}</div>
+                    <div className="mt-1 text-sm leading-6 text-white/65">{option.description}</div>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <label className="block">
             <div className="mb-1 text-sm text-white/80">E-mail</div>
             <input
@@ -53,7 +143,7 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
-              disabled={submitting}
+              disabled={submitting || !!pendingEmail}
             />
           </label>
 
@@ -61,22 +151,22 @@ export default function RegisterPage() {
             <div className="mb-1 text-sm text-white/80">Heslo</div>
             <input
               className="rentulo-input-light px-3 py-2 placeholder:text-black/50"
-              placeholder="Minimálne 6 znakov"
+              placeholder="Minimalne 6 znakov"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               minLength={6}
               required
-              disabled={submitting}
+              disabled={submitting || !!pendingEmail}
             />
           </label>
 
           <button
             type="submit"
             className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
-            disabled={submitting}
+            disabled={submitting || !!pendingEmail}
           >
-            {submitting ? "Vytváram účet..." : "Vytvoriť účet"}
+            {submitting ? "Vytvaram ucet..." : "Vytvorit ucet"}
           </button>
         </form>
 
@@ -88,9 +178,9 @@ export default function RegisterPage() {
       </section>
 
       <section className="rentulo-card p-5 text-sm text-white/70">
-        Už máš účet?{" "}
+        Uz mas ucet?{" "}
         <Link href="/login" className="font-medium text-indigo-300 hover:text-indigo-200">
-          Prihlás sa
+          Prihlasit sa
         </Link>
       </section>
     </main>

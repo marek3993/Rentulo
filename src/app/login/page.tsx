@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { buildAuthCallbackUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
@@ -12,6 +13,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [oauthSubmitting, setOauthSubmitting] = useState(false);
+
+  const disabled = submitting || oauthSubmitting;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,9 +31,26 @@ export default function LoginPage() {
       return;
     }
 
-    setStatus("Prihlásenie úspešné ✅");
+    setStatus("Prihlasenie uspesne.");
     router.push("/");
     router.refresh();
+  };
+
+  const onGoogleLogin = async () => {
+    setOauthSubmitting(true);
+    setStatus("Presmerovavam na Google...");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: buildAuthCallbackUrl({ next: "/" }),
+      },
+    });
+
+    if (error) {
+      setStatus("Chyba: " + error.message);
+      setOauthSubmitting(false);
+    }
   };
 
   return (
@@ -40,12 +61,25 @@ export default function LoginPage() {
             Rentulo
           </div>
 
-          <h1 className="text-3xl font-semibold">Prihlásenie</h1>
+          <h1 className="text-3xl font-semibold">Prihlasenie</h1>
 
           <p className="text-sm leading-6 text-white/70">
-            Prihlás sa do svojho účtu a pokračuj v rezerváciách, správach a správe
-            svojich ponúk.
+            Prihlas sa do svojho uctu a pokracuj v rezervaciach, spravach a sprave
+            svojich ponuk.
           </p>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <button
+            type="button"
+            className="rentulo-btn-secondary w-full px-4 py-2.5 text-sm disabled:opacity-50"
+            onClick={onGoogleLogin}
+            disabled={disabled}
+          >
+            {oauthSubmitting ? "Presmerovavam..." : "Pokracovat cez Google"}
+          </button>
+
+          <div className="text-center text-xs uppercase tracking-[0.2em] text-white/35">alebo</div>
         </div>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
@@ -58,12 +92,20 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
-              disabled={submitting}
+              disabled={disabled}
             />
           </label>
 
           <label className="block">
-            <div className="mb-1 text-sm text-white/80">Heslo</div>
+            <div className="mb-1 flex items-center justify-between gap-3 text-sm text-white/80">
+              <span>Heslo</span>
+              <Link
+                href="/forgot-password"
+                className="font-medium text-indigo-300 hover:text-indigo-200"
+              >
+                Zabudnute heslo?
+              </Link>
+            </div>
             <input
               className="rentulo-input-light px-3 py-2 placeholder:text-black/50"
               placeholder="Zadaj heslo"
@@ -71,16 +113,16 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               type="password"
               required
-              disabled={submitting}
+              disabled={disabled}
             />
           </label>
 
           <button
             type="submit"
             className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
-            disabled={submitting}
+            disabled={disabled}
           >
-            {submitting ? "Prihlasujem..." : "Prihlásiť"}
+            {submitting ? "Prihlasujem..." : "Prihlasit sa"}
           </button>
         </form>
 
@@ -92,9 +134,9 @@ export default function LoginPage() {
       </section>
 
       <section className="rentulo-card p-5 text-sm text-white/70">
-        Nemáš účet?{" "}
+        Nemas ucet?{" "}
         <Link href="/register" className="font-medium text-indigo-300 hover:text-indigo-200">
-          Zaregistruj sa
+          Zaregistrovat sa
         </Link>
       </section>
     </main>
