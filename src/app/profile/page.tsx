@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { accountTypeLabel, getAccountTypeFromUser, type AccountType } from "@/lib/accountType";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,6 +33,7 @@ export default function ProfilePage() {
 
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [city, setCity] = useState("");
@@ -65,6 +67,7 @@ export default function ProfilePage() {
     const run = async () => {
       const { data: sess } = await supabase.auth.getSession();
       const userId = sess.session?.user.id ?? null;
+      const user = sess.session?.user ?? null;
 
       if (!active) return;
 
@@ -74,6 +77,7 @@ export default function ProfilePage() {
       }
 
       setCurrentUserId(userId);
+      setAccountType(getAccountTypeFromUser(user));
 
       const { data: prof, error } = await supabase
         .from("profiles")
@@ -252,6 +256,10 @@ export default function ProfilePage() {
             <p className="mt-2 leading-7 text-white/70">
               Uprav si profil tak, aby druhá strana pri rezervácii hneď videla, kto si a aký je tvoj stav overenia.
             </p>
+
+            <p className="mt-2 text-sm text-white/55">
+              Typ účtu: <span className="text-white/80">{accountTypeLabel(accountType)}</span>
+            </p>
           </div>
 
           <Link href="/items" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
@@ -272,6 +280,11 @@ export default function ProfilePage() {
             <p className="mt-2 text-sm leading-6 text-white/65">
               Overený profil pomáha ľuďom cítiť väčšiu istotu pri rezervácii, pri prevzatí veci aj vtedy,
               keď treba spätne pozrieť priebeh prenájmu.
+            </p>
+
+            <p className="mt-3 text-sm leading-6 text-white/60">
+              Overenie je aktuálne vedené pre typ účtu <strong className="text-white">{accountTypeLabel(accountType)}</strong>.
+              Ak potrebuješ upraviť onboarding údaje pre súkromnú osobu, SZČO alebo firmu, skontroluj stránku overenia.
             </p>
 
             <div className="mt-2">

@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  ACCOUNT_TYPE_OPTIONS,
+  accountTypeLabel,
+  getAccountTypeFromUser,
+  type AccountType,
+} from "@/lib/accountType";
 import { supabase } from "@/lib/supabaseClient";
 
 type VerificationStatus = "not_submitted" | "pending" | "approved" | "rejected" | string;
@@ -43,6 +49,150 @@ function statusBadge(status: VerificationStatus) {
   return "bg-white/10 text-white";
 }
 
+function getAccountTypeContent(accountType: AccountType | null) {
+  if (accountType === "sole_trader") {
+    return {
+      pageTitle: "Overenie SZČO",
+      pageDescription:
+        "Overenie zladí tvoje meno, podnikanie a profil tak, aby druhá strana vedela, že komunikuje so živnostníkom.",
+      benefitsTitle: "Čo overenie pomáha potvrdiť pri SZČO",
+      benefits: [
+        "profil jasnejšie vysvetlí, že prenajímaš ako podnikajúca osoba",
+        "druhá strana vie prepojiť meno s IČO a obchodným menom",
+        "stav overenia sa ukáže aj na tvojom profile v aplikácii",
+      ],
+      afterSubmitTitle: "Čo môžeš čakať po odoslaní",
+      afterSubmitItems: [
+        "žiadosť prejde do stavu Čaká na kontrolu",
+        "výsledok uvidíš priamo na tejto stránke aj vo svojom profile",
+        "ak bude treba úpravu, po zamietnutí vieš doplniť údaje a poslať žiadosť znova",
+      ],
+      formIntro:
+        "Vyplň údaje tak, ako chceš mať SZČO naviazanú na dôveryhodný profil v Rentulo.",
+      fullNameLabel: "Meno a priezvisko",
+      fullNamePlaceholder: "napr. Marek Benda",
+      showCompanyName: true,
+      companyNameLabel: "Obchodné meno (voliteľné)",
+      companyNamePlaceholder: "napr. MB Servis",
+      companyNameRequired: false,
+      showIco: true,
+      icoLabel: "IČO",
+      icoPlaceholder: "napr. 12345678",
+      icoRequired: true,
+      noteLabel: "Poznámka",
+      notePlaceholder: "Doplňujúce informácie k overeniu SZČO.",
+      approvedCopy:
+        "Tvoje SZČO je overené a tento stav sa zobrazuje na profile ako dôveryhodný signál pre ďalšie rezervácie.",
+    };
+  }
+
+  if (accountType === "company") {
+    return {
+      pageTitle: "Overenie firmy",
+      pageDescription:
+        "Overenie pomáha ukázať, že účet patrí firme a že druhá strana má jasný firemný kontakt pre prenájom.",
+      benefitsTitle: "Čo overenie pomáha potvrdiť pri firme",
+      benefits: [
+        "profil jasne ukáže, že za účtom stojí firma",
+        "druhá strana vie, koho kontaktovať a pod akým názvom firma vystupuje",
+        "stav overenia sa ukáže aj na profile v aplikácii",
+      ],
+      afterSubmitTitle: "Čo môžeš čakať po odoslaní",
+      afterSubmitItems: [
+        "žiadosť prejde do stavu Čaká na kontrolu",
+        "výsledok uvidíš priamo na tejto stránke aj vo svojom profile",
+        "ak bude treba úpravu, po zamietnutí vieš doplniť kontaktné alebo firemné údaje",
+      ],
+      formIntro:
+        "Vyplň údaje pravdivo tak, aby bolo zrejmé, ktorá firma a kontaktná osoba stoja za účtom.",
+      fullNameLabel: "Meno kontaktnej osoby",
+      fullNamePlaceholder: "napr. Marek Benda",
+      showCompanyName: true,
+      companyNameLabel: "Názov firmy",
+      companyNamePlaceholder: "napr. Rentulo s.r.o.",
+      companyNameRequired: true,
+      showIco: true,
+      icoLabel: "IČO",
+      icoPlaceholder: "napr. 12345678",
+      icoRequired: true,
+      noteLabel: "Poznámka",
+      notePlaceholder: "Doplňujúce informácie k firemnému overeniu.",
+      approvedCopy:
+        "Firemný účet je overený a tento stav pomáha budovať dôveru ešte pred prvou rezerváciou.",
+    };
+  }
+
+  if (accountType === "private") {
+    return {
+      pageTitle: "Overenie súkromnej osoby",
+      pageDescription:
+        "Overenie pomáha budovať dôveru medzi ľuďmi pri rezervácii, prevzatí aj vrátení veci.",
+      benefitsTitle: "Čo overenie pomáha zlepšiť",
+      benefits: [
+        "profil pôsobí dôveryhodnejšie už pri prvom kontakte",
+        "druhá strana lepšie rozumie, s kým rieši rezerváciu",
+        "stav overenia sa ukáže aj na tvojom profile v aplikácii",
+      ],
+      afterSubmitTitle: "Čo môžeš čakať po odoslaní",
+      afterSubmitItems: [
+        "žiadosť prejde do stavu Čaká na kontrolu",
+        "výsledok uvidíš priamo na tejto stránke aj vo svojom profile",
+        "ak bude treba úpravu, formulár môžeš po zamietnutí doplniť a poslať znova",
+      ],
+      formIntro:
+        "Vyplň údaje pravdivo a tak, ako ich chceš mať naviazané na svoj dôveryhodný profil v Rentulo.",
+      fullNameLabel: "Meno a priezvisko",
+      fullNamePlaceholder: "napr. Marek Benda",
+      showCompanyName: false,
+      companyNameLabel: "Firma",
+      companyNamePlaceholder: "napr. Rentulo s.r.o.",
+      companyNameRequired: false,
+      showIco: false,
+      icoLabel: "IČO",
+      icoPlaceholder: "napr. 12345678",
+      icoRequired: false,
+      noteLabel: "Poznámka",
+      notePlaceholder: "Doplňujúce informácie k overeniu.",
+      approvedCopy:
+        "Tvoj profil je overený a tento stav je pripravený podporiť dôveru pri ďalších rezerváciách.",
+    };
+  }
+
+  return {
+    pageTitle: "Overenie profilu",
+    pageDescription:
+      "Najprv si zvoľ typ účtu. Podľa neho vieme pravdivejšie vysvetliť, čo pri overení potrebujeme.",
+    benefitsTitle: "Čo overenie pomáha zlepšiť",
+    benefits: [
+      "profil pôsobí dôveryhodnejšie už pri prvom kontakte",
+      "druhá strana lepšie rozumie, s kým rieši rezerváciu",
+      "stav overenia sa ukáže aj na tvojom profile v aplikácii",
+    ],
+    afterSubmitTitle: "Čo môžeš čakať po odoslaní",
+    afterSubmitItems: [
+      "žiadosť prejde do stavu Čaká na kontrolu",
+      "výsledok uvidíš priamo na tejto stránke aj vo svojom profile",
+      "po výbere typu účtu sa formulár prispôsobí tvojmu reálnemu onboarding scenáru",
+    ],
+    formIntro:
+      "Ak máš starší účet bez uloženého typu, najprv ho vyber. Existujúci submit a update flow do user_verifications ostáva zachovaný.",
+    fullNameLabel: "Meno a priezvisko",
+    fullNamePlaceholder: "napr. Marek Benda",
+    showCompanyName: true,
+    companyNameLabel: "Firma (voliteľné)",
+    companyNamePlaceholder: "napr. Rentulo s.r.o.",
+    companyNameRequired: false,
+    showIco: true,
+    icoLabel: "IČO (voliteľné)",
+    icoPlaceholder: "napr. 12345678",
+    icoRequired: false,
+    noteLabel: "Poznámka",
+    notePlaceholder: "Doplňujúce informácie k overeniu.",
+    approvedCopy:
+      "Tvoj profil je overený. Typ účtu sa pri starších účtoch zobrazí presnejšie po jeho uložení v onboardingu.",
+  };
+}
+
 export default function VerificationPage() {
   const router = useRouter();
 
@@ -53,6 +203,7 @@ export default function VerificationPage() {
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>("not_submitted");
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
 
+  const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [ico, setIco] = useState("");
@@ -62,18 +213,22 @@ export default function VerificationPage() {
     () => verificationStatus === "not_submitted" || verificationStatus === "rejected",
     [verificationStatus]
   );
+  const content = useMemo(() => getAccountTypeContent(accountType), [accountType]);
 
   useEffect(() => {
     const load = async () => {
       setStatus("Načítavam...");
 
       const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
+      const user = sess.session?.user ?? null;
+      const userId = user?.id;
 
       if (!userId) {
         router.push("/login");
         return;
       }
+
+      setAccountType(getAccountTypeFromUser(user));
 
       const { data, error } = await supabase
         .from("user_verifications")
@@ -117,7 +272,8 @@ export default function VerificationPage() {
 
     try {
       const { data: sess } = await supabase.auth.getSession();
-      const userId = sess.session?.user.id;
+      const user = sess.session?.user ?? null;
+      const userId = user?.id;
 
       if (!userId) {
         alert("Musíš byť prihlásený.");
@@ -125,18 +281,47 @@ export default function VerificationPage() {
         return;
       }
 
-      if (!fullName.trim()) {
-        alert("Vyplň meno a priezvisko.");
-        setStatus("Vyplň meno a priezvisko.");
+      if (!accountType) {
+        alert("Vyber typ účtu.");
+        setStatus("Vyber typ účtu.");
         return;
+      }
+
+      if (!fullName.trim()) {
+        alert(`Vyplň pole „${content.fullNameLabel}“.`);
+        setStatus(`Vyplň pole „${content.fullNameLabel}“.`);
+        return;
+      }
+
+      if (content.companyNameRequired && !companyName.trim()) {
+        alert(`Vyplň pole „${content.companyNameLabel}“.`);
+        setStatus(`Vyplň pole „${content.companyNameLabel}“.`);
+        return;
+      }
+
+      if (content.icoRequired && !ico.trim()) {
+        alert(`Vyplň pole „${content.icoLabel}“.`);
+        setStatus(`Vyplň pole „${content.icoLabel}“.`);
+        return;
+      }
+
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          ...(user.user_metadata ?? {}),
+          account_type: accountType,
+        },
+      });
+
+      if (metadataError) {
+        throw new Error(`Typ účtu sa nepodarilo uložiť: ${metadataError.message}`);
       }
 
       const payload = {
         user_id: userId,
         status: nextStatus,
         full_name: fullName.trim() || null,
-        company_name: companyName.trim() || null,
-        ico: ico.trim() || null,
+        company_name: content.showCompanyName ? companyName.trim() || null : null,
+        ico: content.showIco ? ico.trim() || null : null,
         note: note.trim() || null,
       };
 
@@ -167,7 +352,7 @@ export default function VerificationPage() {
 
       setVerificationStatus(nextStatus);
       setReviewedAt(null);
-      setStatus(nextStatus === "pending" ? "Žiadosť bola odoslaná ✅" : "Uložené ✅");
+      setStatus(nextStatus === "pending" ? "Žiadosť bola odoslaná." : "Uložené.");
       alert(nextStatus === "pending" ? "Žiadosť o overenie bola odoslaná." : "Údaje boli uložené.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Neznáma chyba pri ukladaní.";
@@ -183,10 +368,11 @@ export default function VerificationPage() {
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Overenie profilu</h1>
-            <p className="mt-1 text-white/60">
-              Overenie pomáha budovať dôveru medzi ľuďmi pri rezervácii, prevzatí aj vrátení veci.
-            </p>
+            <div className="inline-flex rounded-full border border-white/10 bg-black/20 px-3 py-1 text-sm text-white/70">
+              Typ účtu: {accountTypeLabel(accountType)}
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold">{content.pageTitle}</h1>
+            <p className="mt-1 max-w-2xl text-white/60">{content.pageDescription}</p>
           </div>
 
           <Link
@@ -200,20 +386,20 @@ export default function VerificationPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="font-semibold">Čo overenie pomáha zlepšiť</div>
+          <div className="font-semibold">{content.benefitsTitle}</div>
           <div className="mt-3 space-y-3 text-sm leading-6 text-white/70">
-            <div>• profil pôsobí dôveryhodnejšie už pri prvom kontakte</div>
-            <div>• druhá strana lepšie rozumie, s kým rieši rezerváciu</div>
-            <div>• stav overenia sa ukáže aj na tvojom profile v aplikácii</div>
+            {content.benefits.map((item) => (
+              <div key={item}>• {item}</div>
+            ))}
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <div className="font-semibold">Čo môžeš čakať po odoslaní</div>
+          <div className="font-semibold">{content.afterSubmitTitle}</div>
           <div className="mt-3 space-y-3 text-sm leading-6 text-white/70">
-            <div>• žiadosť prejde do stavu Čaká na kontrolu</div>
-            <div>• výsledok uvidíš priamo na tejto stránke aj vo svojom profile</div>
-            <div>• ak bude treba úpravu, formulár môžeš po zamietnutí doplniť a poslať znova</div>
+            {content.afterSubmitItems.map((item) => (
+              <div key={item}>• {item}</div>
+            ))}
           </div>
         </div>
       </div>
@@ -236,7 +422,7 @@ export default function VerificationPage() {
 
         {verificationStatus === "approved" ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Tvoj profil je overený a tento stav je pripravený podporiť dôveru pri ďalších rezerváciách.
+            {content.approvedCopy}
           </div>
         ) : null}
 
@@ -253,53 +439,100 @@ export default function VerificationPage() {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 space-y-4">
+      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="font-semibold">Údaje pre overenie</div>
-        <p className="text-sm leading-6 text-white/65">
-          Vyplň údaje pravdivo a tak, ako ich chceš mať naviazané na svoj dôveryhodný profil v Rentulo.
-        </p>
+        <p className="text-sm leading-6 text-white/65">{content.formIntro}</p>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-white/80">Typ účtu</legend>
+          <div className="grid gap-3 md:grid-cols-3">
+            {ACCOUNT_TYPE_OPTIONS.map((option) => {
+              const selected = option.value === accountType;
+
+              return (
+                <label
+                  key={option.value}
+                  className={`block rounded-2xl border p-4 transition ${
+                    selected
+                      ? "border-indigo-400/60 bg-indigo-500/10"
+                      : "border-white/10 bg-black/20"
+                  } ${canEdit && !saving ? "cursor-pointer hover:border-white/20 hover:bg-white/5" : "opacity-80"}`}
+                >
+                  <input
+                    className="sr-only"
+                    type="radio"
+                    name="verification-account-type"
+                    value={option.value}
+                    checked={selected}
+                    onChange={() => setAccountType(option.value)}
+                    disabled={!canEdit || saving}
+                  />
+
+                  <div className="text-sm font-medium text-white">{option.label}</div>
+                  <div className="mt-1 text-sm leading-6 text-white/65">{option.description}</div>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        {!accountType ? (
+          <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100">
+            Tento účet ešte nemá uložený typ v onboardingu. Vyber ho pred uložením alebo odoslaním žiadosti.
+          </div>
+        ) : null}
 
         <label className="block">
-          <div className="mb-1 text-white/80">Meno a priezvisko</div>
+          <div className="mb-1 text-white/80">{content.fullNameLabel}</div>
           <input
             className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="napr. Marek Benda"
+            placeholder={content.fullNamePlaceholder}
             disabled={!canEdit || saving}
           />
         </label>
 
-        <label className="block">
-          <div className="mb-1 text-white/80">Firma (voliteľné)</div>
-          <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="napr. Rentulo s.r.o."
-            disabled={!canEdit || saving}
-          />
-        </label>
+        {content.showCompanyName ? (
+          <label className="block">
+            <div className="mb-1 text-white/80">
+              {content.companyNameLabel}
+              {content.companyNameRequired ? " *" : ""}
+            </div>
+            <input
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder={content.companyNamePlaceholder}
+              disabled={!canEdit || saving}
+            />
+          </label>
+        ) : null}
+
+        {content.showIco ? (
+          <label className="block">
+            <div className="mb-1 text-white/80">
+              {content.icoLabel}
+              {content.icoRequired ? " *" : ""}
+            </div>
+            <input
+              className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
+              value={ico}
+              onChange={(e) => setIco(e.target.value)}
+              placeholder={content.icoPlaceholder}
+              disabled={!canEdit || saving}
+            />
+          </label>
+        ) : null}
 
         <label className="block">
-          <div className="mb-1 text-white/80">IČO (voliteľné)</div>
-          <input
-            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
-            value={ico}
-            onChange={(e) => setIco(e.target.value)}
-            placeholder="napr. 12345678"
-            disabled={!canEdit || saving}
-          />
-        </label>
-
-        <label className="block">
-          <div className="mb-1 text-white/80">Poznámka</div>
+          <div className="mb-1 text-white/80">{content.noteLabel}</div>
           <textarea
             className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black disabled:opacity-60"
             rows={5}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Doplňujúce informácie k overeniu."
+            placeholder={content.notePlaceholder}
             disabled={!canEdit || saving}
           />
         </label>
