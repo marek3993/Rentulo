@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   buildItemDetailHref,
@@ -51,6 +51,65 @@ type SearchCenter = {
   lng: number;
 };
 
+type StatusTone = "neutral" | "error";
+
+type LocationFeedback = {
+  tone: StatusTone;
+  message: string;
+};
+
+type OutsideRadiusHint = {
+  nearestDistanceKm: number;
+  suggestedRadiusKm: string;
+  matchingCount: number;
+};
+
+const RADIUS_OPTIONS_KM = [5, 10, 15, 20, 50] as const;
+const MAX_RADIUS_OPTION_KM = RADIUS_OPTIONS_KM[RADIUS_OPTIONS_KM.length - 1];
+
+function formatDistanceLabel(distanceKm: number) {
+  if (!Number.isFinite(distanceKm)) {
+    return "";
+  }
+
+  if (distanceKm < 10) {
+    const rounded = Math.round(distanceKm * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded} km` : `${rounded.toFixed(1)} km`;
+  }
+
+  return `${Math.round(distanceKm)} km`;
+}
+
+function matchesClientSideFilters(item: Item, normalizedText: string, categoryFilter: string) {
+  if (categoryFilter !== "V?etky kateg?rie" && item.category !== categoryFilter) {
+    return false;
+  }
+
+  if (!normalizedText) {
+    return true;
+  }
+
+  const haystack = [
+    item.title,
+    item.description ?? "",
+    item.city ?? "",
+    item.postal_code ?? "",
+    item.category ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(normalizedText);
+}
+
+function getSuggestedRadiusKm(currentRadiusKm: number, requiredDistanceKm: number) {
+  const nextRadius = RADIUS_OPTIONS_KM.find(
+    (option) => option > currentRadiusKm && option >= requiredDistanceKm
+  );
+
+  return nextRadius ? String(nextRadius) : null;
+}
+
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <div className="inline-flex rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/55">
@@ -79,6 +138,7 @@ function ItemsPageInner() {
   const [items, setItems] = useState<Item[]>([]);
   const [imageMap, setImageMap] = useState<Record<number, string[]>>({});
   const [activeImageIndexMap, setActiveImageIndexMap] = useState<Record<number, number>>({});
+  const [statusTone, setStatusTone] = useState<StatusTone>("neutral");
   const [status, setStatus] = useState("Načítavam...");
 
   const [textQuery, setTextQuery] = useState(() => initialSearchState.textQuery);
@@ -90,6 +150,7 @@ function ItemsPageInner() {
 
   const [searchingLocation, setSearchingLocation] = useState(false);
   const [locationResults, setLocationResults] = useState<GeoapifyFeature[]>([]);
+  const [locationFeedback, setLocationFeedback] = useState<LocationFeedback | null>(null);
   const [selectedLabel, setSelectedLabel] = useState(() => initialSearchState.selectedLabel);
   const [searchCenter, setSearchCenter] = useState<SearchCenter | null>(() =>
     initialSearchState.lat !== null && initialSearchState.lng !== null
@@ -97,9 +158,14 @@ function ItemsPageInner() {
       : null
   );
   const [filtersReady, setFiltersReady] = useState(false);
+  const [isItemsLoading, setIsItemsLoading] = useState(false);
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [outsideRadiusHint, setOutsideRadiusHint] = useState<OutsideRadiusHint | null>(null);
 
   const [unavailableItemIds, setUnavailableItemIds] = useState<number[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const itemsRequestIdRef = useRef(0);
+  const outsideHintRequestIdRef = useRef(0);
 
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
 
@@ -124,6 +190,10 @@ function ItemsPageInner() {
     }),
     [textQuery, locationQuery, radiusKm, categoryFilter, dateFrom, dateTo, selectedLabel, searchCenter]
   );
+  const normalizedTextQuery = useMemo(() => textQuery.trim().toLowerCase(), [textQuery]);
+  const currentRadiusKm = Number(radiusKm);
+  const hintDistanceReference =
+    selectedLabel.toLowerCase() === "moja poloha" ? "od teba" : "od zvolenej lokality";
 
   const filteredItems = useMemo(() => {
     const normalizedText = textQuery.trim().toLowerCase();
@@ -158,10 +228,14 @@ function ItemsPageInner() {
     });
   }, [items, categoryFilter, textQuery, unavailableItemIds, hasValidDateRange]);
 
-  const loadImages = async (rows: Item[]) => {
+  const loadImages = useCallback(async (rows: Item[], requestId: number) => {
     const ids = rows.map((x) => x.id);
 
     if (ids.length === 0) {
+      if (itemsRequestIdRef.current !== requestId) {
+        return;
+      }
+
       setImageMap({});
       setActiveImageIndexMap({});
       return;
@@ -174,6 +248,10 @@ function ItemsPageInner() {
       .order("is_primary", { ascending: false })
       .order("position", { ascending: true })
       .order("id", { ascending: true });
+
+    if (itemsRequestIdRef.current !== requestId) {
+      return;
+    }
 
     if (imgErr) {
       setImageMap({});
@@ -221,10 +299,14 @@ function ItemsPageInner() {
 
       return merged;
     });
-  };
+  }, []);
 
-  const loadDefaultItems = async () => {
-    setStatus("Načítavam...");
+  const loadDefaultItems = useCallback(async () => {
+    const requestId = ++itemsRequestIdRef.current;
+    setIsItemsLoading(true);
+    setStatusTone("neutral");
+    setStatus("Na??tavam...");
+    setOutsideRadiusHint(null);
 
     const { data, error } = await supabase
       .from("items")
@@ -232,19 +314,38 @@ function ItemsPageInner() {
       .eq("is_active", true)
       .order("id", { ascending: false });
 
+    if (itemsRequestIdRef.current !== requestId) {
+      return;
+    }
+
     if (error) {
+      setItems([]);
+      setImageMap({});
+      setActiveImageIndexMap({});
+      setStatusTone("error");
       setStatus("Chyba: " + error.message);
+      setIsItemsLoading(false);
       return;
     }
 
     const rows = ((data ?? []) as Item[]).map((x) => ({ ...x, distance_km: null }));
     setItems(rows);
-    await loadImages(rows);
-    setStatus("");
-  };
+    await loadImages(rows, requestId);
 
-  const loadNearbyItems = async (lat: number, lng: number) => {
-    setStatus("Hľadám ponuky v okolí...");
+    if (itemsRequestIdRef.current !== requestId) {
+      return;
+    }
+
+    setStatus("");
+    setIsItemsLoading(false);
+  }, [loadImages]);
+
+  const loadNearbyItems = useCallback(async (lat: number, lng: number) => {
+    const requestId = ++itemsRequestIdRef.current;
+    setIsItemsLoading(true);
+    setStatusTone("neutral");
+    setStatus("H?ad?m ponuky v okol?...");
+    setOutsideRadiusHint(null);
 
     const { data, error } = await supabase.rpc("search_items_near", {
       search_lat: lat,
@@ -252,16 +353,31 @@ function ItemsPageInner() {
       radius_km: Number(radiusKm),
     });
 
+    if (itemsRequestIdRef.current !== requestId) {
+      return;
+    }
+
     if (error) {
+      setItems([]);
+      setImageMap({});
+      setActiveImageIndexMap({});
+      setStatusTone("error");
       setStatus("Chyba: " + error.message);
+      setIsItemsLoading(false);
       return;
     }
 
     const rows = (data ?? []) as Item[];
     setItems(rows);
-    await loadImages(rows);
+    await loadImages(rows, requestId);
+
+    if (itemsRequestIdRef.current !== requestId) {
+      return;
+    }
+
     setStatus("");
-  };
+    setIsItemsLoading(false);
+  }, [loadImages, radiusKm]);
 
   useEffect(() => {
     if (searchCenter) {
@@ -270,8 +386,7 @@ function ItemsPageInner() {
     }
 
     void loadDefaultItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchCenter, loadDefaultItems, loadNearbyItems]);
 
   useEffect(() => {
     if (!filtersReady) {
@@ -367,6 +482,132 @@ function ItemsPageInner() {
     };
   }, [items, dateFrom, dateTo, hasValidDateRange]);
 
+  useEffect(() => {
+    if (
+      !searchCenter ||
+      !Number.isFinite(currentRadiusKm) ||
+      currentRadiusKm >= MAX_RADIUS_OPTION_KM ||
+      isItemsLoading ||
+      statusTone === "error" ||
+      availabilityLoading ||
+      filteredItems.length > 0
+    ) {
+      setOutsideRadiusHint(null);
+      return;
+    }
+
+    let cancelled = false;
+    const requestId = ++outsideHintRequestIdRef.current;
+
+    const loadOutsideRadiusHint = async () => {
+      const { data, error } = await supabase.rpc("search_items_near", {
+        search_lat: searchCenter.lat,
+        search_lng: searchCenter.lng,
+        radius_km: MAX_RADIUS_OPTION_KM,
+      });
+
+      if (cancelled || outsideHintRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      if (error) {
+        setOutsideRadiusHint(null);
+        return;
+      }
+
+      const widerRows = ((data ?? []) as Item[])
+        .filter(
+          (item) =>
+            typeof item.distance_km === "number" &&
+            item.distance_km > currentRadiusKm &&
+            matchesClientSideFilters(item, normalizedTextQuery, categoryFilter)
+        )
+        .sort((a, b) => {
+          const aDistance =
+            typeof a.distance_km === "number" ? a.distance_km : Number.POSITIVE_INFINITY;
+          const bDistance =
+            typeof b.distance_km === "number" ? b.distance_km : Number.POSITIVE_INFINITY;
+          return aDistance - bDistance;
+        });
+
+      if (widerRows.length === 0) {
+        setOutsideRadiusHint(null);
+        return;
+      }
+
+      let blockedIds = new Set<number>();
+
+      if (hasValidDateRange) {
+        const { data: blockedRows, error: blockedError } = await supabase
+          .from("item_unavailable_ranges")
+          .select("item_id,date_from,date_to")
+          .in(
+            "item_id",
+            widerRows.map((item) => item.id)
+          )
+          .lte("date_from", dateTo)
+          .gte("date_to", dateFrom);
+
+        if (cancelled || outsideHintRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        if (blockedError) {
+          setOutsideRadiusHint(null);
+          return;
+        }
+
+        blockedIds = new Set(
+          ((blockedRows ?? []) as UnavailableRangeRow[]).map((range) => range.item_id)
+        );
+      }
+
+      const availableRows = widerRows.filter((item) => !blockedIds.has(item.id));
+      const nearestItem = availableRows[0];
+
+      if (!nearestItem || typeof nearestItem.distance_km !== "number") {
+        setOutsideRadiusHint(null);
+        return;
+      }
+
+      const suggestedRadiusKm = getSuggestedRadiusKm(currentRadiusKm, nearestItem.distance_km);
+
+      if (!suggestedRadiusKm) {
+        setOutsideRadiusHint(null);
+        return;
+      }
+
+      const matchingCount = availableRows.filter(
+        (item) =>
+          typeof item.distance_km === "number" && item.distance_km <= Number(suggestedRadiusKm)
+      ).length;
+
+      setOutsideRadiusHint({
+        nearestDistanceKm: nearestItem.distance_km,
+        suggestedRadiusKm,
+        matchingCount,
+      });
+    };
+
+    void loadOutsideRadiusHint();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    availabilityLoading,
+    categoryFilter,
+    currentRadiusKm,
+    dateFrom,
+    dateTo,
+    filteredItems.length,
+    hasValidDateRange,
+    isItemsLoading,
+    normalizedTextQuery,
+    searchCenter,
+    statusTone,
+  ]);
+
   const runSearchFromFeature = async (feature: GeoapifyFeature) => {
     const p = feature.properties ?? {};
     const lat = typeof p.lat === "number" ? p.lat : null;
@@ -374,15 +615,16 @@ function ItemsPageInner() {
     const label = p.formatted ?? [p.city, p.postcode].filter(Boolean).join(", ");
 
     if (lat === null || lng === null) {
-      setStatus("Chyba: lokalita nemá súradnice.");
+      setStatusTone("error");
+      setStatus("Chyba: lokalita nema suradnice.");
       return;
     }
 
+    setLocationFeedback(null);
     setLocationQuery(label);
     setSelectedLabel(label);
     setSearchCenter({ lat, lng });
     setLocationResults([]);
-    await loadNearbyItems(lat, lng);
   };
 
   const searchByTypedLocation = async () => {
@@ -392,6 +634,7 @@ function ItemsPageInner() {
     }
 
     if (locationResults.length === 0) {
+      setStatusTone("error");
       setStatus("Najprv vyber lokalitu zo zoznamu návrhov.");
       return;
     }
@@ -401,24 +644,56 @@ function ItemsPageInner() {
 
   const useMyLocation = async () => {
     if (!navigator.geolocation) {
-      setStatus("Tento prehliadač nepodporuje geolokáciu.");
+      setLocationFeedback({
+        tone: "error",
+        message: "Tento prehliadac nepodporuje polohu. Zadaj mesto alebo PSC rucne.",
+      });
+      setStatus("");
       return;
     }
 
-    setStatus("Zisťujem tvoju polohu...");
+    setIsLocatingUser(true);
+    setLocationFeedback({
+      tone: "neutral",
+      message: "Pytame si pristup k polohe a potom najdeme ponuky v tvojom okoli.",
+    });
+    setStatus("");
 
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+      (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        setIsLocatingUser(false);
+        setLocationFeedback(null);
         setLocationQuery("moja poloha");
         setSelectedLabel("moja poloha");
         setSearchCenter({ lat, lng });
         setLocationResults([]);
-        await loadNearbyItems(lat, lng);
       },
-      () => {
-        setStatus("Nepodarilo sa získať tvoju polohu.");
+      (error) => {
+        setIsLocatingUser(false);
+        setStatus("");
+
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationFeedback({
+            tone: "error",
+            message: "Pristup k polohe je zablokovany. Povol ho v prehliadaci alebo zadaj mesto rucne.",
+          });
+          return;
+        }
+
+        if (error.code === error.TIMEOUT) {
+          setLocationFeedback({
+            tone: "error",
+            message: "Ziskanie polohy trvalo prilis dlho. Skus to este raz alebo zadaj mesto rucne.",
+          });
+          return;
+        }
+
+        setLocationFeedback({
+          tone: "error",
+          message: "Polohu sa nepodarilo zistit. Skus to znova alebo zadaj mesto rucne.",
+        });
       },
       {
         enableHighAccuracy: true,
@@ -432,13 +707,14 @@ function ItemsPageInner() {
     setLocationQuery("");
     setLocationResults([]);
     setRadiusKm("20");
-    setCategoryFilter("Všetky kategórie");
+    setCategoryFilter("V?etky kateg?rie");
     setDateFrom("");
     setDateTo("");
+    setLocationFeedback(null);
     setSelectedLabel("");
     setSearchCenter(null);
     setUnavailableItemIds([]);
-    await loadDefaultItems();
+    setOutsideRadiusHint(null);
   };
 
   const setItemImageIndex = (itemId: number, nextIndex: number) => {
@@ -611,6 +887,7 @@ function ItemsPageInner() {
                   const nextValue = e.target.value;
                   setLocationQuery(nextValue);
                   setLocationResults([]);
+                  setLocationFeedback(null);
 
                   if (selectedLabel && nextValue !== selectedLabel) {
                     setSelectedLabel("");
@@ -701,11 +978,12 @@ function ItemsPageInner() {
             </button>
 
             <button
-              className="rentulo-btn-secondary h-12 px-4 text-sm"
+              className="rentulo-btn-secondary h-12 px-4 text-sm disabled:opacity-60"
               type="button"
               onClick={useMyLocation}
+              disabled={isLocatingUser}
             >
-              V mojej blízkosti
+              {isLocatingUser ? "Zistujem polohu..." : "V mojej blizkosti"}
             </button>
 
             <button
@@ -716,6 +994,18 @@ function ItemsPageInner() {
               Zrušiť filtre
             </button>
           </div>
+
+          {locationFeedback ? (
+            <div
+              className={`mt-4 rounded-[1.25rem] border p-3 text-sm ${
+                locationFeedback.tone === "error"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+                  : "border-white/10 bg-white/[0.04] text-white/75"
+              }`}
+            >
+              {locationFeedback.message}
+            </div>
+          ) : null}
 
           <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
             <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
@@ -766,14 +1056,44 @@ function ItemsPageInner() {
       </section>
 
       {status ? (
-        <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4 text-white/80">
+        <div
+          className={`rounded-[1.5rem] border p-4 ${
+            statusTone === "error"
+              ? "border-red-500/30 bg-red-500/10 text-red-100"
+              : "border-white/10 bg-black/20 text-white/80"
+          }`}
+        >
           {status}
         </div>
       ) : null}
 
-      {filteredItems.length === 0 && !status ? (
+      {outsideRadiusHint && !status ? (
+        <div className="rounded-[1.75rem] border border-emerald-500/20 bg-emerald-500/10 p-5 text-white">
+          <div className="text-base font-semibold">
+            V okruhu {radiusKm} km teraz nic vhodne nevidime.
+          </div>
+          <div className="mt-2 text-sm leading-6 text-white/80">
+            Najblizsia vhodna ponuka je asi {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
+            Po rozsireni na {outsideRadiusHint.suggestedRadiusKm} km uvidis{" "}
+            {outsideRadiusHint.matchingCount === 1
+              ? "aspon 1 vhodnu ponuku"
+              : `aspon ${outsideRadiusHint.matchingCount} vhodne ponuky`}.
+          </div>
+          <div className="mt-4">
+            <button
+              type="button"
+              className="rentulo-btn-primary px-4 py-2 text-sm"
+              onClick={() => setRadiusKm(outsideRadiusHint.suggestedRadiusKm)}
+            >
+              Rozsirit na {outsideRadiusHint.suggestedRadiusKm} km
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {filteredItems.length === 0 && !status && !outsideRadiusHint ? (
         <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-10 text-center text-white/60">
-          Nenašli sa žiadne ponuky.
+          Nenasli sa ziadne ponuky.
         </div>
       ) : null}
 
@@ -831,7 +1151,7 @@ function ItemsPageInner() {
 
                     {item.distance_km !== null && item.distance_km !== undefined ? (
                       <span className="rentulo-image-chip rounded-full px-3 py-1 text-xs font-medium text-white/80">
-                        {item.distance_km} km
+                        {formatDistanceLabel(item.distance_km)}
                       </span>
                     ) : null}
                   </div>
@@ -966,5 +1286,3 @@ export default function ItemsPage() {
     </Suspense>
   );
 }
-
-
