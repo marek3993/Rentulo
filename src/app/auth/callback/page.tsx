@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -33,7 +34,51 @@ function getHashParams() {
   return new URLSearchParams(window.location.hash.replace(/^#/, ""));
 }
 
-export default function AuthCallbackPage() {
+type AuthCallbackViewProps = {
+  errorMessage: string;
+  nextPath: string;
+  status: string;
+};
+
+function AuthCallbackView({ errorMessage, nextPath, status }: AuthCallbackViewProps) {
+  return (
+    <main className="mx-auto max-w-md space-y-6">
+      <section className="rentulo-card p-8">
+        <div className="space-y-3">
+          <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+            Rentulo
+          </div>
+
+          <h1 className="text-3xl font-semibold">Dokoncenie prihlasenia</h1>
+
+          <p className="text-sm leading-6 text-white/70">{status}</p>
+        </div>
+
+        {errorMessage ? (
+          <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
+            {errorMessage}
+          </div>
+        ) : (
+          <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+            Presmerujem ta spat do aplikacie.
+          </div>
+        )}
+      </section>
+
+      <section className="rentulo-card flex items-center gap-2 p-5 text-sm text-white/70">
+        <Link href={nextPath} className="font-medium text-indigo-300 hover:text-indigo-200">
+          Pokracovat dalej
+        </Link>
+        <span className="text-white/35">|</span>
+        <Link href="/login" className="font-medium text-indigo-300 hover:text-indigo-200">
+          Spat na prihlasenie
+        </Link>
+      </section>
+    </main>
+  );
+}
+
+function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -141,38 +186,24 @@ export default function AuthCallbackPage() {
   }, [router, searchParams]);
 
   return (
-    <main className="mx-auto max-w-md space-y-6">
-      <section className="rentulo-card p-8">
-        <div className="space-y-3">
-          <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
-            Rentulo
-          </div>
+    <AuthCallbackView errorMessage={errorMessage} nextPath={nextPath} status={status} />
+  );
+}
 
-          <h1 className="text-3xl font-semibold">Dokoncenie prihlasenia</h1>
+function AuthCallbackFallback() {
+  return (
+    <AuthCallbackView
+      errorMessage=""
+      nextPath="/"
+      status="Dokoncujem prihlasenie..."
+    />
+  );
+}
 
-          <p className="text-sm leading-6 text-white/70">{status}</p>
-        </div>
-
-        {errorMessage ? (
-          <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-100">
-            {errorMessage}
-          </div>
-        ) : (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Presmerujem ta spat do aplikacie.
-          </div>
-        )}
-      </section>
-
-      <section className="rentulo-card flex items-center gap-2 p-5 text-sm text-white/70">
-        <Link href={nextPath} className="font-medium text-indigo-300 hover:text-indigo-200">
-          Pokracovat dalej
-        </Link>
-        <span className="text-white/35">|</span>
-        <Link href="/login" className="font-medium text-indigo-300 hover:text-indigo-200">
-          Spat na prihlasenie
-        </Link>
-      </section>
-    </main>
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<AuthCallbackFallback />}>
+      <AuthCallbackInner />
+    </Suspense>
   );
 }
