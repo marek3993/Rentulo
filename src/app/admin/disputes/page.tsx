@@ -19,6 +19,14 @@ type DisputeRow = {
   details: string | null;
   resolution_note: string | null;
   reservation_status_after_dispute: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
+  dispute_requested_outcome: string | null;
+  dispute_requested_amount: number | null;
+  dispute_decision_outcome: string | null;
+  dispute_decision_amount: number | null;
+  refund_execution_status: string | null;
+  deposit_execution_status: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -89,6 +97,19 @@ function formatDate(value: string) {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString("sk-SK");
+}
+
+function formatCurrencyAmount(value: number | null) {
+  if (value === null) return "-";
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
+}
+
+function formatOptionalText(value: string | null) {
+  if (!value) return "-";
+  return value.replaceAll("_", " ");
 }
 
 function getStatusLabel(status: string) {
@@ -188,7 +209,7 @@ export default function AdminDisputesPage() {
     let request = supabase
       .from("disputes")
       .select(
-        "id,reservation_id,item_id,renter_id,owner_id,status,dispute_type,title,description,reason,details,resolution_note,reservation_status_after_dispute,created_at,updated_at",
+        "id,reservation_id,item_id,renter_id,owner_id,status,dispute_type,title,description,reason,details,resolution_note,reservation_status_after_dispute,rental_amount_snapshot,deposit_amount_snapshot,dispute_requested_outcome,dispute_requested_amount,dispute_decision_outcome,dispute_decision_amount,refund_execution_status,deposit_execution_status,created_at,updated_at",
         { count: "exact" }
       );
 
@@ -504,6 +525,38 @@ export default function AdminDisputesPage() {
                           <span className="text-white/50">Typ:</span> {getDisputeTypeLabel(row.dispute_type)}
                         </div>
                       ) : null}
+
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/75">
+                        <div className="font-medium text-white">Financie</div>
+                        <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          <div>
+                            <span className="text-white/45">Pozadovane:</span>{" "}
+                            {formatOptionalText(row.dispute_requested_outcome)} ·{" "}
+                            {formatCurrencyAmount(row.dispute_requested_amount)}
+                          </div>
+                          <div>
+                            <span className="text-white/45">Rozhodnute:</span>{" "}
+                            {formatOptionalText(row.dispute_decision_outcome)} ·{" "}
+                            {formatCurrencyAmount(row.dispute_decision_amount)}
+                          </div>
+                          <div>
+                            <span className="text-white/45">Refund:</span>{" "}
+                            {formatOptionalText(row.refund_execution_status)}
+                          </div>
+                          <div>
+                            <span className="text-white/45">Depozit:</span>{" "}
+                            {formatOptionalText(row.deposit_execution_status)}
+                          </div>
+                          <div>
+                            <span className="text-white/45">Snapshot prenajmu:</span>{" "}
+                            {formatCurrencyAmount(row.rental_amount_snapshot)}
+                          </div>
+                          <div>
+                            <span className="text-white/45">Snapshot depozitu:</span>{" "}
+                            {formatCurrencyAmount(row.deposit_amount_snapshot)}
+                          </div>
+                        </div>
+                      </div>
 
                       {description ? (
                         <div className="max-w-4xl whitespace-pre-wrap text-sm text-white/70">

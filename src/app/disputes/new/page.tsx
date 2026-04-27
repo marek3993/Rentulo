@@ -46,6 +46,18 @@ function formatDate(dateStr: string) {
   return value.toLocaleDateString("sk-SK");
 }
 
+function parseOptionalAmount(value: string, fieldLabel: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${fieldLabel} musi byt nezaporne cislo.`);
+  }
+
+  return parsed;
+}
+
 function extractDisputeId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -94,6 +106,9 @@ function NewDisputePageInner() {
   const [disputeType, setDisputeType] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [requestedOutcome, setRequestedOutcome] = useState("");
+  const [requestedAmount, setRequestedAmount] = useState("");
+  const [depositAmountSnapshot, setDepositAmountSnapshot] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
   const heading = viewer === "owner" ? "Nova reklamacia od prenajimatela" : "Nova reklamacia";
@@ -217,6 +232,11 @@ function NewDisputePageInner() {
     setStatusText("Ukladam reklamaciu...");
 
     try {
+      const parsedRequestedAmount = parseOptionalAmount(requestedAmount, "Pozadovana suma");
+      const parsedDepositAmountSnapshot = parseOptionalAmount(
+        depositAmountSnapshot,
+        "Snapshot depozitu"
+      );
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user.id;
 
@@ -230,6 +250,9 @@ function NewDisputePageInner() {
         p_dispute_type: trimmedType,
         p_title: trimmedTitle,
         p_description: trimmedDescription,
+        p_dispute_requested_outcome: requestedOutcome.trim() || null,
+        p_dispute_requested_amount: parsedRequestedAmount,
+        p_deposit_amount_snapshot: parsedDepositAmountSnapshot,
       });
 
       if (error) throw new Error(error.message);
@@ -367,6 +390,47 @@ function NewDisputePageInner() {
                 placeholder="Vecne popiste, co sa stalo a preco otvarate reklamaciu."
               />
             </label>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block md:col-span-1">
+                <div className="mb-1 text-white/80">Pozadovany vysledok</div>
+                <input
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={requestedOutcome}
+                  onChange={(event) => setRequestedOutcome(event.target.value)}
+                  disabled={saving}
+                  placeholder="napr. refund, deposit_withheld"
+                />
+              </label>
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Pozadovana suma</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={requestedAmount}
+                  onChange={(event) => setRequestedAmount(event.target.value)}
+                  disabled={saving}
+                  placeholder="0.00"
+                />
+              </label>
+
+              <label className="block">
+                <div className="mb-1 text-white/80">Snapshot depozitu (volitelne)</div>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                  value={depositAmountSnapshot}
+                  onChange={(event) => setDepositAmountSnapshot(event.target.value)}
+                  disabled={saving}
+                  placeholder="0.00"
+                />
+              </label>
+            </div>
 
             <label className="block">
               <div className="mb-1 text-white/80">Dokazova fotka (volitelne)</div>

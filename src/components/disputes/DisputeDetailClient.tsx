@@ -23,6 +23,16 @@ type DisputeRow = {
   details: string | null;
   resolutionNote: string | null;
   reservationStatusAfterDispute: string | null;
+  rentalAmountSnapshot: number | null;
+  depositAmountSnapshot: number | null;
+  disputeRequestedOutcome: string | null;
+  disputeRequestedAmount: number | null;
+  disputeDecisionOutcome: string | null;
+  disputeDecisionAmount: number | null;
+  refundExecutionStatus: string | null;
+  depositExecutionStatus: string | null;
+  refundPaymentEventId: number | null;
+  depositPaymentEventId: number | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -154,6 +164,31 @@ function formatDateTime(value: string | null) {
   return parsed.toLocaleString("sk-SK");
 }
 
+function formatCurrencyAmount(value: number | null) {
+  if (value === null) return "-";
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
+}
+
+function formatOptionalText(value: string | null) {
+  if (!value) return "-";
+  return value.replaceAll("_", " ");
+}
+
+function parseOptionalAmount(value: string, fieldLabel: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const parsed = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${fieldLabel} musi byt nezaporne cislo.`);
+  }
+
+  return parsed;
+}
+
 function humanizeStatus(status: string) {
   if (status === "open") return "Otvorena";
   if (status === "under_review") return "V rieseni";
@@ -191,6 +226,16 @@ function normalizeDispute(record: RawRecord): DisputeRow {
     details: readString(record, ["details"]),
     resolutionNote: readString(record, ["resolution_note"]),
     reservationStatusAfterDispute: readString(record, ["reservation_status_after_dispute"]),
+    rentalAmountSnapshot: readNumber(record, ["rental_amount_snapshot"]),
+    depositAmountSnapshot: readNumber(record, ["deposit_amount_snapshot"]),
+    disputeRequestedOutcome: readString(record, ["dispute_requested_outcome"]),
+    disputeRequestedAmount: readNumber(record, ["dispute_requested_amount"]),
+    disputeDecisionOutcome: readString(record, ["dispute_decision_outcome"]),
+    disputeDecisionAmount: readNumber(record, ["dispute_decision_amount"]),
+    refundExecutionStatus: readString(record, ["refund_execution_status"]),
+    depositExecutionStatus: readString(record, ["deposit_execution_status"]),
+    refundPaymentEventId: readNumber(record, ["refund_payment_event_id"]),
+    depositPaymentEventId: readNumber(record, ["deposit_payment_event_id"]),
     createdAt: readString(record, ["created_at"]),
     updatedAt: readString(record, ["updated_at"]),
   };
@@ -257,7 +302,13 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
   const [nextStatus, setNextStatus] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
   const [reservationStatusAfter, setReservationStatusAfter] = useState("");
+  const [decisionOutcome, setDecisionOutcome] = useState("");
+  const [decisionAmount, setDecisionAmount] = useState("");
   const [statusSaving, setStatusSaving] = useState(false);
+  const [executeRefund, setExecuteRefund] = useState(false);
+  const [executeDeposit, setExecuteDeposit] = useState(false);
+  const [executionNote, setExecutionNote] = useState("");
+  const [executionSaving, setExecutionSaving] = useState(false);
 
   const isAdminViewer = viewer === "admin";
 
@@ -309,7 +360,9 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
 
     const { data: disputeData, error: disputeError } = await supabase
       .from("disputes")
-      .select("id,reservation_id,item_id,renter_id,owner_id,status,dispute_type,title,description,reason,details,resolution_note,reservation_status_after_dispute,created_at,updated_at")
+      .select(
+        "id,reservation_id,item_id,renter_id,owner_id,status,dispute_type,title,description,reason,details,resolution_note,reservation_status_after_dispute,rental_amount_snapshot,deposit_amount_snapshot,dispute_requested_outcome,dispute_requested_amount,dispute_decision_outcome,dispute_decision_amount,refund_execution_status,deposit_execution_status,refund_payment_event_id,deposit_payment_event_id,created_at,updated_at"
+      )
       .eq("id", disputeId)
       .maybeSingle();
 
@@ -435,6 +488,13 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
     setNextStatus(disputeRow.status);
     setResolutionNote(disputeRow.resolutionNote ?? "");
     setReservationStatusAfter(disputeRow.reservationStatusAfterDispute ?? "");
+    setDecisionOutcome(disputeRow.disputeDecisionOutcome ?? "");
+    setDecisionAmount(
+      disputeRow.disputeDecisionAmount === null ? "" : String(disputeRow.disputeDecisionAmount)
+    );
+    setExecuteRefund(false);
+    setExecuteDeposit(false);
+    setExecutionNote("");
     setStatusText("");
   };
 
@@ -536,6 +596,7 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
     const trimmedStatus = nextStatus.trim();
     const trimmedResolutionNote = resolutionNote.trim();
     const trimmedReservationStatus = reservationStatusAfter.trim();
+    const trimmedDecisionOutcome = decisionOutcome.trim();
 
     if (!trimmedStatus) {
       setStatusText("Zadajte dalsi stav reklamacie.");
@@ -549,6 +610,17 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       return;
     }
 
+    let parsedDecisionAmount: number | null;
+    try {
+      parsedDecisionAmount = parseOptionalAmount(decisionAmount, "Rozhodnuta suma");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Rozhodnuta suma musi byt nezaporne cislo.";
+      setStatusText("Chyba: " + message);
+      alert(message);
+      return;
+    }
+
     setStatusSaving(true);
     setStatusText("Ukladam stav reklamacie...");
 
@@ -559,6 +631,8 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       p_reservation_status_after_dispute: needsReservationStatus(trimmedStatus)
         ? trimmedReservationStatus
         : null,
+      p_dispute_decision_outcome: trimmedDecisionOutcome || null,
+      p_dispute_decision_amount: parsedDecisionAmount,
     });
 
     if (error) {
@@ -596,6 +670,34 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
     );
 
     setStatusSaving(false);
+    await loadDispute();
+  };
+
+  const submitFinancialExecution = async () => {
+    if (!executeRefund && !executeDeposit) {
+      setStatusText("Vyberte refund alebo depozit na vykonanie.");
+      alert("Vyberte refund alebo depozit na vykonanie.");
+      return;
+    }
+
+    setExecutionSaving(true);
+    setStatusText("Vykonavam financny vysledok...");
+
+    const { error } = await supabase.rpc("dispute_execute_financial_outcome_v1", {
+      p_dispute_id: disputeId,
+      p_execute_refund: executeRefund,
+      p_execute_deposit: executeDeposit,
+      p_note: executionNote.trim() || null,
+    });
+
+    if (error) {
+      setExecutionSaving(false);
+      setStatusText("Chyba: " + error.message);
+      alert(error.message);
+      return;
+    }
+
+    setExecutionSaving(false);
     await loadDispute();
   };
 
@@ -693,66 +795,186 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
                 ) : null}
               </div>
 
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <div className="text-lg font-semibold">Financne zhrnutie</div>
+                <div className="mt-4 grid gap-3 text-sm text-white/75 sm:grid-cols-2">
+                  <div>
+                    <div className="text-white/45">Snapshot prenajmu</div>
+                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.rentalAmountSnapshot)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Snapshot depozitu</div>
+                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.depositAmountSnapshot)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Pozadovany vysledok</div>
+                    <div className="mt-1 text-white">{formatOptionalText(dispute.disputeRequestedOutcome)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Pozadovana suma</div>
+                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.disputeRequestedAmount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Rozhodnuty vysledok</div>
+                    <div className="mt-1 text-white">{formatOptionalText(dispute.disputeDecisionOutcome)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Rozhodnuta suma</div>
+                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.disputeDecisionAmount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Refund vykonanie</div>
+                    <div className="mt-1 text-white">
+                      {formatOptionalText(dispute.refundExecutionStatus)}
+                      {dispute.refundPaymentEventId !== null ? ` · event #${dispute.refundPaymentEventId}` : ""}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-white/45">Depozit vykonanie</div>
+                    <div className="mt-1 text-white">
+                      {formatOptionalText(dispute.depositExecutionStatus)}
+                      {dispute.depositPaymentEventId !== null ? ` · event #${dispute.depositPaymentEventId}` : ""}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {isAdminViewer ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-                  <div className="text-lg font-semibold">Zmena stavu reklamacie</div>
+                <div className="space-y-6">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                    <div className="text-lg font-semibold">Zmena stavu reklamacie</div>
 
-                  <div className="mt-4 space-y-4">
-                    <label className="block">
-                      <div className="mb-1 text-white/80">Dalsi stav reklamacie</div>
-                      <input
-                        className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                        list="dispute-status-suggestions"
-                        value={nextStatus}
-                        onChange={(event) => setNextStatus(event.target.value)}
-                        disabled={statusSaving}
-                      />
-                      <datalist id="dispute-status-suggestions">
-                        {statusSuggestions.map((status) => (
-                          <option key={status} value={status} />
-                        ))}
-                      </datalist>
-                    </label>
-
-                    <label className="block">
-                      <div className="mb-1 text-white/80">Poznamka k rozhodnutiu</div>
-                      <textarea
-                        className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                        rows={4}
-                        value={resolutionNote}
-                        onChange={(event) => setResolutionNote(event.target.value)}
-                        disabled={statusSaving}
-                        placeholder="Volitelna poznamka k rozhodnutiu o reklamacii"
-                      />
-                    </label>
-
-                    {needsReservationStatus(nextStatus.trim()) ? (
+                    <div className="mt-4 space-y-4">
                       <label className="block">
-                        <div className="mb-1 text-white/80">Vysledny stav rezervacie</div>
-                        <select
+                        <div className="mb-1 text-white/80">Dalsi stav reklamacie</div>
+                        <input
                           className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                          value={reservationStatusAfter}
-                          onChange={(event) => setReservationStatusAfter(event.target.value)}
+                          list="dispute-status-suggestions"
+                          value={nextStatus}
+                          onChange={(event) => setNextStatus(event.target.value)}
                           disabled={statusSaving}
-                        >
-                          <option value="">Vyberte stav rezervacie</option>
-                          {RESERVATION_STATUS_OPTIONS.map((option) => (
-                            <option key={option} value={option}>
-                              {getReservationStatusLabel(option)}
-                            </option>
+                        />
+                        <datalist id="dispute-status-suggestions">
+                          {statusSuggestions.map((status) => (
+                            <option key={status} value={status} />
                           ))}
-                        </select>
+                        </datalist>
                       </label>
-                    ) : null}
 
-                    <button
-                      type="button"
-                      className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
-                      onClick={submitStatusUpdate}
-                      disabled={statusSaving}
-                    >
-                      {statusSaving ? "Ukladam..." : "Ulozit stav"}
-                    </button>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <label className="block">
+                          <div className="mb-1 text-white/80">Rozhodnuty vysledok</div>
+                          <input
+                            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                            value={decisionOutcome}
+                            onChange={(event) => setDecisionOutcome(event.target.value)}
+                            disabled={statusSaving}
+                            placeholder="napr. rental_refund_issued, deposit_withheld"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <div className="mb-1 text-white/80">Rozhodnuta suma</div>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                            value={decisionAmount}
+                            onChange={(event) => setDecisionAmount(event.target.value)}
+                            disabled={statusSaving}
+                            placeholder="0.00"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="block">
+                        <div className="mb-1 text-white/80">Poznamka k rozhodnutiu</div>
+                        <textarea
+                          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                          rows={4}
+                          value={resolutionNote}
+                          onChange={(event) => setResolutionNote(event.target.value)}
+                          disabled={statusSaving}
+                          placeholder="Volitelna poznamka k rozhodnutiu o reklamacii"
+                        />
+                      </label>
+
+                      {needsReservationStatus(nextStatus.trim()) ? (
+                        <label className="block">
+                          <div className="mb-1 text-white/80">Vysledny stav rezervacie</div>
+                          <select
+                            className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                            value={reservationStatusAfter}
+                            onChange={(event) => setReservationStatusAfter(event.target.value)}
+                            disabled={statusSaving}
+                          >
+                            <option value="">Vyberte stav rezervacie</option>
+                            {RESERVATION_STATUS_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {getReservationStatusLabel(option)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                        onClick={submitStatusUpdate}
+                        disabled={statusSaving}
+                      >
+                        {statusSaving ? "Ukladam..." : "Ulozit stav"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                    <div className="text-lg font-semibold">Manualne vykonanie financneho vysledku</div>
+
+                    <div className="mt-4 space-y-4">
+                      <label className="flex items-center gap-3 text-white/80">
+                        <input
+                          type="checkbox"
+                          checked={executeRefund}
+                          onChange={(event) => setExecuteRefund(event.target.checked)}
+                          disabled={executionSaving}
+                        />
+                        <span>Vykonat refund</span>
+                      </label>
+
+                      <label className="flex items-center gap-3 text-white/80">
+                        <input
+                          type="checkbox"
+                          checked={executeDeposit}
+                          onChange={(event) => setExecuteDeposit(event.target.checked)}
+                          disabled={executionSaving}
+                        />
+                        <span>Vykonat depozit</span>
+                      </label>
+
+                      <label className="block">
+                        <div className="mb-1 text-white/80">Poznamka k vykonaniu</div>
+                        <textarea
+                          className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                          rows={3}
+                          value={executionNote}
+                          onChange={(event) => setExecutionNote(event.target.value)}
+                          disabled={executionSaving}
+                          placeholder="Volitelna admin poznamka"
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        className="rounded bg-white px-4 py-2 font-medium text-black hover:bg-white/90 disabled:opacity-50"
+                        onClick={submitFinancialExecution}
+                        disabled={executionSaving}
+                      >
+                        {executionSaving ? "Vykonavam..." : "Vykonat financny vysledok"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
