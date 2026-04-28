@@ -58,18 +58,6 @@ function parseOptionalAmount(value: string, fieldLabel: string) {
   return parsed;
 }
 
-function getRequestedOutcomeError(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const normalized = trimmed.replace(/\s+/g, "");
-  if (/^[+-]?\d+(?:[.,]\d+)?$/.test(normalized)) {
-    return "Do pola Požadovaný výsledok nepatrí suma. Sumu zadaj do poľa Požadovaná suma.";
-  }
-
-  return null;
-}
-
 function extractDisputeId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -118,8 +106,6 @@ function NewDisputePageInner() {
   const [disputeType, setDisputeType] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [requestedOutcome, setRequestedOutcome] = useState("");
-  const [requestedOutcomeError, setRequestedOutcomeError] = useState("");
   const [requestedAmount, setRequestedAmount] = useState("");
   const [depositAmountSnapshot, setDepositAmountSnapshot] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
@@ -222,7 +208,6 @@ function NewDisputePageInner() {
     const trimmedType = disputeType.trim();
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
-    const requestedOutcomeValidationError = getRequestedOutcomeError(requestedOutcome);
 
     if (!trimmedType) {
       setStatusText("Zadajte typ reklamacie.");
@@ -241,15 +226,6 @@ function NewDisputePageInner() {
       alert("Zadajte popis reklamacie.");
       return;
     }
-
-    if (requestedOutcomeValidationError) {
-      setRequestedOutcomeError(requestedOutcomeValidationError);
-      setStatusText(requestedOutcomeValidationError);
-      alert(requestedOutcomeValidationError);
-      return;
-    }
-
-    setRequestedOutcomeError("");
     setSaving(true);
     setStatusText("Ukladam reklamaciu...");
 
@@ -272,7 +248,7 @@ function NewDisputePageInner() {
         p_dispute_type: trimmedType,
         p_title: trimmedTitle,
         p_description: trimmedDescription,
-        p_dispute_requested_outcome: requestedOutcome.trim() || null,
+        p_dispute_requested_outcome: null,
         p_dispute_requested_amount: parsedRequestedAmount,
         p_deposit_amount_snapshot: parsedDepositAmountSnapshot,
       });
@@ -413,29 +389,7 @@ function NewDisputePageInner() {
               />
             </label>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="block md:col-span-1">
-                <div className="mb-1 text-white/80">Co pozadujes vyriesit</div>
-                <input
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={requestedOutcome}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    setRequestedOutcome(nextValue);
-                    setRequestedOutcomeError(getRequestedOutcomeError(nextValue) ?? "");
-                  }}
-                  disabled={saving}
-                  placeholder="napr. vratenie platby alebo oprava problemu"
-                />
-                <div className="mt-1 text-sm text-white/60">
-                  Sem patri slovny opis poziadavky. Ak ziadate sumu, zadajte ju do pola
-                  Požadovaná suma.
-                </div>
-                {requestedOutcomeError ? (
-                  <div className="mt-1 text-sm text-red-300">{requestedOutcomeError}</div>
-                ) : null}
-              </label>
-
+            <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <div className="mb-1 text-white/80">Pozadovana suma</div>
                 <input
