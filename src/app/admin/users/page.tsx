@@ -1,25 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { adminApiFetch } from "@/lib/adminApiClient";
 import { supabase } from "@/lib/supabaseClient";
 
-type ProfileRow = {
+type UserRow = {
   id: string;
   full_name: string | null;
   city: string | null;
   role: string;
   created_at: string;
+  email: string | null;
+  admin_state: "active" | "suspended" | "blocked" | "deleted";
+  banned_until: string | null;
+  deleted_at: string | null;
+  total_items: number;
+  active_items: number;
+};
+
+type UserListResponse = {
+  rows: UserRow[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 const PAGE_SIZE = 12;
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("sk-SK");
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("sk-SK");
 }
 
 function roleBadge(role: string) {
@@ -29,7 +44,21 @@ function roleBadge(role: string) {
 
 function roleLabel(role: string) {
   if (role === "admin") return "Admin";
-  return "Používateľ";
+  return "Pouzivatel";
+}
+
+function stateBadge(state: UserRow["admin_state"]) {
+  if (state === "active") return "bg-emerald-500/15 text-emerald-300";
+  if (state === "suspended") return "bg-amber-500/15 text-amber-300";
+  if (state === "blocked") return "bg-red-500/15 text-red-300";
+  return "bg-white/10 text-white/70";
+}
+
+function stateLabel(state: UserRow["admin_state"]) {
+  if (state === "active") return "Aktivny";
+  if (state === "suspended") return "Pozastaveny";
+  if (state === "blocked") return "Blokovany";
+  return "Soft deleted";
 }
 
 function shortUserId(value: string) {
@@ -41,13 +70,14 @@ function shortUserId(value: string) {
 export default function AdminUsersPage() {
   const router = useRouter();
 
-  const [status, setStatus] = useState("Načítavam...");
-  const [rows, setRows] = useState<ProfileRow[]>([]);
+  const [status, setStatus] = useState("Nacitavam...");
+  const [rows, setRows] = useState<UserRow[]>([]);
   const [total, setTotal] = useState(0);
 
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [stateFilter, setStateFilter] = useState("all");
   const [sort, setSort] = useState("newest");
 
   const [actingUserId, setActingUserId] = useState<string | null>(null);
@@ -55,100 +85,180 @@ export default function AdminUsersPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const adminCount = useMemo(() => rows.filter((r) => r.role === "admin").length, [rows]);
-  const userCount = useMemo(() => rows.filter((r) => r.role !== "admin").length, [rows]);
+  const adminCount = useMemo(() => rows.filter((row) => row.role === "admin").length, [rows]);
+  const activeCount = useMemo(
+    () => rows.filter((row) => row.admin_state === "active").length,
+    [rows]
+  );
+  const blockedCount = useMemo(
+    () => rows.filter((row) => row.admin_state === "blocked").length,
+    [rows]
+  );
 
-  const load = async (nextPage = page, nextQuery = query.trim()) => {
-    setStatus("Načítavam...");
-
-    const { data: sess } = await supabase.auth.getSession();
-    const userId = sess.session?.user.id;
+  const ensureAdminViewer = async () => {
+    const sessionResult = await supabase.auth.getSession();
+    const userId = sessionResult.data.session?.user.id;
 
     if (!userId) {
       router.replace("/login");
-      return;
+      return null;
     }
 
     setActingUserId(userId);
 
-    const { data: me, error: meError } = await supabase
+    const { data: me, error } = await supabase
       .from("profiles")
       .select("id,role")
       .eq("id", userId)
       .maybeSingle();
 
-    if (meError) {
-      setStatus("Chyba: " + meError.message);
-      return;
+    if (error) {
+      throw new Error(error.message);
     }
 
     if (!me || me.role !== "admin") {
       router.replace("/");
-      return;
+      return null;
     }
 
-    let req = supabase
-      .from("profiles")
-      .select("id,full_name,city,role,created_at", { count: "exact" });
+    return userId;
+  };
 
-    if (roleFilter !== "all") {
-      req = req.eq("role", roleFilter);
+  const load = async (nextPage = page, nextQuery = query.trim()) => {
+    setStatus("Nacitavam...");
+
+    try {
+      const adminId = await ensureAdminViewer();
+      if (!adminId) return;
+
+      const searchParams = new URLSearchParams({
+        page: String(nextPage),
+        q: nextQuery,
+        role: roleFilter,
+        state: stateFilter,
+        sort,
+      });
+
+      const response = await adminApiFetch<UserListResponse>(`/api/admin/users?${searchParams}`);
+      setRows(response.rows);
+      setTotal(response.total);
+      setPage(response.page);
+      setStatus("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nepodarilo sa nacitat pouzivatelov.";
+      setStatus("Chyba: " + message);
     }
-
-    if (nextQuery) {
-      req = req.or(`full_name.ilike.%${nextQuery}%,city.ilike.%${nextQuery}%,id.ilike.%${nextQuery}%`);
-    }
-
-    req = req.order("created_at", { ascending: sort === "oldest" });
-
-    const from = (nextPage - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-
-    const { data, error, count } = await req.range(from, to);
-
-    if (error) {
-      setStatus("Chyba: " + error.message);
-      return;
-    }
-
-    setRows((data ?? []) as ProfileRow[]);
-    setTotal(count ?? 0);
-    setStatus("");
   };
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, roleFilter, sort]);
+  }, [page, roleFilter, stateFilter, sort]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timeout = setTimeout(() => {
       setPage(1);
       load(1, query.trim());
     }, 250);
 
-    return () => clearTimeout(t);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
-  const changeRole = async (targetUserId: string, nextRole: "user" | "admin") => {
+  const updateRole = async (targetUserId: string, role: "user" | "admin") => {
     setUpdatingId(targetUserId);
-    setStatus("Ukladám zmenu...");
+    setStatus("Ukladam rolu...");
 
     try {
-      const { error } = await supabase.rpc("set_user_role", {
-        target_user_id: targetUserId,
-        new_role: nextRole,
+      await adminApiFetch(`/api/admin/users/${targetUserId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "set_role",
+          role,
+        }),
       });
 
-      if (error) {
-        throw new Error(error.message);
+      setStatus("Rola bola ulozena.");
+      await load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Zmena roly zlyhala.";
+      setStatus("Chyba: " + message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const updateState = async (
+    targetUserId: string,
+    state: "active" | "suspended" | "blocked"
+  ) => {
+    setUpdatingId(targetUserId);
+    setStatus("Ukladam stav pouzivatela...");
+
+    try {
+      const result = await adminApiFetch<{ hiddenItems?: number }>(`/api/admin/users/${targetUserId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "set_state",
+          state,
+        }),
+      });
+
+      if (state === "active") {
+        setStatus("Pouzivatel bol obnoveny. Inzeraty zostavaju vypnute, kym ich admin znovu nepovoli.");
+      } else if ((result.hiddenItems ?? 0) > 0) {
+        setStatus(`Pouzivatel bol aktualizovany. Skrytych inzeratov: ${result.hiddenItems}.`);
+      } else {
+        setStatus("Pouzivatel bol aktualizovany.");
       }
 
-      setStatus("Rola bola uložená ✅");
       await load();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Neznáma chyba pri zmene roly.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Zmena stavu zlyhala.";
+      setStatus("Chyba: " + message);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const softDeleteUser = async (targetUserId: string) => {
+    const confirmed = window.confirm(
+      "Soft delete zablokuje pristup do auth a skryje aktivne inzeraty. Pokracovat?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setUpdatingId(targetUserId);
+    setStatus("Soft deleting user...");
+
+    try {
+      const result = await adminApiFetch<{ hiddenItems?: number }>(`/api/admin/users/${targetUserId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "soft_delete",
+        }),
+      });
+
+      if ((result.hiddenItems ?? 0) > 0) {
+        setStatus(`Pouzivatel bol soft deleted. Skrytych inzeratov: ${result.hiddenItems}.`);
+      } else {
+        setStatus("Pouzivatel bol soft deleted.");
+      }
+
+      await load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Mazanie zlyhalo.";
       setStatus("Chyba: " + message);
     } finally {
       setUpdatingId(null);
@@ -161,63 +271,69 @@ export default function AdminUsersPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-2xl">
             <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
-              Rentulo administrácia
+              Rentulo administracia
             </div>
 
-            <h1 className="mt-4 text-3xl font-semibold">Správa používateľov</h1>
+            <h1 className="mt-4 text-3xl font-semibold">Sprava pouzivatelov</h1>
 
             <p className="mt-2 leading-7 text-white/70">
-              Tu vieš spravovať používateľské roly a pasovať používateľov za admina.
+              Realna moderacia uctov: suspend, block, role change a pripraveny soft delete.
             </p>
           </div>
 
           <Link href="/admin" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
-            Späť do administrácie
+            Spat do administracie
           </Link>
         </div>
       </section>
 
       {status ? <div className="rentulo-card p-4 text-white/80">{status}</div> : null}
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <div className="rentulo-card p-5">
-          <div className="text-sm text-white/60">Zobrazené</div>
+          <div className="text-sm text-white/60">Zobrazene</div>
           <div className="mt-2 text-3xl font-semibold">{rows.length}</div>
-          <div className="mt-1 text-sm text-white/50">Počet na aktuálnej strane</div>
+          <div className="mt-1 text-sm text-white/50">Na aktualnej strane</div>
         </div>
 
         <div className="rentulo-card p-5">
           <div className="text-sm text-white/60">Admini</div>
           <div className="mt-2 text-3xl font-semibold">{adminCount}</div>
-          <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
+          <div className="mt-1 text-sm text-white/50">Na aktualnej strane</div>
         </div>
 
         <div className="rentulo-card p-5">
-          <div className="text-sm text-white/60">Používatelia</div>
-          <div className="mt-2 text-3xl font-semibold">{userCount}</div>
-          <div className="mt-1 text-sm text-white/50">Na aktuálnej strane</div>
+          <div className="text-sm text-white/60">Aktivni</div>
+          <div className="mt-2 text-3xl font-semibold">{activeCount}</div>
+          <div className="mt-1 text-sm text-white/50">Na aktualnej strane</div>
+        </div>
+
+        <div className="rentulo-card p-5">
+          <div className="text-sm text-white/60">Blokovani</div>
+          <div className="mt-2 text-3xl font-semibold">{blockedCount}</div>
+          <div className="mt-1 text-sm text-white/50">Na aktualnej strane</div>
         </div>
       </section>
 
       <section className="rentulo-card p-5">
         <div>
-          <h2 className="text-lg font-semibold">Vyhľadávanie a filtre</h2>
+          <h2 className="text-lg font-semibold">Vyhladavanie a filtre</h2>
           <p className="mt-1 text-sm text-white/60">
-            Hľadaj podľa mena, mesta alebo user ID.
+            Hladaj podla mena, mesta, emailu alebo user ID.
           </p>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
           <div>
             <label htmlFor="admin-users-search" className="block text-sm text-white/70">
-              Hľadať
+              Hladat
             </label>
             <input
               id="admin-users-search"
               className="rentulo-input-dark mt-2 px-3 py-2 placeholder:text-white/40"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Meno, mesto alebo user ID"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Meno, email, mesto alebo ID"
             />
           </div>
 
@@ -229,14 +345,35 @@ export default function AdminUsersPage() {
               id="admin-users-role"
               className="rentulo-input-dark mt-2 px-3 py-2"
               value={roleFilter}
-              onChange={(e) => {
-                setRoleFilter(e.target.value);
+              onChange={(event) => {
+                setRoleFilter(event.target.value);
                 setPage(1);
               }}
             >
-              <option value="all">Všetky</option>
-              <option value="user">Používateľ</option>
+              <option value="all">Vsetky</option>
+              <option value="user">Pouzivatel</option>
               <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="admin-users-state" className="block text-sm text-white/70">
+              Stav
+            </label>
+            <select
+              id="admin-users-state"
+              className="rentulo-input-dark mt-2 px-3 py-2"
+              value={stateFilter}
+              onChange={(event) => {
+                setStateFilter(event.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">Vsetky stavy</option>
+              <option value="active">Aktivny</option>
+              <option value="suspended">Pozastaveny</option>
+              <option value="blocked">Blokovany</option>
+              <option value="deleted">Soft deleted</option>
             </select>
           </div>
 
@@ -248,13 +385,13 @@ export default function AdminUsersPage() {
               id="admin-users-sort"
               className="rentulo-input-dark mt-2 px-3 py-2"
               value={sort}
-              onChange={(e) => {
-                setSort(e.target.value);
+              onChange={(event) => {
+                setSort(event.target.value);
                 setPage(1);
               }}
             >
-              <option value="newest">Najnovšie</option>
-              <option value="oldest">Najstaršie</option>
+              <option value="newest">Najnovsie</option>
+              <option value="oldest">Najstarsie</option>
             </select>
           </div>
         </div>
@@ -262,37 +399,43 @@ export default function AdminUsersPage() {
 
       <section className="rentulo-card p-5">
         <div>
-          <h2 className="text-lg font-semibold">Používatelia</h2>
+          <h2 className="text-lg font-semibold">Pouzivatelia</h2>
           <p className="mt-1 text-sm text-white/60">
-            Zobrazené: {rows.length} z {total}
+            Zobrazene: {rows.length} z {total}
           </p>
         </div>
 
         {rows.length === 0 ? (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
-            Žiadni používatelia podľa zvolených filtrov.
+            Ziadni pouzivatelia pre zvolene filtre.
           </div>
         ) : (
           <ul className="mt-4 space-y-3">
             {rows.map((row) => {
               const isSelf = actingUserId === row.id;
               const isAdmin = row.role === "admin";
+              const isDeleted = row.admin_state === "deleted";
+              const isBusy = updatingId === row.id;
 
               return (
                 <li key={row.id} className="rounded-2xl border border-white/10 bg-black/20 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-white/50">Používateľ</span>
+                        <span className="text-sm text-white/50">Pouzivatel</span>
                         <strong className="text-base">{row.full_name || "Bez mena"}</strong>
 
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleBadge(
-                            row.role
-                          )}`}
-                        >
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${roleBadge(row.role)}`}>
                           {roleLabel(row.role)}
                         </span>
+
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${stateBadge(row.admin_state)}`}>
+                          {stateLabel(row.admin_state)}
+                        </span>
+                      </div>
+
+                      <div className="text-white/75">
+                        <span className="text-white/50">Email:</span> {row.email || "-"}
                       </div>
 
                       <div className="text-white/75">
@@ -303,38 +446,88 @@ export default function AdminUsersPage() {
                         <span className="text-white/50">User ID:</span> {shortUserId(row.id)}
                       </div>
 
+                      <div className="text-white/75">
+                        <span className="text-white/50">Inzeraty:</span> {row.active_items}/{row.total_items} aktivnych
+                      </div>
+
                       <div className="text-sm text-white/50">
-                        Vytvorené: {formatDate(row.created_at)}
+                        Vytvorene: {formatDate(row.created_at)}
+                        {row.banned_until ? ` · Ban until: ${formatDate(row.banned_until)}` : ""}
+                        {row.deleted_at ? ` · Deleted: ${formatDate(row.deleted_at)}` : ""}
                       </div>
 
                       {isSelf ? <div className="text-sm text-white/60">Toto si ty.</div> : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {!isAdmin ? (
+                      {!isDeleted && !isAdmin ? (
                         <button
                           type="button"
                           className="rentulo-btn-primary px-4 py-2 text-sm disabled:opacity-50"
-                          onClick={() => changeRole(row.id, "admin")}
-                          disabled={updatingId === row.id}
+                          onClick={() => updateRole(row.id, "admin")}
+                          disabled={isBusy}
                         >
-                          {updatingId === row.id ? "Ukladám..." : "Pasovať za admina"}
+                          {isBusy ? "Ukladam..." : "Povyssit na admina"}
                         </button>
                       ) : null}
 
-                      {isAdmin && !isSelf ? (
+                      {!isDeleted && isAdmin && !isSelf ? (
                         <button
                           type="button"
                           className="rentulo-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
-                          onClick={() => changeRole(row.id, "user")}
-                          disabled={updatingId === row.id}
+                          onClick={() => updateRole(row.id, "user")}
+                          disabled={isBusy}
                         >
-                          {updatingId === row.id ? "Ukladám..." : "Zobrať admin rolu"}
+                          {isBusy ? "Ukladam..." : "Zobrat admin rolu"}
+                        </button>
+                      ) : null}
+
+                      {!isDeleted && row.admin_state !== "suspended" ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
+                          onClick={() => updateState(row.id, "suspended")}
+                          disabled={isBusy || isSelf}
+                        >
+                          {isBusy ? "Ukladam..." : "Pozastavit"}
+                        </button>
+                      ) : null}
+
+                      {!isDeleted && row.admin_state !== "blocked" ? (
+                        <button
+                          type="button"
+                          className="rounded-full border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200 disabled:opacity-50"
+                          onClick={() => updateState(row.id, "blocked")}
+                          disabled={isBusy || isSelf}
+                        >
+                          {isBusy ? "Ukladam..." : "Zablokovat"}
+                        </button>
+                      ) : null}
+
+                      {!isDeleted && row.admin_state !== "active" ? (
+                        <button
+                          type="button"
+                          className="rentulo-btn-secondary px-4 py-2 text-sm disabled:opacity-50"
+                          onClick={() => updateState(row.id, "active")}
+                          disabled={isBusy}
+                        >
+                          {isBusy ? "Ukladam..." : "Obnovit"}
+                        </button>
+                      ) : null}
+
+                      {!isDeleted && !isAdmin && !isSelf ? (
+                        <button
+                          type="button"
+                          className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/10 disabled:opacity-50"
+                          onClick={() => softDeleteUser(row.id)}
+                          disabled={isBusy}
+                        >
+                          {isBusy ? "Mazem..." : "Soft delete"}
                         </button>
                       ) : null}
 
                       <Link href={`/profile/${row.id}`} className="rentulo-btn-secondary px-4 py-2 text-sm">
-                        Verejný profil
+                        Verejny profil
                       </Link>
                     </div>
                   </div>
@@ -356,19 +549,19 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={page <= 1}
               >
-                ← Predchádzajúca
+                ← Predchadzajuca
               </button>
 
               <button
                 type="button"
                 className="rentulo-btn-secondary px-3 py-2 text-sm disabled:opacity-50"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 disabled={page >= totalPages}
               >
-                Ďalšia →
+                Dalsia →
               </button>
             </div>
           </div>
