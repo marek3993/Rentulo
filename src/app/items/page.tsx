@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ItemPreviewImage from "@/components/items/ItemPreviewImage";
 import ItemsResultsMap from "@/components/items/ItemsResultsMap";
 import {
   buildItemDetailHref,
@@ -1135,18 +1136,12 @@ function ItemsPageInner() {
               role="link"
               aria-label={`Otvoriť detail ponuky ${item.title}`}
             >
-              <div className="relative h-64 overflow-hidden">
-                {activeImage ? (
-                  <img
-                    src={activeImage}
-                    alt={item.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-black/20 text-sm text-white/40">
-                    Bez fotky
-                  </div>
-                )}
+              <ItemPreviewImage
+                src={activeImage}
+                alt={item.title}
+                frameClassName="h-64 bg-black/25"
+                imageClassName="transition duration-500 group-hover:scale-[1.03]"
+              >
 
                 <div className="rentulo-image-overlay absolute inset-0" />
 
@@ -1211,7 +1206,7 @@ function ItemsPageInner() {
                     <div className="text-xs text-white/65">za deň</div>
                   </div>
                 </div>
-              </div>
+              </ItemPreviewImage>
 
               <div className="space-y-4 p-5">
                 {item.description ? (
