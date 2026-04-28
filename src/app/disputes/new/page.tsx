@@ -107,7 +107,6 @@ function NewDisputePageInner() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [requestedAmount, setRequestedAmount] = useState("");
-  const [depositAmountSnapshot, setDepositAmountSnapshot] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
   const heading = viewer === "owner" ? "Nova reklamacia od prenajimatela" : "Nova reklamacia";
@@ -231,10 +230,6 @@ function NewDisputePageInner() {
 
     try {
       const parsedRequestedAmount = parseOptionalAmount(requestedAmount, "Pozadovana suma");
-      const parsedDepositAmountSnapshot = parseOptionalAmount(
-        depositAmountSnapshot,
-        "Snapshot depozitu"
-      );
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData.session?.user.id;
 
@@ -250,7 +245,7 @@ function NewDisputePageInner() {
         p_description: trimmedDescription,
         p_dispute_requested_outcome: null,
         p_dispute_requested_amount: parsedRequestedAmount,
-        p_deposit_amount_snapshot: parsedDepositAmountSnapshot,
+        p_deposit_amount_snapshot: null,
       });
 
       if (error) throw new Error(error.message);
@@ -389,35 +384,19 @@ function NewDisputePageInner() {
               />
             </label>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <div className="mb-1 text-white/80">Pozadovana suma</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={requestedAmount}
-                  onChange={(event) => setRequestedAmount(event.target.value)}
-                  disabled={saving}
-                  placeholder="0.00"
-                />
-              </label>
-
-              <label className="block">
-                <div className="mb-1 text-white/80">Snapshot depozitu (volitelne)</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
-                  value={depositAmountSnapshot}
-                  onChange={(event) => setDepositAmountSnapshot(event.target.value)}
-                  disabled={saving}
-                  placeholder="0.00"
-                />
-              </label>
-            </div>
+            <label className="block">
+              <div className="mb-1 text-white/80">Pozadovana suma</div>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={requestedAmount}
+                onChange={(event) => setRequestedAmount(event.target.value)}
+                disabled={saving}
+                placeholder="0.00"
+              />
+            </label>
 
             <label className="block">
               <div className="mb-1 text-white/80">Dokazova fotka (volitelne)</div>
