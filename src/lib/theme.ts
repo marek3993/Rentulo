@@ -5,7 +5,7 @@ export const RENTULO_THEMES = ["dark", "light"] as const;
 
 export type RentuloTheme = (typeof RENTULO_THEMES)[number];
 
-export const DEFAULT_THEME: RentuloTheme = "dark";
+export const DEFAULT_THEME: RentuloTheme = "light";
 
 export function isRentuloTheme(value: unknown): value is RentuloTheme {
   return typeof value === "string" && RENTULO_THEMES.includes(value as RentuloTheme);

@@ -43,14 +43,11 @@ const MAP_IMAGE_HEIGHT = 640;
 const MAX_VISIBLE_LOCALITIES = 10;
 const DEFAULT_MAP_CENTER = { lat: 48.72, lng: 19.7 };
 const DEFAULT_MAP_ZOOM = 7;
-const SINGLE_LOCALITY_ZOOM = 10;
-const RADIUS_TO_ZOOM: Record<string, number> = {
-  "5": 13,
-  "10": 12,
-  "15": 11,
-  "20": 10,
-  "50": 8,
-};
+const MIN_MAP_ZOOM = 7;
+const MAX_MAP_ZOOM = 11;
+const SINGLE_LOCALITY_ZOOM = 11;
+const MAP_HORIZONTAL_PADDING = 120;
+const MAP_VERTICAL_PADDING = 112;
 
 function normalizeValue(value: string | null | undefined) {
   return value?.trim() ?? "";
@@ -85,6 +82,19 @@ function mercatorY(lat: number, zoom: number) {
   return (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * 256 * 2 ** zoom;
 }
 
+function inverseMercatorLng(x: number, zoom: number) {
+  return (x / (256 * 2 ** zoom)) * 360 - 180;
+}
+
+function inverseMercatorLat(y: number, zoom: number) {
+  const normalized = 0.5 - y / (256 * 2 ** zoom);
+  return (360 / Math.PI) * Math.atan(Math.exp(normalized * 2 * Math.PI)) - 90;
+}
+
+function clampZoom(zoom: number) {
+  return Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, zoom));
+}
+
 function projectPointToMap(lat: number, lng: number, center: SearchCenter, zoom: number) {
   const centerX = mercatorX(center.lng, zoom);
   const centerY = mercatorY(center.lat, zoom);
@@ -108,18 +118,60 @@ function isFiniteCoordinatePair(coords: SearchCenter | null | undefined): coords
   );
 }
 
+function buildViewportFromCoords(coords: SearchCenter[]) {
+  if (coords.length === 0) {
+    return {
+      center: DEFAULT_MAP_CENTER,
+      zoom: DEFAULT_MAP_ZOOM,
+    };
+  }
+
+  if (coords.length === 1) {
+    return {
+      center: coords[0],
+      zoom: SINGLE_LOCALITY_ZOOM,
+    };
+  }
+
+  const projected = coords.map((point) => ({
+    x: mercatorX(point.lng, 0),
+    y: mercatorY(point.lat, 0),
+  }));
+
+  const minX = Math.min(...projected.map((point) => point.x));
+  const maxX = Math.max(...projected.map((point) => point.x));
+  const minY = Math.min(...projected.map((point) => point.y));
+  const maxY = Math.max(...projected.map((point) => point.y));
+
+  const width = Math.max(maxX - minX, 0.0001);
+  const height = Math.max(maxY - minY, 0.0001);
+  const usableWidth = Math.max(MAP_IMAGE_WIDTH - MAP_HORIZONTAL_PADDING * 2, MAP_IMAGE_WIDTH / 3);
+  const usableHeight = Math.max(MAP_IMAGE_HEIGHT - MAP_VERTICAL_PADDING * 2, MAP_IMAGE_HEIGHT / 3);
+  const zoomX = Math.log2(usableWidth / width);
+  const zoomY = Math.log2(usableHeight / height);
+  const zoom = clampZoom(Math.floor(Math.min(zoomX, zoomY)));
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  return {
+    center: {
+      lat: inverseMercatorLat(centerY, 0),
+      lng: inverseMercatorLng(centerX, 0),
+    },
+    zoom,
+  };
+}
+
 type ItemsResultsMapProps = {
   items: ResultsMapItem[];
   searchCenter: SearchCenter | null;
   selectedLabel: string;
-  radiusKm: string;
 };
 
 export default function ItemsResultsMap({
   items,
   searchCenter,
   selectedLabel,
-  radiusKm,
 }: ItemsResultsMapProps) {
   const geoKey = process.env.NEXT_PUBLIC_GEOAPIFY_KEY ?? "";
   const [approximateCoordsByKey, setApproximateCoordsByKey] = useState<Record<string, SearchCenter | null>>({});
@@ -269,40 +321,26 @@ export default function ItemsResultsMap({
     };
   }, [approximateCoordsByKey, geoKey, visibleLocalityGroups]);
 
-  const mapCenter = useMemo(() => {
-    if (searchCenter) {
-      return searchCenter;
+  const approximateVisibleCoords = useMemo(
+    () =>
+      visibleLocalityGroups
+        .map((group) => approximateCoordsByKey[group.key])
+        .filter(isFiniteCoordinatePair),
+    [approximateCoordsByKey, visibleLocalityGroups]
+  );
+
+  const mapViewport = useMemo(() => {
+    const viewport = buildViewportFromCoords(approximateVisibleCoords);
+
+    if (approximateVisibleCoords.length === 0 && searchCenter) {
+      return {
+        center: searchCenter,
+        zoom: DEFAULT_MAP_ZOOM,
+      };
     }
 
-    const visibleCoords = visibleLocalityGroups
-      .map((group) => approximateCoordsByKey[group.key])
-      .filter(isFiniteCoordinatePair);
-
-    if (visibleCoords.length === 0) {
-      return DEFAULT_MAP_CENTER;
-    }
-
-    const total = visibleCoords.reduce(
-      (acc, coords) => ({
-        lat: acc.lat + coords.lat,
-        lng: acc.lng + coords.lng,
-      }),
-      { lat: 0, lng: 0 }
-    );
-
-    return {
-      lat: total.lat / visibleCoords.length,
-      lng: total.lng / visibleCoords.length,
-    };
-  }, [approximateCoordsByKey, searchCenter, visibleLocalityGroups]);
-
-  const mapZoom = useMemo(() => {
-    if (searchCenter) {
-      return RADIUS_TO_ZOOM[radiusKm] ?? RADIUS_TO_ZOOM["20"];
-    }
-
-    return visibleLocalityGroups.length <= 1 ? SINGLE_LOCALITY_ZOOM : DEFAULT_MAP_ZOOM;
-  }, [radiusKm, searchCenter, visibleLocalityGroups.length]);
+    return viewport;
+  }, [approximateVisibleCoords, searchCenter]);
 
   const mapSrc = useMemo(() => {
     if (!geoKey) {
@@ -313,11 +351,11 @@ export default function ItemsResultsMap({
       `https://maps.geoapify.com/v1/staticmap?style=osm-carto` +
       `&width=${MAP_IMAGE_WIDTH}` +
       `&height=${MAP_IMAGE_HEIGHT}` +
-      `&center=lonlat:${mapCenter.lng},${mapCenter.lat}` +
-      `&zoom=${mapZoom}` +
+      `&center=lonlat:${mapViewport.center.lng},${mapViewport.center.lat}` +
+      `&zoom=${mapViewport.zoom}` +
       `&apiKey=${geoKey}`
     );
-  }, [geoKey, mapCenter.lat, mapCenter.lng, mapZoom]);
+  }, [geoKey, mapViewport.center.lat, mapViewport.center.lng, mapViewport.zoom]);
 
   const projectedLocalities = useMemo(() => {
     const next: ProjectedLocalityGroup[] = [];
@@ -329,7 +367,12 @@ export default function ItemsResultsMap({
         continue;
       }
 
-      const projected = projectPointToMap(coords.lat, coords.lng, mapCenter, mapZoom);
+      const projected = projectPointToMap(
+        coords.lat,
+        coords.lng,
+        mapViewport.center,
+        mapViewport.zoom
+      );
 
       if (
         projected.leftPct < 4 ||
@@ -350,7 +393,7 @@ export default function ItemsResultsMap({
     }
 
     return next;
-  }, [approximateCoordsByKey, mapCenter, mapZoom, visibleLocalityGroups]);
+  }, [approximateCoordsByKey, mapViewport.center, mapViewport.zoom, visibleLocalityGroups]);
 
   const activeLocality =
     projectedLocalities.find((group) => group.key === activeLocalityKey) ??

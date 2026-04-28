@@ -1103,7 +1103,6 @@ function ItemsPageInner() {
           items={filteredItems}
           searchCenter={searchCenter}
           selectedLabel={selectedLabel}
-          radiusKm={radiusKm}
         />
       ) : null}
 

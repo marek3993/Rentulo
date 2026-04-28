@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   THEME_CHANGE_EVENT,
   isRentuloTheme,
@@ -8,23 +8,6 @@ import {
   readStoredTheme,
   setTheme,
 } from "@/lib/theme";
-
-const themeOptions: Array<{
-  value: RentuloTheme;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: "dark",
-    label: "Tmavá",
-    description: "Pôvodný Rentulo vzhľad",
-  },
-  {
-    value: "light",
-    label: "Svetlá",
-    description: "Jasnejšie plochy a tmavý text",
-  },
-];
 
 function ThemeIcon({ theme }: { theme: RentuloTheme }) {
   if (theme === "light") {
@@ -65,8 +48,6 @@ function ThemeIcon({ theme }: { theme: RentuloTheme }) {
 }
 
 export default function ThemeToggle() {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const [open, setOpen] = useState(false);
   const [theme, setThemeState] = useState<RentuloTheme>(() => {
     if (typeof document !== "undefined") {
       const documentTheme = document.documentElement.dataset.theme;
@@ -93,99 +74,39 @@ export default function ThemeToggle() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [open]);
-
-  const activeTheme = theme;
+  const isDark = theme === "dark";
+  const nextTheme: RentuloTheme = isDark ? "light" : "dark";
 
   return (
-    <div className="relative" ref={rootRef}>
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Prepnúť tému"
-        onClick={() => setOpen((value) => !value)}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isDark}
+      aria-label={isDark ? "Prepnúť na svetlú tému" : "Prepnúť na tmavú tému"}
+      title={isDark ? "Svetlá téma" : "Tmavá téma"}
+      className="relative inline-flex h-10 w-[4.5rem] items-center rounded-full border border-white/10 bg-white/[0.03] px-1 text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+      onClick={() => {
+        setTheme(nextTheme);
+        setThemeState(nextTheme);
+      }}
+    >
+      <span className="grid w-full grid-cols-2 items-center text-white/55">
+        <span className={`flex justify-center transition ${!isDark ? "text-white" : ""}`}>
+          <ThemeIcon theme="light" />
+        </span>
+        <span className={`flex justify-center transition ${isDark ? "text-white" : ""}`}>
+          <ThemeIcon theme="dark" />
+        </span>
+      </span>
+
+      <span
+        aria-hidden="true"
+        className={`absolute top-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/12 bg-white/12 shadow-[0_8px_20px_rgba(0,0,0,0.22)] backdrop-blur-md transition-transform duration-200 ${
+          isDark ? "translate-x-[2.125rem]" : "translate-x-0"
+        }`}
       >
-        <ThemeIcon theme={activeTheme} />
-        <span>Téma</span>
-      </button>
-
-      {open ? (
-        <div className="absolute right-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-          <div className="border-b border-white/10 px-3 py-3">
-            <div className="text-sm font-medium text-white">Vzhľad aplikácie</div>
-            <div className="mt-1 text-xs text-white/50">
-              Voľba sa uloží aj po obnovení stránky.
-            </div>
-          </div>
-
-          <div className="pt-2">
-            {themeOptions.map((option) => {
-              const isActive = option.value === activeTheme;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`flex w-full items-start gap-3 rounded-2xl border px-3 py-3 text-left transition ${
-                    isActive
-                      ? "border-indigo-500/30 bg-indigo-500/10 text-white"
-                      : "border-transparent text-white/80 hover:border-white/10 hover:bg-white/[0.05] hover:text-white"
-                  }`}
-                  onClick={() => {
-                    setTheme(option.value);
-                    setThemeState(option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white/85">
-                    <ThemeIcon theme={option.value} />
-                  </span>
-
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <span>{option.label}</span>
-                      {isActive ? (
-                        <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80">
-                          Aktívna
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="mt-1 block text-xs text-white/55">
-                      {option.description}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-    </div>
+        <ThemeIcon theme={theme} />
+      </span>
+    </button>
   );
 }

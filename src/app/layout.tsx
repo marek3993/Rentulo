@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="sk" suppressHydrationWarning>
+    <html lang="sk" suppressHydrationWarning data-theme="light">
       <head>
         <script dangerouslySetInnerHTML={{ __html: getThemeInitScript() }} />
       </head>
