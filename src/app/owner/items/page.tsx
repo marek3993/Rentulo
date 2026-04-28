@@ -2,6 +2,7 @@
 
   import Link from "next/link";
   import { useEffect, useMemo, useState } from "react";
+  import ItemPreviewImage from "@/components/items/ItemPreviewImage";
   import { supabase } from "@/lib/supabaseClient";
   import { useRouter } from "next/navigation";
 
@@ -492,15 +493,12 @@
 
               return (
                 <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  {cover ? (
-                    <img
-                      src={cover.publicUrl}
-                      alt={item.title}
-                      className="mb-3 h-44 w-full rounded-xl border border-white/10 object-cover"
-                    />
-                  ) : (
-                    <div className="mb-3 h-44 w-full rounded-xl border border-white/10 bg-white/5" />
-                  )}
+                  <ItemPreviewImage
+                    src={cover?.publicUrl ?? null}
+                    alt={item.title}
+                    frameClassName="mb-3 h-44 w-full rounded-xl border border-white/10 bg-black/20"
+                    fit="contain"
+                  />
 
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -548,10 +546,11 @@
                               key={img.id}
                               className="rounded-xl border border-white/10 bg-black/20 p-2"
                             >
-                              <img
+                              <ItemPreviewImage
                                 src={img.publicUrl}
                                 alt="fotka ponuky"
-                                className="h-24 w-full rounded-lg object-cover"
+                                frameClassName="h-24 w-full rounded-lg bg-black/30"
+                                fit="contain"
                               />
 
                               <div className="mt-2 flex flex-wrap gap-2">

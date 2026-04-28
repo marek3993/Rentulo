@@ -1140,6 +1140,8 @@ function ItemsPageInner() {
                 src={activeImage}
                 alt={item.title}
                 frameClassName="h-64 bg-black/25"
+                imageWrapperClassName="p-0"
+                fit="contain"
                 imageClassName="transition duration-500 group-hover:scale-[1.03]"
               >
 

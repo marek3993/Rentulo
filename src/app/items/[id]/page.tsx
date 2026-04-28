@@ -14,6 +14,7 @@ import {
   itemDeliveryOptionsNormalizedFromFields,
   type ItemDeliveryConfigFields,
 } from "@/lib/itemDeliveryOptionsContract";
+import ItemPreviewImage from "@/components/items/ItemPreviewImage";
 import { supabase } from "@/lib/supabaseClient";
 
 type Item = ItemDeliveryConfigFields & {
@@ -23,6 +24,7 @@ type Item = ItemDeliveryConfigFields & {
   price_per_day: number;
   city: string | null;
   owner_id: string;
+  is_active: boolean;
 };
 
 type OwnerProfile = {
@@ -146,6 +148,7 @@ export default function ItemDetailPage() {
   const [status, setStatus] = useState("Načítavam...");
   const [contactingOwner, setContactingOwner] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   const [item, setItem] = useState<Item | null>(null);
   const [owner, setOwner] = useState<OwnerProfile | null>(null);
@@ -249,12 +252,28 @@ export default function ItemDetailPage() {
       setStatus("Načítavam...");
 
       const { data: sess } = await supabase.auth.getSession();
-      setCurrentUserId(sess.session?.user.id ?? null);
+      const sessionUserId = sess.session?.user.id ?? null;
+      setCurrentUserId(sessionUserId);
+
+      let viewerRole: string | null = null;
+
+      if (sessionUserId) {
+        const { data: viewerProfile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", sessionUserId)
+          .maybeSingle();
+
+        viewerRole = viewerProfile?.role ?? null;
+        setCurrentUserRole(viewerRole);
+      } else {
+        setCurrentUserRole(null);
+      }
 
       const { data: itemData, error: itemErr } = await supabase
         .from("items")
         .select(
-          "id,title,description,price_per_day,city,owner_id,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km"
+          "id,title,description,price_per_day,city,owner_id,is_active,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km"
         )
         .eq("id", itemId)
         .maybeSingle();
@@ -270,6 +289,15 @@ export default function ItemDetailPage() {
       }
 
       const typedItem = itemData as Item;
+      const canSeeInactive =
+        Boolean(sessionUserId) &&
+        (typedItem.owner_id === sessionUserId || viewerRole === "admin");
+
+      if (!typedItem.is_active && !canSeeInactive) {
+        setStatus("NenĂˇjdenĂ©");
+        return;
+      }
+
       setItem(typedItem);
 
       const { data: imgs, error: imgErr } = await supabase
@@ -669,10 +697,11 @@ if (!imgErr && imgs) {
               <section className="rentulo-theme-preserve-dark space-y-3">
                 <div className="relative overflow-hidden rounded-2xl border border-white/10">
                   <button type="button" onClick={() => setLightboxOpen(true)} className="block w-full">
-                    <img
+                    <ItemPreviewImage
                       src={activeImage ?? imageUrls[0]}
                       alt="hlavná fotka"
-                      className="h-[440px] w-full object-cover"
+                      frameClassName="h-[440px] w-full bg-black/30"
+                      fit="cover"
                     />
                   </button>
 
@@ -711,7 +740,12 @@ if (!imgErr && imgs) {
                         activeImageIndex === index ? "border-indigo-400" : "border-white/10"
                       }`}
                     >
-                      <img src={u} alt="náhľad" className="h-20 w-28 rounded-lg object-cover" />
+                      <ItemPreviewImage
+                        src={u}
+                        alt="náhľad"
+                        frameClassName="h-20 w-28 rounded-lg bg-black/25"
+                        fit="contain"
+                      />
                     </button>
                   ))}
                 </div>
@@ -721,9 +755,11 @@ if (!imgErr && imgs) {
                 </div>
               </section>
             ) : (
-              <div className="rentulo-card flex h-64 items-center justify-center text-white/40">
-                Bez fotiek
-              </div>
+              <ItemPreviewImage
+                alt="Bez fotiek"
+                frameClassName="rentulo-card h-64 rounded-2xl"
+                fallbackLabel="Bez fotiek"
+              />
             )}
 
             <section className="rentulo-card p-6">
@@ -879,9 +915,9 @@ if (!imgErr && imgs) {
                 {contactingOwner ? "Otváram chat..." : "Napísať prenajímateľovi"}
               </button>
 
-              {currentUserId === item.owner_id ? (
+              {currentUserId === item.owner_id || currentUserRole === "admin" ? (
                 <Link
-                  href={`/items/edit/${item.id}`}
+                  href={currentUserRole === "admin" ? `/admin/items/${item.id}` : `/items/edit/${item.id}`}
                   className="rentulo-btn-secondary mt-3 block w-full px-4 py-2.5 text-center text-sm"
                 >
                   Upraviť ponuku
@@ -1006,7 +1042,12 @@ if (!imgErr && imgs) {
                       activeImageIndex === index ? "border-indigo-400" : "border-white/20"
                     }`}
                   >
-                    <img src={u} alt={`náhľad ${index + 1}`} className="h-16 w-24 object-cover" />
+                    <ItemPreviewImage
+                      src={u}
+                      alt={`náhľad ${index + 1}`}
+                      frameClassName="h-16 w-24 bg-black/25"
+                      fit="contain"
+                    />
                   </button>
                 ))}
               </div>
