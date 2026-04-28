@@ -326,6 +326,8 @@ export default function AdminDisputesPage() {
       p_reservation_status_after_dispute: needsReservationStatus(nextStatus)
         ? reservationStatusAfter
         : null,
+      p_dispute_decision_outcome: null,
+      p_dispute_decision_amount: null,
     });
 
     if (error) {
