@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ItemsResultsMap from "@/components/items/ItemsResultsMap";
 import {
   buildItemDetailHref,
   buildItemSearchQueryString,
@@ -1095,6 +1096,15 @@ function ItemsPageInner() {
         <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-10 text-center text-white/60">
           Nenasli sa ziadne ponuky.
         </div>
+      ) : null}
+
+      {filteredItems.length > 0 ? (
+        <ItemsResultsMap
+          items={filteredItems}
+          searchCenter={searchCenter}
+          selectedLabel={selectedLabel}
+          radiusKm={radiusKm}
+        />
       ) : null}
 
       <section id="vysledky" className="space-y-5">
