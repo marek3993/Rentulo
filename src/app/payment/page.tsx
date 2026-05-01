@@ -27,6 +27,8 @@ type CheckoutResponse = {
   reason?: string;
 };
 
+const CHECKOUT_REQUEST_TIMEOUT_MS = 12_000;
+
 function formatDateTime(dateStr: string) {
   const date = new Date(dateStr);
 
@@ -104,6 +106,11 @@ function PaymentInner() {
         return null;
       }
 
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+      }, CHECKOUT_REQUEST_TIMEOUT_MS);
+
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
@@ -111,6 +118,9 @@ function PaymentInner() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ reservationId }),
+        signal: controller.signal,
+      }).finally(() => {
+        window.clearTimeout(timeoutId);
       });
 
       const payload = (await response.json().catch(() => null)) as CheckoutResponse | null;
@@ -143,7 +153,14 @@ function PaymentInner() {
       setAvailabilityError(nextError);
       setStatus(nextError);
       return null;
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        const nextError = "Platobna brana neodpoveda. Skus to prosim znova o chvilu.";
+        setAvailabilityError(nextError);
+        setStatus(nextError);
+        return null;
+      }
+
       const nextError = "Nepodarilo sa pripravit platbu. Skus to znova.";
       setAvailabilityError(nextError);
       setStatus(nextError);

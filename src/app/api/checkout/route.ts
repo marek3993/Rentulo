@@ -27,6 +27,8 @@ type ItemRow = {
   price_per_day: number | null;
 };
 
+const STRIPE_SESSION_TIMEOUT_MS = 10_000;
+
 const NON_BLOCKING_RESERVATION_STATUSES = new Set([
   "cancelled",
   "canceled",
@@ -151,15 +153,70 @@ function buildCheckoutUrls(req: NextRequest, reservationId: number) {
   };
 }
 
-export async function POST(req: NextRequest) {
+function logCheckoutStage(stage: string, reservationId: number | null, extra?: Record<string, unknown>) {
+  console.log(stage, {
+    reservationId,
+    ...extra,
+  });
+}
+
+function logCheckoutError(
+  reservationId: number | null,
+  stage: string,
+  error: unknown,
+  extra?: Record<string, unknown>
+) {
+  const message = error instanceof Error ? error.message : "Unknown checkout error.";
+
+  console.error("checkout:error", {
+    reservationId,
+    stage,
+    message,
+    ...extra,
+  });
+}
+
+function createStripeTimeoutError() {
+  const error = new Error("Stripe checkout timeout.");
+  error.name = "StripeCheckoutTimeoutError";
+  return error;
+}
+
+async function createStripeSessionWithTimeout(
+  sessionPromise: ReturnType<NonNullable<ReturnType<typeof getStripe>>["checkout"]["sessions"]["create"]>
+) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
   try {
+    return await Promise.race([
+      sessionPromise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(createStripeTimeoutError());
+        }, STRIPE_SESSION_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+export async function POST(req: NextRequest) {
+  let reservationIdForLog: number | null = null;
+  let currentStage = "checkout:start";
+  logCheckoutStage(currentStage, reservationIdForLog);
+
+  try {
+    const body = (await req.json().catch(() => null)) as CheckoutRequestBody | null;
+    const reservationId = parseReservationId(body);
+    reservationIdForLog = reservationId;
+
     const authorization = req.headers.get("authorization")?.trim();
     if (!authorization) {
       return NextResponse.json({ error: "Chyba prihlasenie." }, { status: 401 });
     }
-
-    const body = (await req.json().catch(() => null)) as CheckoutRequestBody | null;
-    const reservationId = parseReservationId(body);
 
     if (!reservationId) {
       return NextResponse.json({ error: "Neplatne reservationId." }, { status: 400 });
@@ -174,6 +231,8 @@ export async function POST(req: NextRequest) {
     if (userError || !user) {
       return NextResponse.json({ error: "Chyba prihlasenie." }, { status: 401 });
     }
+    currentStage = "checkout:user_ok";
+    logCheckoutStage(currentStage, reservationIdForLog);
 
     const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
@@ -197,6 +256,8 @@ export async function POST(req: NextRequest) {
     if (reservation.renter_id && reservation.renter_id !== user.id) {
       return NextResponse.json({ error: "K rezervacii nemas pristup." }, { status: 403 });
     }
+    currentStage = "checkout:reservation_ok";
+    logCheckoutStage(currentStage, reservationIdForLog);
 
     const { data: overlappingRows, error: overlapError } = await supabase
       .from("reservations")
@@ -225,6 +286,8 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+    currentStage = "checkout:overlap_ok";
+    logCheckoutStage(currentStage, reservationIdForLog);
 
     const { data: itemData, error: itemError } = await supabase
       .from("items")
@@ -244,6 +307,8 @@ export async function POST(req: NextRequest) {
     if (!item) {
       return NextResponse.json({ error: "Polozka rezervacie neexistuje." }, { status: 404 });
     }
+    currentStage = "checkout:item_ok";
+    logCheckoutStage(currentStage, reservationIdForLog);
 
     const reservationDays = getReservationDays(reservation.date_from, reservation.date_to);
     const pricePerDay = Number(item.price_per_day);
@@ -285,6 +350,8 @@ export async function POST(req: NextRequest) {
         reason: "stripe_not_configured",
       });
     }
+    currentStage = "checkout:stripe_config_ok";
+    logCheckoutStage(currentStage, reservationIdForLog);
 
     const { successUrl, cancelUrl } = buildCheckoutUrls(req, reservation.id);
     const metadata: Record<string, string> = {
@@ -293,29 +360,38 @@ export async function POST(req: NextRequest) {
       renterId: reservation.renter_id ?? user.id,
     };
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      client_reference_id: String(reservation.id),
-      metadata,
-      payment_intent_data: {
+    currentStage = "checkout:stripe_session_create_start";
+    logCheckoutStage(currentStage, reservationIdForLog);
+
+    const session = await createStripeSessionWithTimeout(
+      stripe.checkout.sessions.create({
+        mode: "payment",
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+        client_reference_id: String(reservation.id),
         metadata,
-      },
-      customer_email: user.email ?? undefined,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "eur",
-            unit_amount: unitAmount,
-            product_data: {
-              name: item.title?.trim() || `Rezervacia #${reservation.id}`,
-              description: `${reservation.date_from} az ${reservation.date_to} (${reservationDays} dni)`,
+        payment_intent_data: {
+          metadata,
+        },
+        customer_email: user.email ?? undefined,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "eur",
+              unit_amount: unitAmount,
+              product_data: {
+                name: item.title?.trim() || `Rezervacia #${reservation.id}`,
+                description: `${reservation.date_from} az ${reservation.date_to} (${reservationDays} dni)`,
+              },
             },
           },
-        },
-      ],
+        ],
+      })
+    );
+    currentStage = "checkout:stripe_session_create_ok";
+    logCheckoutStage(currentStage, reservationIdForLog, {
+      sessionId: session.id,
     });
 
     if (!session.url) {
@@ -333,6 +409,13 @@ export async function POST(req: NextRequest) {
       sessionId: session.id,
     });
   } catch (error) {
+    if (error instanceof Error && error.name === "StripeCheckoutTimeoutError") {
+      logCheckoutError(reservationIdForLog, currentStage, error);
+      return NextResponse.json({ error: "Stripe checkout timeout." }, { status: 504 });
+    }
+
+    logCheckoutError(reservationIdForLog, currentStage, error);
+
     const message =
       error instanceof Error ? error.message : "Nepodarilo sa pripravit checkout.";
 
