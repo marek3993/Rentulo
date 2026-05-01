@@ -38,7 +38,9 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [oauthSubmitting, setOauthSubmitting] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+  const disabled = submitting || oauthSubmitting || !!pendingEmail;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +79,23 @@ export default function RegisterPage() {
     setSubmitting(false);
   };
 
+  const onGoogleRegister = async () => {
+    setOauthSubmitting(true);
+    setStatus("Presmerovavam na Google...");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: buildAuthCallbackUrl({ next: "/" }),
+      },
+    });
+
+    if (error) {
+      setStatus("Chyba: " + error.message);
+      setOauthSubmitting(false);
+    }
+  };
+
   return (
     <main className="mx-auto max-w-md space-y-6">
       <section className="rentulo-card p-8">
@@ -88,7 +107,8 @@ export default function RegisterPage() {
           <h1 className="text-3xl font-semibold">Registracia</h1>
 
           <p className="text-sm leading-6 text-white/70">
-            Vytvor si ucet a po potvrdeni e-mailu sa vrat spat do aplikacie.
+            Vytvor si ucet cez Google alebo e-mail. Ak pojdes cez Google, ucet sa moze
+            vytvorit hned a pokracujes dalej bez cakania na potvrdzovaci e-mail.
           </p>
         </div>
 
@@ -99,9 +119,31 @@ export default function RegisterPage() {
           </div>
         ) : null}
 
+        <div className="mt-6 space-y-3">
+          <button
+            type="button"
+            className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
+            onClick={onGoogleRegister}
+            disabled={disabled}
+          >
+            {oauthSubmitting ? "Presmerovavam..." : "Pokracovat cez Google"}
+          </button>
+
+          <p className="rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-4 text-sm leading-6 text-white/75">
+            Google mozes pouzit aj na vytvorenie noveho uctu. Po prvom prihlaseni len
+            dokoncis onboarding priamo v aplikacii.
+          </p>
+
+          <div className="text-center text-xs uppercase tracking-[0.2em] text-white/35">
+            alebo registracia e-mailom
+          </div>
+        </div>
+
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-white/85">Typ uctu</legend>
+            <legend className="text-sm font-medium text-white/85">
+              Typ uctu pre registraciu e-mailom
+            </legend>
 
             <div className="grid gap-3">
               {ACCOUNT_TYPE_OPTIONS.map((option) => {
@@ -114,7 +156,7 @@ export default function RegisterPage() {
                       selected
                         ? "border-indigo-400/60 bg-indigo-500/10"
                         : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/5"
-                    } ${submitting || pendingEmail ? "pointer-events-none opacity-60" : ""}`}
+                    } ${disabled ? "pointer-events-none opacity-60" : ""}`}
                   >
                     <input
                       className="sr-only"
@@ -123,7 +165,7 @@ export default function RegisterPage() {
                       value={option.value}
                       checked={selected}
                       onChange={() => setAccountType(option.value)}
-                      disabled={submitting || !!pendingEmail}
+                      disabled={disabled}
                     />
 
                     <div className="text-sm font-medium text-white">{option.label}</div>
@@ -143,7 +185,7 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               required
-              disabled={submitting || !!pendingEmail}
+              disabled={disabled}
             />
           </label>
 
@@ -157,14 +199,14 @@ export default function RegisterPage() {
               type="password"
               minLength={6}
               required
-              disabled={submitting || !!pendingEmail}
+              disabled={disabled}
             />
           </label>
 
           <button
             type="submit"
-            className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
-            disabled={submitting || !!pendingEmail}
+            className="rentulo-btn-secondary w-full px-4 py-2.5 text-sm disabled:opacity-50"
+            disabled={disabled}
           >
             {submitting ? "Vytvaram ucet..." : "Vytvorit ucet"}
           </button>
