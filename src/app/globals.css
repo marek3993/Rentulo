@@ -19,6 +19,7 @@
   --card-bg: rgba(255, 255, 255, 0.05);
   --card-bg-2: rgba(0, 0, 0, 0.2);
   --card-border: rgba(255, 255, 255, 0.1);
+  --card-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 
   --btn-secondary-bg: transparent;
   --btn-secondary-border: rgba(255, 255, 255, 0.15);
@@ -42,6 +43,26 @@
   --danger: #ef4444;
   --info: #38bdf8;
 
+  --status-success-bg: rgba(16, 185, 129, 0.14);
+  --status-success-border: rgba(52, 211, 153, 0.34);
+  --status-success-text: #d1fae5;
+  --status-info-bg: rgba(56, 189, 248, 0.14);
+  --status-info-border: rgba(125, 211, 252, 0.34);
+  --status-info-text: #dbeafe;
+  --status-error-bg: rgba(239, 68, 68, 0.14);
+  --status-error-border: rgba(248, 113, 113, 0.34);
+  --status-error-text: #fee2e2;
+
+  --theme-toggle-bg: rgba(255, 255, 255, 0.04);
+  --theme-toggle-border: rgba(255, 255, 255, 0.12);
+  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.08);
+  --theme-toggle-hover-border: rgba(255, 255, 255, 0.2);
+  --theme-toggle-track: rgba(255, 255, 255, 0.08);
+  --theme-toggle-thumb: rgba(255, 255, 255, 0.14);
+  --theme-toggle-thumb-border: rgba(255, 255, 255, 0.14);
+  --theme-toggle-icon: rgba(255, 255, 255, 0.82);
+  --theme-toggle-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+
   color-scheme: dark;
 }
 
@@ -63,6 +84,7 @@
   --card-bg: rgba(255, 255, 255, 0.88);
   --card-bg-2: rgba(255, 255, 255, 0.72);
   --card-border: rgba(15, 23, 42, 0.12);
+  --card-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
 
   --btn-secondary-bg: rgba(255, 255, 255, 0.78);
   --btn-secondary-border: rgba(15, 23, 42, 0.12);
@@ -81,6 +103,26 @@
   --color-black: #ffffff;
   --color-neutral-950: #f4f7fb;
   --color-neutral-900: #ffffff;
+
+  --status-success-bg: #ecfdf5;
+  --status-success-border: #86efac;
+  --status-success-text: #166534;
+  --status-info-bg: #eff6ff;
+  --status-info-border: #93c5fd;
+  --status-info-text: #1d4ed8;
+  --status-error-bg: #fef2f2;
+  --status-error-border: #fca5a5;
+  --status-error-text: #b91c1c;
+
+  --theme-toggle-bg: rgba(255, 255, 255, 0.76);
+  --theme-toggle-border: rgba(15, 23, 42, 0.12);
+  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.92);
+  --theme-toggle-hover-border: rgba(99, 102, 241, 0.28);
+  --theme-toggle-track: rgba(148, 163, 184, 0.16);
+  --theme-toggle-thumb: #ffffff;
+  --theme-toggle-thumb-border: rgba(15, 23, 42, 0.08);
+  --theme-toggle-icon: #0f172a;
+  --theme-toggle-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
 
   color-scheme: light;
 }
@@ -217,6 +259,97 @@ textarea::placeholder {
   border: 1px solid var(--input-dark-border);
   background: var(--input-dark-bg);
   color: var(--input-dark-text);
+}
+
+.rentulo-auth-shell {
+  width: 100%;
+  max-width: 72rem;
+}
+
+.rentulo-auth-card {
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+
+.rentulo-auth-copy {
+  color: var(--text-muted);
+}
+
+.rentulo-auth-label {
+  color: color-mix(in oklab, var(--foreground) 84%, transparent);
+}
+
+.rentulo-auth-divider {
+  color: color-mix(in oklab, var(--foreground) 38%, transparent);
+}
+
+.rentulo-status {
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  padding: 0.9rem 1rem;
+}
+
+.rentulo-status-success {
+  border-color: var(--status-success-border);
+  background: var(--status-success-bg);
+  color: var(--status-success-text);
+}
+
+.rentulo-status-info {
+  border-color: var(--status-info-border);
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+}
+
+.rentulo-status-error {
+  border-color: var(--status-error-border);
+  background: var(--status-error-bg);
+  color: var(--status-error-text);
+}
+
+.rentulo-theme-toggle {
+  position: relative;
+  display: inline-flex;
+  height: 2.25rem;
+  width: 3.9rem;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--theme-toggle-border);
+  background: var(--theme-toggle-bg);
+  color: var(--theme-toggle-icon);
+  backdrop-filter: blur(14px);
+}
+
+.rentulo-theme-toggle:hover {
+  border-color: var(--theme-toggle-hover-border);
+  background: var(--theme-toggle-hover-bg);
+}
+
+.rentulo-theme-toggle-track {
+  position: absolute;
+  inset: 0.22rem;
+  border-radius: 9999px;
+  background: var(--theme-toggle-track);
+}
+
+.rentulo-theme-toggle-thumb {
+  position: absolute;
+  top: 0.22rem;
+  left: 0.22rem;
+  display: flex;
+  height: 1.7rem;
+  width: 1.7rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--theme-toggle-thumb-border);
+  background: var(--theme-toggle-thumb);
+  box-shadow: var(--theme-toggle-shadow);
+  transition: transform 0.18s ease;
+}
+
+.rentulo-theme-toggle-thumb[data-state="dark"] {
+  transform: translateX(1.63rem);
 }
 
 .rdp {

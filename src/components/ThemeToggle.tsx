@@ -82,29 +82,16 @@ export default function ThemeToggle() {
       type="button"
       role="switch"
       aria-checked={isDark}
-      aria-label={isDark ? "Prepnúť na svetlú tému" : "Prepnúť na tmavú tému"}
-      title={isDark ? "Svetlá téma" : "Tmavá téma"}
-      className="relative inline-flex h-10 w-[4.5rem] items-center rounded-full border border-white/10 bg-white/[0.03] px-1 text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+      aria-label={isDark ? "Prepnut na svetlu temu" : "Prepnut na tmavu temu"}
+      title={isDark ? "Svetla tema" : "Tmava tema"}
+      className="rentulo-theme-toggle transition"
       onClick={() => {
         setTheme(nextTheme);
         setThemeState(nextTheme);
       }}
     >
-      <span className="grid w-full grid-cols-2 items-center text-white/55">
-        <span className={`flex justify-center transition ${!isDark ? "text-white" : ""}`}>
-          <ThemeIcon theme="light" />
-        </span>
-        <span className={`flex justify-center transition ${isDark ? "text-white" : ""}`}>
-          <ThemeIcon theme="dark" />
-        </span>
-      </span>
-
-      <span
-        aria-hidden="true"
-        className={`absolute top-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/12 bg-white/12 shadow-[0_8px_20px_rgba(0,0,0,0.22)] backdrop-blur-md transition-transform duration-200 ${
-          isDark ? "translate-x-[2.125rem]" : "translate-x-0"
-        }`}
-      >
+      <span aria-hidden="true" className="rentulo-theme-toggle-track" />
+      <span aria-hidden="true" className="rentulo-theme-toggle-thumb" data-state={theme}>
         <ThemeIcon theme={theme} />
       </span>
     </button>
