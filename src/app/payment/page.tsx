@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -59,7 +59,7 @@ function PaymentInner() {
   const [busy, setBusy] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
   const [fallbackMessage, setFallbackMessage] = useState("");
-  const [launchAttempted, setLaunchAttempted] = useState(false);
+  const launchAttemptedRef = useRef(false);
 
   const loadReservation = async () => {
     if (!Number.isFinite(reservationId)) {
@@ -252,11 +252,11 @@ function PaymentInner() {
         return;
       }
 
-      if (launchAttempted) {
+      if (launchAttemptedRef.current) {
         return;
       }
 
-      setLaunchAttempted(true);
+      launchAttemptedRef.current = true;
       const payload = await createCheckout("Presmerovavam na Stripe Checkout...");
 
       if (!active || !payload?.checkoutUrl) {
@@ -272,7 +272,7 @@ function PaymentInner() {
       active = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cancel, launchAttempted, reservationId, router, success]);
+  }, [cancel, reservationId, router, success]);
 
   const itemDetailHref = useMemo(() => {
     if (!reservation) {
