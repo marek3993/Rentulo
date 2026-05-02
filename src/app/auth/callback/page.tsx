@@ -38,9 +38,10 @@ type AuthCallbackViewProps = {
   errorMessage: string;
   nextPath: string;
   status: string;
+  title: string;
 };
 
-function AuthCallbackView({ errorMessage, nextPath, status }: AuthCallbackViewProps) {
+function AuthCallbackView({ errorMessage, nextPath, status, title }: AuthCallbackViewProps) {
   return (
     <main className="mx-auto max-w-md space-y-6">
       <section className="rentulo-card p-8">
@@ -49,7 +50,7 @@ function AuthCallbackView({ errorMessage, nextPath, status }: AuthCallbackViewPr
             Rentulo
           </div>
 
-          <h1 className="text-3xl font-semibold">Dokoncenie prihlasenia</h1>
+          <h1 className="text-3xl font-semibold">{title}</h1>
 
           <p className="text-sm leading-6 text-white/70">{status}</p>
         </div>
@@ -60,7 +61,7 @@ function AuthCallbackView({ errorMessage, nextPath, status }: AuthCallbackViewPr
           </div>
         ) : (
           <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-            Presmerujem ta spat do aplikacie.
+            Overujem tvoj vstup a presmerujem ta spat do aplikacie.
           </div>
         )}
       </section>
@@ -78,11 +79,44 @@ function AuthCallbackView({ errorMessage, nextPath, status }: AuthCallbackViewPr
   );
 }
 
+function getCallbackCopy(callbackType: SupportedOtpType | null) {
+  if (callbackType === "signup" || callbackType === "email") {
+    return {
+      title: "Potvrdenie e-mailu",
+      pendingStatus: "Overujem tvoj e-mail a dokoncujem vstup do Rentulo...",
+      errorStatus: "Potvrdenie e-mailu sa nepodarilo dokoncit.",
+    };
+  }
+
+  if (callbackType === "email_change") {
+    return {
+      title: "Potvrdenie zmeny e-mailu",
+      pendingStatus: "Overujem zmenu e-mailovej adresy...",
+      errorStatus: "Zmenu e-mailu sa nepodarilo dokoncit.",
+    };
+  }
+
+  if (callbackType === "recovery") {
+    return {
+      title: "Obnova pristupu",
+      pendingStatus: "Overujem odkaz pre obnovu hesla...",
+      errorStatus: "Obnovu pristupu sa nepodarilo dokoncit.",
+    };
+  }
+
+  return {
+    title: "Dokoncenie vstupu",
+    pendingStatus: "Dokoncujem vstup do Rentulo...",
+    errorStatus: "Vstup do Rentulo sa nepodarilo dokoncit.",
+  };
+}
+
 function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [status, setStatus] = useState("Dokoncujem prihlasenie...");
+  const [title, setTitle] = useState("Dokoncenie vstupu");
+  const [status, setStatus] = useState("Dokoncujem vstup do Rentulo...");
   const [errorMessage, setErrorMessage] = useState("");
 
   const nextPath = useMemo(() => {
@@ -109,11 +143,19 @@ function AuthCallbackInner() {
         searchParams.get("error") ||
         hashParams.get("error_description") ||
         hashParams.get("error");
+      const callbackCopy = getCallbackCopy(
+        isSupportedOtpType(callbackType) ? callbackType : null
+      );
+
+      if (active) {
+        setTitle(callbackCopy.title);
+        setStatus(callbackCopy.pendingStatus);
+      }
 
       if (callbackError) {
         if (!active) return;
         setErrorMessage(callbackError);
-        setStatus("Prihlasenie sa nepodarilo dokoncit.");
+        setStatus(callbackCopy.errorStatus);
         return;
       }
 
@@ -174,7 +216,7 @@ function AuthCallbackInner() {
         const message =
           error instanceof Error ? error.message : "Prihlasovaci odkaz sa nepodarilo spracovat.";
         setErrorMessage(message);
-        setStatus("Prihlasenie sa nepodarilo dokoncit.");
+        setStatus(callbackCopy.errorStatus);
       }
     };
 
@@ -186,7 +228,12 @@ function AuthCallbackInner() {
   }, [router, searchParams]);
 
   return (
-    <AuthCallbackView errorMessage={errorMessage} nextPath={nextPath} status={status} />
+    <AuthCallbackView
+      errorMessage={errorMessage}
+      nextPath={nextPath}
+      status={status}
+      title={title}
+    />
   );
 }
 
@@ -195,7 +242,8 @@ function AuthCallbackFallback() {
     <AuthCallbackView
       errorMessage=""
       nextPath="/"
-      status="Dokoncujem prihlasenie..."
+      title="Dokoncenie vstupu"
+      status="Dokoncujem vstup do Rentulo..."
     />
   );
 }
