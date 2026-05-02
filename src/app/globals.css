@@ -382,6 +382,38 @@ textarea::placeholder {
   transform: translateX(1.63rem);
 }
 
+.rentulo-topbar-brand {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(14px);
+}
+
+.rentulo-topbar-brand:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rentulo-topbar-brand-text {
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.16);
+}
+
+:root[data-theme="light"] .rentulo-topbar-brand {
+  border-color: rgba(15, 23, 42, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="light"] .rentulo-topbar-brand:hover {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+:root[data-theme="light"] .rentulo-topbar-brand-text {
+  color: #0f172a;
+  text-shadow: none;
+}
+
 .rdp {
   --rdp-accent-color: var(--primary);
   --rdp-background-color: rgba(99, 102, 241, 0.2);

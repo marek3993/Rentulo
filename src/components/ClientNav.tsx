@@ -335,11 +335,13 @@ export default function ClientNav() {
       }`}
     >
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-white/10 bg-neutral-950/75 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="rentulo-topbar-brand flex items-center gap-3 rounded-full px-2.5 py-1.5">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.35),rgba(217,70,239,0.2))] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)]">
             R
           </span>
-          <span className="text-lg font-semibold tracking-tight text-white">Rentulo</span>
+          <span className="rentulo-topbar-brand-text text-lg font-semibold tracking-tight">
+            Rentulo
+          </span>
         </Link>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
