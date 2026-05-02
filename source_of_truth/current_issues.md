@@ -36,7 +36,18 @@ _Zatiaľ bez zapísaných potvrdených issue._
 
 ## In Progress
 
-_Zatiaľ bez aktívnych issue._
+### [DATA-001]
+- Title: Supabase truth not yet reproducible from repo
+- Status: in_progress
+- Owner chat: RENTULO DATA
+- Scope: DB truth export / schema / RLS / RPC / triggers / storage
+- Source of truth: live DB export audited in DATA chat
+- First confirmed by: RENTULO DATA
+- Last updated: 2026-05-02
+- User impact: backend decisions can drift from real DB state
+- Root cause: repo lacks confirmed SQL/migrations truth path and DB reality is not exported
+- Next step: lock live DB export into source_of_truth/db_truth_inventory.md and source_of_truth/db_exports/*
+- Notes: keep unknowns explicit; do not invent missing DDL
 
 ---
 

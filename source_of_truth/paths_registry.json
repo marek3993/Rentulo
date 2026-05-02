@@ -1,6 +1,6 @@
 ﻿{
   "version": 2,
-  "last_updated_by": "RENTULO MASTER",
+  "last_updated_by": "RENTULO DATA",
   "registry_status": "partially_verified_from_real_rentulo_repo",
   "notes": [
     "Filled from real local repo tree at C:\\Projects\\rentulo.",
@@ -9,7 +9,9 @@
     "Confirmed shared libs under src/lib.",
     "No standalone supabase directory was present in the provided local output.",
     "No standalone jobs or worker directory was confirmed from the provided local output.",
-    "Anything not confirmed from local output remains explicit unknown."
+    "Anything not confirmed from local output remains explicit unknown.",
+    "A repo truth-export path was added for audited live Supabase snapshots.",
+    "supabase_sql.path remains unknown until a real repo SQL or migrations path is directly confirmed."
   ],
   "paths": {
     "app_root": {
@@ -53,6 +55,12 @@
       "status": "confirmed_from_local_output",
       "owner": "RENTULO DATA",
       "purpose": "Truth documentation for schema-related understanding"
+    },
+    "db_truth_exports": {
+      "path": "source_of_truth/db_exports",
+      "status": "confirmed_repo_truth_export_path",
+      "owner": "RENTULO DATA",
+      "purpose": "Exported live Supabase truth snapshots: schema, RLS, functions, triggers, storage."
     },
     "automation_jobs": {
       "path": "unknown",
