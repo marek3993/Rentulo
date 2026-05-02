@@ -138,6 +138,40 @@ function buildInitialRange(dateFrom: string, dateTo: string): DateRange | undefi
   return { from, to };
 }
 
+async function buildItemRequestHeaders() {
+  const headers = new Headers();
+  const sessionResult = await supabase.auth.getSession();
+  const accessToken = sessionResult.data.session?.access_token;
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`);
+  }
+
+  return headers;
+}
+
+async function fetchItemForViewer(itemId: number) {
+  const response = await fetch(`/api/items/${itemId}`, {
+    headers: await buildItemRequestHeaders(),
+  });
+
+  const json = (await response.json().catch(() => null)) as
+    | { item?: Item; error?: string }
+    | null;
+
+  if (!response.ok) {
+    return {
+      item: null,
+      error: json?.error || `Item request failed with status ${response.status}.`,
+    };
+  }
+
+  return {
+    item: json?.item ?? null,
+    error: null,
+  };
+}
+
 export default function ItemDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -270,16 +304,15 @@ export default function ItemDetailPage() {
         setCurrentUserRole(null);
       }
 
-      const { data: itemData, error: itemErr } = await supabase
-        .from("items")
-        .select(
-          "id,title,description,price_per_day,city,owner_id,is_active,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km"
-        )
-        .eq("id", itemId)
-        .maybeSingle();
+      const { item: itemData, error: itemErr } = await fetchItemForViewer(itemId);
 
       if (itemErr) {
-        setStatus("Chyba: " + itemErr.message);
+        if (itemErr === "Item not found.") {
+          setStatus("NenĂˇjdenĂ©");
+          return;
+        }
+
+        setStatus("Chyba: " + itemErr);
         return;
       }
 
@@ -289,9 +322,7 @@ export default function ItemDetailPage() {
       }
 
       const typedItem = itemData as Item;
-      const canSeeInactive =
-        Boolean(sessionUserId) &&
-        (typedItem.owner_id === sessionUserId || viewerRole === "admin");
+      const canSeeInactive = true; // Access is enforced by /api/items/[id].
 
       if (!typedItem.is_active && !canSeeInactive) {
         setStatus("NenĂˇjdenĂ©");
