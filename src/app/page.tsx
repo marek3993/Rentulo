@@ -323,9 +323,7 @@ export default function Home() {
             <div className="relative order-1 lg:order-2 lg:w-full lg:max-w-[42rem] lg:justify-self-end xl:max-w-[43rem]">
               <div className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)] ring-1 ring-white/10 backdrop-blur-sm sm:p-5 md:p-6">
                 <div>
-                  <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-violet-200/78">
-                    AI vyhľadávanie
-                  </div>
+                  <SectionEyebrow>AI vyhľadávanie</SectionEyebrow>
                   <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-white md:text-3xl">
                     AI nájde vhodné ponuky za teba
                   </h2>
