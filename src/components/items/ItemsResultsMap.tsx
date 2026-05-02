@@ -403,32 +403,32 @@ export default function ItemsResultsMap({
   const hiddenLocalityCount = Math.max(localityGroups.length - visibleLocalityGroups.length, 0);
 
   return (
-    <section className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)] md:p-6">
+    <section className="rentulo-card rounded-[1.75rem] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.16)] md:p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <div className="text-[11px] uppercase tracking-[0.24em] text-white/45">Mapa výsledkov</div>
-          <h3 className="mt-3 text-2xl font-semibold text-white">Približná poloha ponúk podľa mesta a PSČ</h3>
-          <p className="mt-3 text-sm leading-6 text-white/68">
+          <div className="text-[11px] uppercase tracking-[0.24em] text-text-muted">Mapa výsledkov</div>
+          <h3 className="mt-3 text-2xl font-semibold text-foreground">Približná poloha ponúk podľa mesta a PSČ</h3>
+          <p className="mt-3 text-sm leading-6 text-text-muted">
             Body na mape ukazujú iba približnú polohu podľa verejne zobrazovaného mesta a PSČ.
             Presná ulica ani presný bod ponuky sa verejne nezobrazujú.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2 text-sm">
-          <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-white/80">
+          <div className="rentulo-items-pill rounded-full px-3 py-1">
             {items.length} ponúk
           </div>
-          <div className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-white/80">
+          <div className="rentulo-items-pill rounded-full px-3 py-1">
             {localityGroups.length} lokalít
           </div>
-          <div className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-white/80">
+          <div className="rentulo-items-pill-accent rounded-full px-3 py-1">
             {selectedLabel ? `Okolie ${selectedLabel}` : "Lokalita podľa výsledkov"}
           </div>
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(19rem,0.9fr)]">
-        <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/25">
+        <div className="rentulo-theme-preserve-dark rentulo-card-2 overflow-hidden rounded-[1.5rem]">
           {mapSrc ? (
             <div className="relative aspect-[3/2]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -478,18 +478,18 @@ export default function ItemsResultsMap({
               </div>
             </div>
           ) : (
-            <div className="flex aspect-[3/2] items-center justify-center px-6 text-center text-sm leading-6 text-white/60">
+            <div className="flex aspect-[3/2] items-center justify-center px-6 text-center text-sm leading-6 text-text-muted">
               Mapa sa zobrazí po nastavení Geoapify kľúča. Aj potom bude ukazovať len približnú
               polohu podľa mesta a PSČ.
             </div>
           )}
         </div>
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4">
+        <div className="rentulo-card-2 rounded-[1.5rem] p-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-white">Lokality vo výsledkoch</div>
+            <div className="text-sm font-semibold text-foreground">Lokality vo výsledkoch</div>
             {loadingApproximateLocations ? (
-              <div className="text-xs text-white/55">Dopočítavam približné body…</div>
+              <div className="text-xs text-text-muted">Dopočítavam približné body…</div>
             ) : null}
           </div>
 
@@ -504,8 +504,8 @@ export default function ItemsResultsMap({
                   type="button"
                   className={`flex w-full items-center justify-between rounded-[1.1rem] border px-4 py-3 text-left transition ${
                     isActive
-                      ? "border-white/30 bg-white/[0.09]"
-                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                      ? "rentulo-items-row rentulo-items-row-active"
+                      : "rentulo-items-row"
                   }`}
                   onMouseEnter={() => setActiveLocalityKey(group.key)}
                   onMouseLeave={() => setActiveLocalityKey("")}
@@ -513,8 +513,8 @@ export default function ItemsResultsMap({
                   onBlur={() => setActiveLocalityKey("")}
                 >
                   <div>
-                    <div className="text-sm font-medium text-white">{group.label}</div>
-                    <div className="mt-1 text-xs text-white/55">
+                    <div className="text-sm font-medium text-foreground">{group.label}</div>
+                    <div className="mt-1 text-xs text-text-muted">
                       {group.nearestDistanceKm !== null
                         ? `Najbližšia ponuka približne ${group.nearestDistanceKm} km`
                         : "Približná poloha podľa verejnej lokality"}
@@ -522,14 +522,14 @@ export default function ItemsResultsMap({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-xs text-white/70">
+                    <span className="rentulo-items-pill rounded-full px-2.5 py-1 text-xs">
                       {group.count}
                     </span>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] uppercase tracking-[0.16em] ${
                         isMapped
-                          ? "bg-emerald-500/15 text-emerald-200"
-                          : "bg-white/8 text-white/45"
+                          ? "rentulo-items-pill-success"
+                          : "rentulo-items-pill-muted"
                       }`}
                     >
                       {isMapped ? "na mape" : "čaká"}
@@ -541,14 +541,14 @@ export default function ItemsResultsMap({
           </div>
 
           {hiddenLocalityCount > 0 ? (
-            <div className="mt-4 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
-              Ďalších lokalít mimo mapového prehľadu: <strong className="text-white">{hiddenLocalityCount}</strong>
+            <div className="rentulo-items-row mt-4 rounded-[1rem] px-4 py-3 text-sm text-text-muted">
+              Ďalších lokalít mimo mapového prehľadu: <strong className="text-foreground">{hiddenLocalityCount}</strong>
             </div>
           ) : null}
 
           {activeLocality ? (
-            <div className="mt-4 rounded-[1rem] border border-indigo-500/20 bg-indigo-500/10 px-4 py-3 text-sm text-white/75">
-              Zvýraznená lokalita: <strong className="text-white">{activeLocality.label}</strong>
+            <div className="rentulo-items-accent-panel-indigo mt-4 rounded-[1rem] px-4 py-3 text-sm text-text-muted">
+              Zvýraznená lokalita: <strong className="text-foreground">{activeLocality.label}</strong>
             </div>
           ) : null}
         </div>

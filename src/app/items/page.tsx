@@ -114,7 +114,7 @@ function getSuggestedRadiusKm(currentRadiusKm: number, requiredDistanceKm: numbe
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <div className="inline-flex rounded-full border border-white/12 bg-white/[0.05] px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/55">
+    <div className="rentulo-items-eyebrow inline-flex rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em]">
       {children}
     </div>
   );
@@ -764,7 +764,7 @@ function ItemsPageInner() {
 
   return (
     <main className="space-y-8 lg:space-y-10">
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03)_42%,rgba(99,102,241,0.14)_100%)] px-6 py-8 shadow-[0_24px_90px_rgba(0,0,0,0.28)] md:px-8 md:py-10">
+      <section className="rentulo-items-hero relative overflow-hidden rounded-[2rem] px-6 py-8 md:px-8 md:py-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.12),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.18),transparent_28%)]" />
 
         <div className="relative grid gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
@@ -772,10 +772,10 @@ function ItemsPageInner() {
             <SectionEyebrow>Objav ponuky na Rentulo</SectionEyebrow>
 
             <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.02] tracking-tight text-white md:text-5xl lg:text-6xl">
+              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.02] tracking-tight text-foreground md:text-5xl lg:text-6xl">
                 Prenájom vecí s dôrazom na fotky, dostupnosť a dôveru
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-white/72 md:text-lg md:leading-8">
+              <p className="max-w-2xl text-base leading-7 text-text-muted md:text-lg md:leading-8">
                 Prechádzaj ponuky podľa lokality, termínu aj typu veci. Rentulo
                 drží výber, rezerváciu a komunikáciu v jednom produkte.
               </p>
@@ -787,7 +787,7 @@ function ItemsPageInner() {
               </Link>
               <a
                 href="#vysledky"
-                className="rentulo-btn-secondary inline-flex items-center bg-white/[0.03] px-5 py-3 text-sm"
+                className="rentulo-btn-secondary inline-flex items-center px-5 py-3 text-sm"
               >
                 Pozrieť výsledky
               </a>
@@ -795,44 +795,44 @@ function ItemsPageInner() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[1.6rem] border border-white/10 bg-black/25 p-5 backdrop-blur-sm sm:col-span-2">
-              <div className="text-[11px] uppercase tracking-[0.24em] text-white/45">
+            <div className="rentulo-card-2 rounded-[1.6rem] p-5 backdrop-blur-sm sm:col-span-2">
+              <div className="text-[11px] uppercase tracking-[0.24em] text-text-muted">
                 Aktuálny výber
               </div>
               <div className="mt-3 grid gap-4 sm:grid-cols-3">
                 <div>
-                  <div className="text-3xl font-semibold text-white">{filteredItems.length}</div>
-                  <div className="mt-1 text-sm text-white/60">zobrazených ponúk</div>
+                  <div className="text-3xl font-semibold text-foreground">{filteredItems.length}</div>
+                  <div className="mt-1 text-sm text-text-muted">zobrazených ponúk</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-semibold text-white">{items.length}</div>
-                  <div className="mt-1 text-sm text-white/60">načítaných ponúk</div>
+                  <div className="text-3xl font-semibold text-foreground">{items.length}</div>
+                  <div className="mt-1 text-sm text-text-muted">načítaných ponúk</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-semibold text-white">{CATEGORIES.length - 1}</div>
-                  <div className="mt-1 text-sm text-white/60">hlavných kategórií</div>
+                  <div className="text-3xl font-semibold text-foreground">{CATEGORIES.length - 1}</div>
+                  <div className="mt-1 text-sm text-text-muted">hlavných kategórií</div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(99,102,241,0.16),rgba(0,0,0,0.16))] p-5">
-              <div className="text-sm font-semibold text-white">Lokalita</div>
-              <div className="mt-3 text-sm leading-6 text-white/72">
+            <div className="rentulo-items-accent-panel-indigo rounded-[1.6rem] p-5">
+              <div className="text-sm font-semibold text-foreground">Lokalita</div>
+              <div className="mt-3 text-sm leading-6 text-text-muted">
                 {selectedLabel ? selectedLabel : "Celé Slovensko"}
               </div>
-              <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
+              <div className="rentulo-items-pill mt-4 inline-flex rounded-full px-3 py-1 text-xs">
                 Okruh {radiusKm} km
               </div>
             </div>
 
-            <div className="rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(236,72,153,0.14),rgba(0,0,0,0.16))] p-5">
-              <div className="text-sm font-semibold text-white">Dostupnosť</div>
-              <div className="mt-3 text-sm leading-6 text-white/72">
+            <div className="rentulo-items-accent-panel-rose rounded-[1.6rem] p-5">
+              <div className="text-sm font-semibold text-foreground">Dostupnosť</div>
+              <div className="mt-3 text-sm leading-6 text-text-muted">
                 {hasValidDateRange
                   ? `Filtrované medzi ${dateFrom} a ${dateTo}`
                   : "Vyber termín a zobraz len voľné ponuky"}
               </div>
-              <div className="mt-4 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs text-white/70">
+              <div className="rentulo-items-pill mt-4 inline-flex rounded-full px-3 py-1 text-xs">
                 Rezervácia cez Rentulo
               </div>
             </div>
@@ -841,13 +841,13 @@ function ItemsPageInner() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.24fr_0.76fr]">
-        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.18)] md:p-8">
+        <div className="rentulo-card rounded-[2rem] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.18)] md:p-8">
           <div className="flex flex-col gap-2">
             <SectionEyebrow>Filtre a lokalita</SectionEyebrow>
-            <h2 className="text-2xl font-semibold text-white md:text-3xl">
+            <h2 className="text-2xl font-semibold text-foreground md:text-3xl">
               Spresni si výsledky bez straty kontextu
             </h2>
-            <p className="max-w-2xl text-sm leading-6 text-white/65">
+            <p className="max-w-2xl text-sm leading-6 text-text-muted">
               Hľadaj podľa názvu, mesta, termínu aj kategórie a rovno si over,
               ktoré ponuky ostávajú voľné.
             </p>
@@ -855,9 +855,9 @@ function ItemsPageInner() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div>
-              <div className="mb-2 text-sm text-white/75">Čo hľadáš</div>
+              <div className="mb-2 text-sm text-foreground/75">Čo hľadáš</div>
               <input
-                className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
+                className="rentulo-input-light h-12 px-3"
                 placeholder="napr. vŕtačka, Kärcher, Trnava"
                 value={textQuery}
                 onChange={(e) => setTextQuery(e.target.value)}
@@ -865,7 +865,7 @@ function ItemsPageInner() {
             </div>
 
             <div>
-              <div className="mb-2 text-sm text-white/75">Kategória</div>
+              <div className="mb-2 text-sm text-foreground/75">Kategória</div>
               <select
                 className="rentulo-input-light h-12 px-3"
                 value={categoryFilter}
@@ -880,9 +880,9 @@ function ItemsPageInner() {
             </div>
 
             <div>
-              <div className="mb-2 text-sm text-white/75">Mesto alebo PSČ</div>
+              <div className="mb-2 text-sm text-foreground/75">Mesto alebo PSČ</div>
               <input
-                className="rentulo-input-light h-12 px-3 placeholder:text-black/50"
+                className="rentulo-input-light h-12 px-3"
                 placeholder="napr. Trnava alebo 91701"
                 value={locationQuery}
                 onChange={(e) => {
@@ -899,17 +899,17 @@ function ItemsPageInner() {
               />
 
               {searchingLocation ? (
-                <div className="mt-2 text-sm text-white/60">Hľadám lokality...</div>
+                <div className="mt-2 text-sm text-text-muted">Hľadám lokality...</div>
               ) : null}
 
               {locationResults.length > 0 ? (
-                <div className="mt-2 overflow-hidden rounded-[1.15rem] border border-white/10 bg-black/20">
+                <div className="rentulo-items-dropdown mt-2 overflow-hidden rounded-[1.15rem]">
                   {locationResults.map((f, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => runSearchFromFeature(f)}
-                      className="block w-full border-b border-white/10 px-4 py-3 text-left text-sm text-white/85 hover:bg-white/10 last:border-b-0"
+                      className="rentulo-items-dropdown-option block w-full border-b border-border px-4 py-3 text-left text-sm last:border-b-0"
                     >
                       {f.properties?.formatted ?? "Neznáma lokalita"}
                     </button>
@@ -920,7 +920,7 @@ function ItemsPageInner() {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="sm:col-span-1">
-                <div className="mb-2 text-sm text-white/75">Okruh</div>
+                <div className="mb-2 text-sm text-foreground/75">Okruh</div>
                 <select
                   className="rentulo-input-light h-12 px-3"
                   value={radiusKm}
@@ -935,7 +935,7 @@ function ItemsPageInner() {
               </div>
 
               <div className="sm:col-span-1">
-                <div className="mb-2 text-sm text-white/75">Dátum od</div>
+                <div className="mb-2 text-sm text-foreground/75">Dátum od</div>
                 <input
                   type="date"
                   className="rentulo-input-light h-12 px-3"
@@ -945,7 +945,7 @@ function ItemsPageInner() {
               </div>
 
               <div className="sm:col-span-1">
-                <div className="mb-2 text-sm text-white/75">Dátum do</div>
+                <div className="mb-2 text-sm text-foreground/75">Dátum do</div>
                 <input
                   type="date"
                   className="rentulo-input-light h-12 px-3"
@@ -958,15 +958,15 @@ function ItemsPageInner() {
           </div>
 
           {hasInvalidDateRange ? (
-            <div className="mt-4 rounded-[1.25rem] border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            <div className="rentulo-status rentulo-status-error mt-4 text-sm">
               Dátum od musí byť menší alebo rovný dátumu do.
             </div>
           ) : null}
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.9),rgba(9,12,20,0.82))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.22)] md:p-8">
+        <div className="rentulo-items-action-panel rounded-[2rem] p-6 md:p-8">
           <SectionEyebrow>Rýchle akcie</SectionEyebrow>
-          <div className="mt-4 text-2xl font-semibold text-white">
+          <div className="mt-4 text-2xl font-semibold text-foreground">
             Nastav si hľadanie podľa toho, ako chceš objavovať ponuky
           </div>
 
@@ -1001,8 +1001,8 @@ function ItemsPageInner() {
             <div
               className={`mt-4 rounded-[1.25rem] border p-3 text-sm ${
                 locationFeedback.tone === "error"
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
-                  : "border-white/10 bg-white/[0.04] text-white/75"
+                  ? "rentulo-items-warning-panel"
+                  : "rentulo-card-2 text-text-muted"
               }`}
             >
               {locationFeedback.message}
@@ -1010,31 +1010,31 @@ function ItemsPageInner() {
           ) : null}
 
           <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
-            <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-              Výsledky: <strong className="text-white">{filteredItems.length}</strong>
+            <div className="rentulo-items-pill rounded-full px-3 py-1">
+              Výsledky: <strong className="text-foreground">{filteredItems.length}</strong>
             </div>
 
             {selectedLabel ? (
-              <div className="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-white/80">
-                Lokalita: <strong className="text-white">{selectedLabel}</strong>
+              <div className="rentulo-items-pill-accent rounded-full px-3 py-1">
+                Lokalita: <strong className="text-foreground">{selectedLabel}</strong>
               </div>
             ) : null}
 
             {categoryFilter !== "Všetky kategórie" ? (
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/80">
-                Kategória: <strong className="text-white">{categoryFilter}</strong>
+              <div className="rentulo-items-pill rounded-full px-3 py-1">
+                Kategória: <strong className="text-foreground">{categoryFilter}</strong>
               </div>
             ) : null}
 
             {hasValidDateRange ? (
-              <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-white/80">
-                Voľné medzi: <strong className="text-white">{dateFrom}</strong> –{" "}
-                <strong className="text-white">{dateTo}</strong>
+              <div className="rentulo-items-pill-success rounded-full px-3 py-1">
+                Voľné medzi: <strong className="text-foreground">{dateFrom}</strong> –{" "}
+                <strong className="text-foreground">{dateTo}</strong>
               </div>
             ) : null}
 
             {availabilityLoading ? (
-              <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-white/60">
+              <div className="rentulo-items-pill-muted rounded-full px-3 py-1">
                 Kontrolujem dostupnosť...
               </div>
             ) : null}
@@ -1048,7 +1048,7 @@ function ItemsPageInner() {
             ].map((item) => (
               <div
                 key={item}
-                className="rounded-[1.25rem] border border-white/10 bg-white/[0.04] px-4 py-4 text-sm leading-6 text-white/72"
+                className="rentulo-items-row rounded-[1.25rem] px-4 py-4 text-sm leading-6 text-text-muted"
               >
                 {item}
               </div>
@@ -1061,8 +1061,8 @@ function ItemsPageInner() {
         <div
           className={`rounded-[1.5rem] border p-4 ${
             statusTone === "error"
-              ? "border-red-500/30 bg-red-500/10 text-red-100"
-              : "border-white/10 bg-black/20 text-white/80"
+              ? "rentulo-status-error"
+              : "rentulo-card-2 text-foreground/80"
           }`}
         >
           {status}
@@ -1070,11 +1070,11 @@ function ItemsPageInner() {
       ) : null}
 
       {outsideRadiusHint && !status ? (
-        <div className="rounded-[1.75rem] border border-emerald-500/20 bg-emerald-500/10 p-5 text-white">
+        <div className="rentulo-items-success-panel rounded-[1.75rem] p-5">
           <div className="text-base font-semibold">
             V okruhu {radiusKm} km teraz nic vhodne nevidime.
           </div>
-          <div className="mt-2 text-sm leading-6 text-white/80">
+          <div className="mt-2 text-sm leading-6">
             Najblizsia vhodna ponuka je asi {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
             Po rozsireni na {outsideRadiusHint.suggestedRadiusKm} km uvidis{" "}
             {outsideRadiusHint.matchingCount === 1
@@ -1094,7 +1094,7 @@ function ItemsPageInner() {
       ) : null}
 
       {filteredItems.length === 0 && !status && !outsideRadiusHint ? (
-        <div className="rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-10 text-center text-white/60">
+        <div className="rentulo-card rounded-[1.75rem] p-10 text-center text-text-muted">
           Nenasli sa ziadne ponuky.
         </div>
       ) : null}
@@ -1111,11 +1111,11 @@ function ItemsPageInner() {
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <SectionEyebrow>Výsledky</SectionEyebrow>
-            <h2 className="mt-3 text-2xl font-semibold text-white md:text-3xl">
+            <h2 className="mt-3 text-2xl font-semibold text-foreground md:text-3xl">
               Ponuky pripravené na objavovanie
             </h2>
           </div>
-          <div className="text-sm text-white/60">
+          <div className="text-sm text-text-muted">
             Fotka, cena, miesto a dôvera v čitateľnejšej hierarchii.
           </div>
         </div>
@@ -1129,7 +1129,7 @@ function ItemsPageInner() {
           return (
             <li
               key={item.id}
-              className="rentulo-theme-preserve-dark group cursor-pointer overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-white/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-black"
+              className="rentulo-card group cursor-pointer overflow-hidden rounded-[1.75rem] shadow-[0_18px_60px_rgba(0,0,0,0.18)] transition hover:-translate-y-1 hover:border-foreground/20 hover:shadow-[0_24px_80px_rgba(0,0,0,0.26)] focus:outline-none focus:ring-2 focus:ring-foreground/25 focus:ring-offset-2 focus:ring-offset-background"
               onClick={() => openItemDetail(item.id)}
               onKeyDown={(event) => handleItemCardKeyDown(event, item.id)}
               tabIndex={0}
@@ -1139,7 +1139,7 @@ function ItemsPageInner() {
               <ItemPreviewImage
                 src={activeImage}
                 alt={item.title}
-                frameClassName="h-64 bg-black/25"
+                frameClassName="rentulo-theme-preserve-dark h-64 bg-black/25"
                 imageWrapperClassName="p-0"
                 fit="contain"
                 imageClassName="transition duration-500 group-hover:scale-[1.03]"
@@ -1212,22 +1212,22 @@ function ItemsPageInner() {
 
               <div className="space-y-4 p-5">
                 {item.description ? (
-                  <div className="line-clamp-3 text-sm leading-6 text-white/70">
+                  <div className="line-clamp-3 text-sm leading-6 text-text-muted">
                     {item.description}
                   </div>
                 ) : (
-                  <div className="text-sm text-white/45">Bez popisu</div>
+                  <div className="text-sm text-foreground/45">Bez popisu</div>
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
+                  <span className="rentulo-items-pill rounded-full px-3 py-1 text-xs">
                     Rezervácia cez Rentulo
                   </span>
-                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/72">
+                  <span className="rentulo-items-pill rounded-full px-3 py-1 text-xs">
                     Komunikácia pri ponuke
                   </span>
                   {hasValidDateRange ? (
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200">
+                    <span className="rentulo-items-pill-success rounded-full px-3 py-1 text-xs">
                       Voľné v termíne
                     </span>
                   ) : null}
@@ -1245,8 +1245,8 @@ function ItemsPageInner() {
                         }}
                         className={`h-2.5 rounded-full transition ${
                           activeIndex === index
-                            ? "w-8 bg-white"
-                            : "w-2.5 bg-white/25 hover:bg-white/45"
+                            ? "w-8 bg-foreground"
+                            : "w-2.5 bg-foreground/20 hover:bg-foreground/35"
                         }`}
                         aria-label={`Zobraziť fotku ${index + 1}`}
                       />
@@ -1255,13 +1255,13 @@ function ItemsPageInner() {
                 ) : null}
 
                 <div className="flex items-center justify-between gap-3 pt-1">
-                  <div className="text-sm text-white/50">
+                  <div className="text-sm text-foreground/50">
                     Fotka, cena a dôvera v jednom produkte
                   </div>
 
                   <Link
                     href={buildItemDetailHref(item.id, currentSearchState)}
-                    className="inline-flex rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-white/85 hover:bg-white/[0.1]"
+                    className="rentulo-items-inline-action inline-flex rounded-full px-4 py-2 text-sm font-medium"
                     onClick={(event) => event.stopPropagation()}
                   >
                     Otvoriť detail
@@ -1282,7 +1282,7 @@ export default function ItemsPage() {
     <Suspense
       fallback={
         <main className="space-y-8 lg:space-y-10">
-          <div className="rounded-[1.5rem] border border-white/10 bg-black/20 p-4 text-white/80">
+          <div className="rentulo-card-2 rounded-[1.5rem] p-4 text-foreground/80">
             Načítavam ponuky...
           </div>
         </main>
