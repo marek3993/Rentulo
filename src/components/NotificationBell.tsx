@@ -246,7 +246,7 @@ export default function NotificationBell() {
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="relative rounded-xl border border-white/15 px-3 py-2 text-sm font-medium transition hover:bg-white/10"
+        className="rentulo-notification-trigger"
         aria-label="Upozornenia"
         title="Upozornenia"
         aria-expanded={isDropdownOpen}
@@ -254,12 +254,16 @@ export default function NotificationBell() {
         onClick={() => setOpenPathname((value) => (value === pathname ? null : pathname))}
       >
         <span className="flex items-center gap-2">
-          <span aria-hidden="true">🔔</span>
+          <span aria-hidden="true" className="rentulo-notification-icon">
+            <svg viewBox="0 0 24 24" className="h-[1.05rem] w-[1.05rem] fill-current">
+              <path d="M12 2a4 4 0 0 0-4 4v1.09a7 7 0 0 1-1.54 4.37L4.3 14.17A1 1 0 0 0 5.08 16h13.84a1 1 0 0 0 .78-1.83l-2.16-2.71A7 7 0 0 1 16 7.09V6a4 4 0 0 0-4-4Zm0 20a3 3 0 0 0 2.82-2H9.18A3 3 0 0 0 12 22Z" />
+            </svg>
+          </span>
           <span>Upozornenia</span>
         </span>
 
         {count > 0 ? (
-          <span className="absolute -right-2 -top-2 min-w-[22px] rounded-full bg-red-600 px-1.5 py-0.5 text-center text-xs font-semibold text-white">
+          <span className="rentulo-notification-badge">
             {count > 99 ? "99+" : count}
           </span>
         ) : null}

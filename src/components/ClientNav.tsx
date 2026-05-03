@@ -3,32 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
+import { supabase } from "@/lib/supabaseClient";
 
 type VerificationStatus = "unverified" | "pending" | "verified" | "rejected" | string;
 
 function ActionLink({
   href,
   children,
-  primary = false,
-  muted = false,
+  variant = "default",
   title,
   ariaLabel,
 }: {
   href: string;
   children: React.ReactNode;
-  primary?: boolean;
-  muted?: boolean;
+  variant?: "default" | "contrast";
   title?: string;
   ariaLabel?: string;
 }) {
-  const className = primary
-    ? muted
-      ? "inline-flex items-center rounded-full border border-amber-400/20 bg-amber-500/10 px-3.5 py-2 text-sm font-medium text-amber-100 transition hover:border-amber-300/30 hover:bg-amber-500/15"
-      : "inline-flex items-center rounded-full bg-white px-3.5 py-2 text-sm font-medium text-black shadow-[0_10px_30px_rgba(255,255,255,0.12)] transition hover:bg-white/90"
-    : "inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white";
+  const className =
+    variant === "contrast"
+      ? "rentulo-nav-chip rentulo-nav-chip-contrast"
+      : "rentulo-nav-chip";
 
   return (
     <Link aria-label={ariaLabel} className={className} href={href} title={title}>
@@ -48,7 +45,7 @@ function DropdownLink({
 }) {
   return (
     <Link
-      className="block rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/8 hover:text-white"
+      className="rentulo-topbar-menu-link"
       href={href}
       onClick={onNavigate}
     >
@@ -169,13 +166,10 @@ function MessagesNavLink() {
   }, []);
 
   return (
-    <Link
-      className="relative inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-medium text-white/80 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-      href="/messages"
-    >
+    <Link className="rentulo-nav-chip relative" href="/messages">
       Správy
       {unreadCount > 0 ? (
-        <span className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-white px-1.5 py-0.5 text-xs font-semibold text-black">
+        <span className="rentulo-nav-count ml-2">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       ) : null}
@@ -187,6 +181,7 @@ export default function ClientNav() {
   const pathname = usePathname();
 
   const [hidden, setHidden] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
@@ -194,10 +189,13 @@ export default function ClientNav() {
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus>("unverified");
   const [openMenuPath, setOpenMenuPath] = useState<string | null>(null);
+  const [openVerificationPopoverPath, setOpenVerificationPopoverPath] = useState<string | null>(
+    null
+  );
   const [signingOut, setSigningOut] = useState(false);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const isMenuOpen = openMenuPath === pathname;
+  const addOfferRef = useRef<HTMLDivElement | null>(null);
 
   const avatarUrl = useMemo(() => {
     if (!avatarPath) return null;
@@ -206,6 +204,9 @@ export default function ClientNav() {
 
   const avatarFallback = fullName.trim().charAt(0).toUpperCase() || "R";
   const isVerified = verificationStatus === "verified" || verificationStatus === "approved";
+  const isMenuOpen = openMenuPath === pathname;
+  const isVerificationPopoverOpen =
+    openVerificationPopoverPath === pathname && isLoggedIn && !isVerified;
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -213,6 +214,8 @@ export default function ClientNav() {
     const onScroll = () => {
       const currentY = window.scrollY;
       const isMobile = window.innerWidth < 1024;
+
+      setScrolled(currentY > 12);
 
       if (!isMobile) {
         setHidden(false);
@@ -234,6 +237,8 @@ export default function ClientNav() {
 
       lastY = currentY;
     };
+
+    onScroll();
 
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
@@ -301,14 +306,21 @@ export default function ClientNav() {
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+
+      if (!menuRef.current?.contains(target)) {
         setOpenMenuPath(null);
+      }
+
+      if (!addOfferRef.current?.contains(target)) {
+        setOpenVerificationPopoverPath(null);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpenMenuPath(null);
+        setOpenVerificationPopoverPath(null);
       }
     };
 
@@ -330,132 +342,166 @@ export default function ClientNav() {
 
   return (
     <header
-      className={`sticky top-0 z-50 px-3 pt-3 transition-transform duration-300 sm:px-4 lg:px-6 ${
+      className={`rentulo-topbar sticky top-0 z-50 transition-transform duration-300 ${
         hidden ? "-translate-y-full" : "translate-y-0"
       }`}
     >
-      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-white/10 bg-neutral-950/75 px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.25)]">
-        <Link href="/" className="rentulo-topbar-brand flex items-center gap-3 rounded-full px-2.5 py-1.5">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(99,102,241,0.35),rgba(217,70,239,0.2))] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(99,102,241,0.25)]">
-            R
-          </span>
-          <span className="rentulo-topbar-brand-text text-lg font-semibold tracking-tight">
-            Rentulo
-          </span>
-        </Link>
+      <div className="rentulo-topbar-shell" data-scrolled={scrolled}>
+        <div className="rentulo-topbar-inner">
+          <Link
+            href="/"
+            className="rentulo-topbar-brand flex items-center gap-3 rounded-full px-2.5 py-1.5"
+          >
+            <span className="rentulo-topbar-mark inline-flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-semibold">
+              R
+            </span>
+            <span className="rentulo-topbar-brand-text text-lg font-semibold tracking-tight">
+              Rentulo
+            </span>
+          </Link>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <ThemeToggle />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ThemeToggle />
 
-          {isLoggedIn ? (
-            <>
-              <ActionLink
-                href={isVerified ? "/items/new" : "/verification"}
-                primary
-                muted={!isVerified}
-                title={
-                  isVerified
-                    ? "Pridať novú ponuku"
-                    : "Pre pridanie ponuky najprv dokončite overenie profilu."
-                }
-                ariaLabel={
-                  isVerified
-                    ? "Pridať novú ponuku"
-                    : "Pridať ponuku, najprv dokončite overenie profilu"
-                }
-              >
-                <span>Pridať ponuku</span>
-                {!isVerified ? (
-                  <span className="ml-2 hidden rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium sm:inline-flex">
-                    Najprv over profil
-                  </span>
-                ) : null}
-              </ActionLink>
-
-              <MessagesNavLink />
-              <NotificationBell />
-
-              <div className="relative" ref={menuRef}>
-                <button
-                  type="button"
-                  className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.03] text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.08]"
-                  onClick={() =>
-                    setOpenMenuPath((value) => (value === pathname ? null : pathname))
-                  }
-                  aria-expanded={isMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Otvoriť používateľské menu"
-                >
-                  {avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={avatarUrl}
-                      alt="Profilová fotka"
-                      className="h-full w-full object-cover"
-                    />
+            {isLoggedIn ? (
+              <>
+                <div className="relative" ref={addOfferRef}>
+                  {isVerified ? (
+                    <Link
+                      href="/items/new"
+                      className="rentulo-add-offer-trigger"
+                      data-state="active"
+                      title="Pridať ponuku"
+                      aria-label="Pridať ponuku"
+                    >
+                      Pridať ponuku
+                    </Link>
                   ) : (
-                    <span>{avatarFallback}</span>
-                  )}
-                </button>
-
-                {isMenuOpen ? (
-                  <div className="absolute right-0 top-full mt-3 w-64 overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/95 p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-                    <div className="border-b border-white/10 px-3 py-3">
-                      <div className="text-sm font-medium text-white">
-                        {fullName.trim() || "Môj účet"}
-                      </div>
-                      <div className="mt-1 text-xs text-white/50">
-                        {verificationLabel(verificationStatus)}
-                      </div>
-                    </div>
-
-                    <div className="pt-2">
-                      <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
-                        Profil
-                      </DropdownLink>
-                      <DropdownLink
-                        href="/reservations"
-                        onNavigate={() => setOpenMenuPath(null)}
-                      >
-                        Moje rezervácie
-                      </DropdownLink>
-
-                      {isVerified ? (
-                        <DropdownLink
-                          href="/owner/items"
-                          onNavigate={() => setOpenMenuPath(null)}
-                        >
-                          Moje inzeráty
-                        </DropdownLink>
-                      ) : null}
-
-                      {isAdmin ? (
-                        <DropdownLink href="/admin" onNavigate={() => setOpenMenuPath(null)}>
-                          Administrácia
-                        </DropdownLink>
-                      ) : null}
-
+                    <>
                       <button
                         type="button"
-                        className="mt-1 block w-full rounded-xl px-3 py-2.5 text-left text-sm text-white/80 transition hover:bg-white/8 hover:text-white disabled:opacity-50"
-                        onClick={handleSignOut}
-                        disabled={signingOut}
+                        className="rentulo-add-offer-trigger"
+                        data-state="inactive"
+                        aria-expanded={isVerificationPopoverOpen}
+                        aria-haspopup="dialog"
+                        aria-label="Pridať ponuku"
+                        title="Pre pridanie ponuky si musíte overiť profil."
+                        onClick={() =>
+                          setOpenVerificationPopoverPath((value) =>
+                            value === pathname ? null : pathname
+                          )
+                        }
                       >
-                        {signingOut ? "Odhlasujem..." : "Odhlásiť"}
+                        Pridať ponuku
                       </button>
+
+                      {isVerificationPopoverOpen ? (
+                        <div
+                          className="rentulo-nav-popover absolute right-0 top-full z-50 mt-3 w-[18rem]"
+                          role="dialog"
+                          aria-label="Upozornenie k overeniu profilu"
+                        >
+                          <p className="text-sm text-foreground/80">
+                            Pre pridanie ponuky sa musí najprv overiť profil.
+                          </p>
+                          <Link
+                            href="/verification"
+                            className="mt-3 inline-flex text-sm font-semibold text-amber-600 underline decoration-amber-400/60 underline-offset-4 hover:text-amber-700"
+                            onClick={() => setOpenVerificationPopoverPath(null)}
+                          >
+                            Prejsť na overenie profilu
+                          </Link>
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+
+                <MessagesNavLink />
+                <NotificationBell />
+
+                <div className="relative" ref={menuRef}>
+                  <button
+                    type="button"
+                    className="rentulo-nav-avatar"
+                    onClick={() =>
+                      setOpenMenuPath((value) => (value === pathname ? null : pathname))
+                    }
+                    aria-expanded={isMenuOpen}
+                    aria-haspopup="menu"
+                    aria-label="Otvoriť používateľské menu"
+                  >
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatarUrl}
+                        alt="Profilová fotka"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span>{avatarFallback}</span>
+                    )}
+                  </button>
+
+                  {isMenuOpen ? (
+                    <div className="rentulo-topbar-menu absolute right-0 top-full mt-3 w-64 overflow-hidden rounded-2xl p-2">
+                      <div className="border-b border-white/10 px-3 py-3">
+                        <div className="text-sm font-medium text-white">
+                          {fullName.trim() || "Môj účet"}
+                        </div>
+                        <div className="mt-1 text-xs text-white/50">
+                          {verificationLabel(verificationStatus)}
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
+                          Profil
+                        </DropdownLink>
+                        <DropdownLink
+                          href="/reservations"
+                          onNavigate={() => setOpenMenuPath(null)}
+                        >
+                          Moje rezervácie
+                        </DropdownLink>
+
+                        {isVerified ? (
+                          <DropdownLink
+                            href="/owner/items"
+                            onNavigate={() => setOpenMenuPath(null)}
+                          >
+                            Moje inzeráty
+                          </DropdownLink>
+                        ) : null}
+
+                        {isAdmin ? (
+                          <DropdownLink href="/admin" onNavigate={() => setOpenMenuPath(null)}>
+                            Administrácia
+                          </DropdownLink>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          className="rentulo-topbar-menu-link mt-1 block w-full text-left disabled:opacity-50"
+                          onClick={handleSignOut}
+                          disabled={signingOut}
+                        >
+                          {signingOut ? "Odhlasujem..." : "Odhlásiť"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <>
-              <ActionLink href="/login">Prihlásiť</ActionLink>
-              <ActionLink href="/register" primary>
-                Registrovať
-              </ActionLink>
-            </>
-          )}
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <ActionLink href="/login">Prihlásiť</ActionLink>
+                <ActionLink href="/register" variant="contrast">
+                  Registrovať
+                </ActionLink>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

@@ -65,6 +65,35 @@
   --theme-toggle-icon-muted: rgba(255, 255, 255, 0.48);
   --theme-toggle-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 
+  --topbar-shell-bg: #0b0f14;
+  --topbar-shell-border: rgba(255, 255, 255, 0.08);
+  --topbar-shell-border-strong: rgba(255, 255, 255, 0.16);
+  --topbar-shell-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+  --topbar-shell-shadow-scrolled: 0 24px 60px rgba(0, 0, 0, 0.28);
+  --topbar-chip-bg: rgba(255, 255, 255, 0.04);
+  --topbar-chip-border: rgba(255, 255, 255, 0.12);
+  --topbar-chip-hover-bg: rgba(255, 255, 255, 0.08);
+  --topbar-chip-hover-border: rgba(255, 255, 255, 0.18);
+  --topbar-chip-text: rgba(255, 255, 255, 0.88);
+  --topbar-chip-contrast-bg: #ffffff;
+  --topbar-chip-contrast-hover-bg: #f5f7fa;
+  --topbar-chip-contrast-text: #0f172a;
+  --topbar-accent: #f59e0b;
+  --topbar-accent-hover: #ea9200;
+  --topbar-accent-text: #1f2937;
+  --topbar-accent-soft-bg: rgba(245, 158, 11, 0.16);
+  --topbar-accent-soft-border: rgba(245, 158, 11, 0.34);
+  --topbar-accent-soft-text: #fde68a;
+  --topbar-popover-bg: #131820;
+  --topbar-popover-border: rgba(255, 255, 255, 0.12);
+  --topbar-popover-shadow: 0 22px 56px rgba(0, 0, 0, 0.34);
+  --footer-bg: rgba(10, 14, 20, 0.78);
+  --footer-border: rgba(255, 255, 255, 0.08);
+  --footer-heading: rgba(255, 255, 255, 0.96);
+  --footer-link: rgba(225, 231, 239, 0.72);
+  --footer-link-hover: rgba(255, 255, 255, 0.96);
+  --footer-copy: rgba(225, 231, 239, 0.58);
+
   --pill-bg: color-mix(in oklab, var(--surface) 92%, transparent);
   --pill-border: rgba(255, 255, 255, 0.12);
   --pill-text: rgba(245, 247, 250, 0.9);
@@ -82,42 +111,42 @@
 }
 
 :root[data-theme="light"] {
-  --background: #eef2f7;
+  --background: #f6efe6;
   --foreground: #0f172a;
 
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --border: #d6dee8;
+  --surface: #fffaf3;
+  --surface-2: #f8f1e7;
+  --border: #ddd0bd;
 
-  --text-muted: #526173;
+  --text-muted: #64584b;
 
   --app-shell-bg:
-    radial-gradient(circle at top, rgba(99, 102, 241, 0.14), transparent 24%),
-    radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.12), transparent 22%),
-    linear-gradient(180deg, #f8fbff 0%, #edf2f8 42%, #e7edf5 100%);
+    radial-gradient(circle at top, rgba(99, 102, 241, 0.1), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.1), transparent 22%),
+    linear-gradient(180deg, #fcf7ef 0%, #f7efe4 44%, #f0e5d7 100%);
 
-  --card-bg: rgba(255, 255, 255, 0.88);
-  --card-bg-2: rgba(255, 255, 255, 0.72);
-  --card-border: rgba(15, 23, 42, 0.12);
-  --card-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  --card-bg: rgba(255, 250, 243, 0.9);
+  --card-bg-2: rgba(255, 248, 238, 0.76);
+  --card-border: rgba(54, 41, 24, 0.12);
+  --card-shadow: 0 24px 60px rgba(54, 41, 24, 0.08);
 
-  --btn-secondary-bg: rgba(255, 255, 255, 0.88);
-  --btn-secondary-border: rgba(15, 23, 42, 0.14);
+  --btn-secondary-bg: rgba(255, 250, 243, 0.9);
+  --btn-secondary-border: rgba(54, 41, 24, 0.14);
   --btn-secondary-text: #0f172a;
-  --btn-secondary-hover: rgba(255, 255, 255, 0.98);
+  --btn-secondary-hover: rgba(255, 253, 249, 0.98);
 
-  --input-light-border: rgba(15, 23, 42, 0.16);
-  --input-light-bg: #ffffff;
+  --input-light-border: rgba(54, 41, 24, 0.16);
+  --input-light-bg: #fffdf9;
   --input-light-text: #0f172a;
 
-  --input-dark-border: rgba(15, 23, 42, 0.14);
-  --input-dark-bg: rgba(255, 255, 255, 0.92);
+  --input-dark-border: rgba(54, 41, 24, 0.14);
+  --input-dark-bg: rgba(255, 250, 243, 0.92);
   --input-dark-text: #0f172a;
 
   --color-white: #0f172a;
   --color-black: #ffffff;
-  --color-neutral-950: #f4f7fb;
-  --color-neutral-900: #ffffff;
+  --color-neutral-950: #f6eee3;
+  --color-neutral-900: #fffaf3;
 
   --status-success-bg: #ecfdf5;
   --status-success-border: #86efac;
@@ -139,6 +168,35 @@
   --theme-toggle-icon: #0f172a;
   --theme-toggle-icon-muted: rgba(71, 85, 105, 0.68);
   --theme-toggle-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+
+  --topbar-shell-bg: #ffffff;
+  --topbar-shell-border: rgba(15, 23, 42, 0.1);
+  --topbar-shell-border-strong: rgba(15, 23, 42, 0.16);
+  --topbar-shell-shadow: 0 14px 36px rgba(15, 23, 42, 0.06);
+  --topbar-shell-shadow-scrolled: 0 18px 46px rgba(15, 23, 42, 0.1);
+  --topbar-chip-bg: rgba(248, 250, 252, 0.98);
+  --topbar-chip-border: rgba(15, 23, 42, 0.12);
+  --topbar-chip-hover-bg: #ffffff;
+  --topbar-chip-hover-border: rgba(15, 23, 42, 0.18);
+  --topbar-chip-text: #334155;
+  --topbar-chip-contrast-bg: #0f172a;
+  --topbar-chip-contrast-hover-bg: #1e293b;
+  --topbar-chip-contrast-text: #ffffff;
+  --topbar-accent: #f59e0b;
+  --topbar-accent-hover: #e48d06;
+  --topbar-accent-text: #1f2937;
+  --topbar-accent-soft-bg: #fff3db;
+  --topbar-accent-soft-border: rgba(245, 158, 11, 0.38);
+  --topbar-accent-soft-text: #9a6700;
+  --topbar-popover-bg: rgba(255, 255, 255, 0.98);
+  --topbar-popover-border: rgba(15, 23, 42, 0.12);
+  --topbar-popover-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+  --footer-bg: rgba(255, 255, 255, 0.9);
+  --footer-border: rgba(15, 23, 42, 0.1);
+  --footer-heading: #0f172a;
+  --footer-link: #526173;
+  --footer-link-hover: #0f172a;
+  --footer-copy: #64748b;
 
   --pill-bg: rgba(255, 255, 255, 0.9);
   --pill-border: rgba(15, 23, 42, 0.12);
@@ -444,6 +502,186 @@ textarea::placeholder {
   transform: translateX(1.63rem);
 }
 
+.rentulo-topbar {
+  width: 100%;
+}
+
+.rentulo-topbar-shell {
+  width: 100%;
+  border-bottom: 1px solid var(--topbar-shell-border);
+  background: var(--topbar-shell-bg);
+  box-shadow: var(--topbar-shell-shadow);
+}
+
+.rentulo-topbar-shell[data-scrolled="true"] {
+  border-bottom-color: var(--topbar-shell-border-strong);
+  box-shadow: var(--topbar-shell-shadow-scrolled);
+}
+
+.rentulo-topbar-inner {
+  display: flex;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+.rentulo-nav-chip,
+.rentulo-add-offer-trigger,
+.rentulo-notification-trigger {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid var(--topbar-chip-border);
+  background: var(--topbar-chip-bg);
+  padding: 0.625rem 0.95rem;
+  color: var(--topbar-chip-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  backdrop-filter: blur(12px);
+}
+
+.rentulo-nav-chip:hover,
+.rentulo-add-offer-trigger:hover,
+.rentulo-notification-trigger:hover {
+  border-color: var(--topbar-chip-hover-border);
+  background: var(--topbar-chip-hover-bg);
+}
+
+.rentulo-nav-chip-contrast {
+  border-color: transparent;
+  background: var(--topbar-chip-contrast-bg);
+  color: var(--topbar-chip-contrast-text);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+}
+
+.rentulo-nav-chip-contrast:hover {
+  background: var(--topbar-chip-contrast-hover-bg);
+}
+
+.rentulo-nav-count {
+  display: inline-flex;
+  min-width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 0.125rem 0.375rem;
+  color: #111827;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.rentulo-add-offer-trigger {
+  border-color: color-mix(in oklab, var(--topbar-accent) 42%, var(--topbar-chip-border));
+}
+
+.rentulo-add-offer-trigger[data-state="active"] {
+  background: var(--topbar-accent);
+  color: var(--topbar-accent-text);
+  box-shadow: 0 16px 34px rgba(245, 158, 11, 0.24);
+}
+
+.rentulo-add-offer-trigger[data-state="active"]:hover {
+  border-color: color-mix(in oklab, var(--topbar-accent) 64%, transparent);
+  background: var(--topbar-accent-hover);
+}
+
+.rentulo-add-offer-trigger[data-state="inactive"] {
+  background: var(--topbar-accent-soft-bg);
+  border-color: var(--topbar-accent-soft-border);
+  color: var(--topbar-accent-soft-text);
+  box-shadow: none;
+}
+
+.rentulo-add-offer-trigger[data-state="inactive"]:hover {
+  background: color-mix(in oklab, var(--topbar-accent-soft-bg) 82%, #ffffff 18%);
+  border-color: color-mix(in oklab, var(--topbar-accent) 50%, var(--topbar-accent-soft-border));
+}
+
+.rentulo-nav-popover {
+  border: 1px solid var(--topbar-popover-border);
+  background: var(--topbar-popover-bg);
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: var(--topbar-popover-shadow);
+}
+
+.rentulo-nav-avatar {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  border: 1px solid var(--topbar-chip-border);
+  background: var(--topbar-chip-bg);
+  color: var(--topbar-chip-text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  backdrop-filter: blur(12px);
+}
+
+.rentulo-nav-avatar:hover {
+  border-color: var(--topbar-chip-hover-border);
+  background: var(--topbar-chip-hover-bg);
+}
+
+.rentulo-topbar-menu {
+  border: 1px solid var(--topbar-popover-border);
+  background: var(--topbar-popover-bg);
+  box-shadow: var(--topbar-popover-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.rentulo-topbar-menu-link {
+  display: block;
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.85rem;
+  color: color-mix(in oklab, var(--foreground) 78%, transparent);
+  font-size: 0.95rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.rentulo-topbar-menu-link:hover {
+  background: color-mix(in oklab, var(--surface-2) 84%, var(--primary) 16%);
+  color: var(--foreground);
+}
+
+.rentulo-notification-trigger {
+  position: relative;
+}
+
+.rentulo-notification-icon {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+:root[data-theme="light"] .rentulo-notification-icon {
+  color: var(--topbar-accent);
+}
+
+.rentulo-notification-badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.4rem;
+  border-radius: 9999px;
+  background: #dc2626;
+  padding: 0.1rem 0.4rem;
+  text-align: center;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .rentulo-topbar-brand {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
@@ -502,6 +740,51 @@ textarea::placeholder {
 .rentulo-theme-preserve-dark .rentulo-topbar-brand-text {
   color: rgba(255, 255, 255, 0.96);
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.16);
+}
+
+.rentulo-footer {
+  background: var(--footer-bg);
+  border-color: var(--footer-border);
+  backdrop-filter: blur(16px);
+}
+
+.rentulo-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .rentulo-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .rentulo-footer-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.rentulo-footer-heading {
+  color: var(--footer-heading);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rentulo-footer-link {
+  color: var(--footer-link);
+  font-size: 0.95rem;
+}
+
+.rentulo-footer-link:hover {
+  color: var(--footer-link-hover);
+}
+
+.rentulo-footer-copy {
+  border-color: var(--footer-border);
+  color: var(--footer-copy);
 }
 
 .rdp {
@@ -683,10 +966,31 @@ textarea::placeholder {
   color: rgba(221, 214, 254, 0.8);
 }
 
+.rentulo-home-helper-shell {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at left top, rgba(139, 92, 246, 0.22), transparent 30%),
+    radial-gradient(circle at 82% 22%, rgba(56, 189, 248, 0.16), transparent 22%),
+    linear-gradient(135deg, #0b1020 0%, #11182b 48%, #0a0c13 100%);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.3);
+}
+
+.rentulo-home-helper-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(16, 23, 38, 0.9), rgba(9, 13, 24, 0.8));
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
+}
+
 :root[data-theme="light"] .rentulo-violet-eyebrow {
   border-color: rgba(109, 40, 217, 0.18);
   background: rgba(139, 92, 246, 0.14);
   color: rgba(91, 33, 182, 0.92);
+}
+
+:root[data-theme="light"] .rentulo-home-helper-shell {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 34px 90px rgba(51, 38, 24, 0.22);
 }
 
 @keyframes rentuloFloat {
