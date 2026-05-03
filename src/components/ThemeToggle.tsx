@@ -82,15 +82,25 @@ export default function ThemeToggle() {
       type="button"
       role="switch"
       aria-checked={isDark}
-      aria-label={isDark ? "Prepnut na svetlu temu" : "Prepnut na tmavu temu"}
-      title={isDark ? "Svetla tema" : "Tmava tema"}
+      aria-label={isDark ? "Prepnúť na svetlú tému" : "Prepnúť na tmavú tému"}
+      title={isDark ? "Prepnúť na svetlú tému" : "Prepnúť na tmavú tému"}
       className="rentulo-theme-toggle transition"
       onClick={() => {
         setTheme(nextTheme);
         setThemeState(nextTheme);
       }}
     >
-      <span aria-hidden="true" className="rentulo-theme-toggle-track" />
+      <span className="sr-only">
+        {isDark ? "Aktívna tmavá téma" : "Aktívna svetlá téma"}
+      </span>
+      <span aria-hidden="true" className="rentulo-theme-toggle-track">
+        <span className="rentulo-theme-toggle-icon-slot" data-active={theme === "light"}>
+          <ThemeIcon theme="light" />
+        </span>
+        <span className="rentulo-theme-toggle-icon-slot" data-active={theme === "dark"}>
+          <ThemeIcon theme="dark" />
+        </span>
+      </span>
       <span aria-hidden="true" className="rentulo-theme-toggle-thumb" data-state={theme}>
         <ThemeIcon theme={theme} />
       </span>

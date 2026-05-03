@@ -286,7 +286,10 @@ export default function Home() {
 
   return (
     <div className="space-y-6 pb-8 lg:space-y-8">
-      <section id="pomocnik" className="mx-auto max-w-[86rem] scroll-mt-32">
+      <section
+        id="pomocnik"
+        className="rentulo-theme-preserve-dark mx-auto max-w-[86rem] scroll-mt-32"
+      >
         <div className="relative grid gap-6 overflow-hidden px-1 py-2 sm:px-2 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8">
           <div className="pointer-events-none absolute left-[-3rem] top-14 h-36 w-36 rounded-full bg-violet-500/6 blur-3xl" />
           <div className="pointer-events-none absolute right-[6%] top-20 h-32 w-32 rounded-full bg-sky-400/6 blur-3xl" />
@@ -567,7 +570,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.2)] md:px-6 md:py-5">
+        <div className="rentulo-theme-preserve-dark rounded-[1.7rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] px-4 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.2)] md:px-6 md:py-5">
           <div className="grid gap-4 md:grid-cols-3 md:gap-6 xl:gap-10">
             <TrustItem
               type="shield"
@@ -590,7 +593,7 @@ export default function Home() {
 
       <section
         id="ako-to-funguje"
-        className="scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8"
+        className="rentulo-theme-preserve-dark scroll-mt-32 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)] md:p-8"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
