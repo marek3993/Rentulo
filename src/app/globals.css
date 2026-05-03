@@ -9,7 +9,7 @@
   --surface-2: #17191c;
   --border: #262a30;
 
-  --text-muted: #a1a8b3;
+  --text-muted: #aab3bf;
 
   --app-shell-bg:
     radial-gradient(circle at top, rgba(99, 102, 241, 0.12), transparent 28%),
@@ -22,21 +22,22 @@
   --card-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
 
   --btn-secondary-bg: transparent;
-  --btn-secondary-border: rgba(255, 255, 255, 0.15);
-  --btn-secondary-text: #ffffff;
-  --btn-secondary-hover: rgba(255, 255, 255, 0.08);
+  --btn-secondary-border: rgba(255, 255, 255, 0.18);
+  --btn-secondary-text: #f8fafc;
+  --btn-secondary-hover: rgba(255, 255, 255, 0.1);
 
-  --input-light-border: rgba(15, 23, 42, 0.16);
+  --input-light-border: rgba(15, 23, 42, 0.2);
   --input-light-bg: #ffffff;
   --input-light-text: #0f172a;
 
-  --input-dark-border: rgba(255, 255, 255, 0.12);
-  --input-dark-bg: rgba(0, 0, 0, 0.2);
-  --input-dark-text: #ffffff;
+  --input-dark-border: rgba(255, 255, 255, 0.16);
+  --input-dark-bg: rgba(255, 255, 255, 0.07);
+  --input-dark-text: #f8fafc;
 
   --primary: #6366f1;
   --primary-hover: #5458ee;
   --primary-dark: #4338ca;
+  --focus-ring: color-mix(in oklab, var(--primary) 18%, transparent);
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -53,15 +54,29 @@
   --status-error-border: rgba(248, 113, 113, 0.34);
   --status-error-text: #fee2e2;
 
-  --theme-toggle-bg: rgba(255, 255, 255, 0.04);
-  --theme-toggle-border: rgba(255, 255, 255, 0.12);
-  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.08);
-  --theme-toggle-hover-border: rgba(255, 255, 255, 0.2);
+  --theme-toggle-bg: rgba(255, 255, 255, 0.05);
+  --theme-toggle-border: rgba(255, 255, 255, 0.14);
+  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.09);
+  --theme-toggle-hover-border: rgba(255, 255, 255, 0.24);
   --theme-toggle-track: rgba(255, 255, 255, 0.08);
-  --theme-toggle-thumb: rgba(255, 255, 255, 0.14);
-  --theme-toggle-thumb-border: rgba(255, 255, 255, 0.14);
-  --theme-toggle-icon: rgba(255, 255, 255, 0.82);
+  --theme-toggle-thumb: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  --theme-toggle-thumb-border: rgba(255, 255, 255, 0.18);
+  --theme-toggle-icon: rgba(255, 255, 255, 0.9);
+  --theme-toggle-icon-muted: rgba(255, 255, 255, 0.48);
   --theme-toggle-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+
+  --pill-bg: color-mix(in oklab, var(--surface) 92%, transparent);
+  --pill-border: rgba(255, 255, 255, 0.12);
+  --pill-text: rgba(245, 247, 250, 0.9);
+  --pill-accent-bg: color-mix(in oklab, var(--primary) 14%, var(--surface));
+  --pill-accent-border: color-mix(in oklab, var(--primary) 34%, var(--card-border));
+  --pill-accent-text: #dbe4ff;
+  --pill-success-bg: color-mix(in oklab, var(--success) 16%, var(--surface));
+  --pill-success-border: color-mix(in oklab, var(--success) 40%, var(--card-border));
+  --pill-success-text: #d1fae5;
+  --pill-muted-bg: color-mix(in oklab, var(--surface-2) 90%, transparent);
+  --pill-muted-border: rgba(255, 255, 255, 0.1);
+  --pill-muted-text: rgba(225, 231, 239, 0.72);
 
   color-scheme: dark;
 }
@@ -74,7 +89,7 @@
   --surface-2: #f8fafc;
   --border: #d6dee8;
 
-  --text-muted: #5f6b7a;
+  --text-muted: #526173;
 
   --app-shell-bg:
     radial-gradient(circle at top, rgba(99, 102, 241, 0.14), transparent 24%),
@@ -86,17 +101,17 @@
   --card-border: rgba(15, 23, 42, 0.12);
   --card-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
 
-  --btn-secondary-bg: rgba(255, 255, 255, 0.78);
-  --btn-secondary-border: rgba(15, 23, 42, 0.12);
+  --btn-secondary-bg: rgba(255, 255, 255, 0.88);
+  --btn-secondary-border: rgba(15, 23, 42, 0.14);
   --btn-secondary-text: #0f172a;
-  --btn-secondary-hover: rgba(226, 232, 240, 0.95);
+  --btn-secondary-hover: rgba(255, 255, 255, 0.98);
 
-  --input-light-border: rgba(15, 23, 42, 0.14);
+  --input-light-border: rgba(15, 23, 42, 0.16);
   --input-light-bg: #ffffff;
   --input-light-text: #0f172a;
 
-  --input-dark-border: rgba(15, 23, 42, 0.12);
-  --input-dark-bg: rgba(255, 255, 255, 0.86);
+  --input-dark-border: rgba(15, 23, 42, 0.14);
+  --input-dark-bg: rgba(255, 255, 255, 0.92);
   --input-dark-text: #0f172a;
 
   --color-white: #0f172a;
@@ -114,15 +129,29 @@
   --status-error-border: #fca5a5;
   --status-error-text: #b91c1c;
 
-  --theme-toggle-bg: rgba(255, 255, 255, 0.76);
-  --theme-toggle-border: rgba(15, 23, 42, 0.12);
-  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.92);
-  --theme-toggle-hover-border: rgba(99, 102, 241, 0.28);
-  --theme-toggle-track: rgba(148, 163, 184, 0.16);
+  --theme-toggle-bg: rgba(255, 255, 255, 0.9);
+  --theme-toggle-border: rgba(15, 23, 42, 0.14);
+  --theme-toggle-hover-bg: rgba(255, 255, 255, 0.98);
+  --theme-toggle-hover-border: rgba(99, 102, 241, 0.3);
+  --theme-toggle-track: rgba(148, 163, 184, 0.2);
   --theme-toggle-thumb: #ffffff;
-  --theme-toggle-thumb-border: rgba(15, 23, 42, 0.08);
+  --theme-toggle-thumb-border: rgba(15, 23, 42, 0.12);
   --theme-toggle-icon: #0f172a;
+  --theme-toggle-icon-muted: rgba(71, 85, 105, 0.68);
   --theme-toggle-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+
+  --pill-bg: rgba(255, 255, 255, 0.9);
+  --pill-border: rgba(15, 23, 42, 0.12);
+  --pill-text: #334155;
+  --pill-accent-bg: color-mix(in oklab, var(--primary) 10%, #ffffff);
+  --pill-accent-border: rgba(99, 102, 241, 0.24);
+  --pill-accent-text: #3730a3;
+  --pill-success-bg: #ecfdf5;
+  --pill-success-border: #86efac;
+  --pill-success-text: #166534;
+  --pill-muted-bg: rgba(248, 250, 252, 0.96);
+  --pill-muted-border: rgba(15, 23, 42, 0.1);
+  --pill-muted-text: #526173;
 
   color-scheme: light;
 }
@@ -239,6 +268,8 @@ textarea::placeholder {
   background: var(--btn-secondary-bg);
   color: var(--btn-secondary-text);
   border-radius: 0.75rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
 }
 
 .rentulo-btn-secondary:hover {
@@ -264,8 +295,8 @@ textarea::placeholder {
 .rentulo-input-light:focus,
 .rentulo-input-dark:focus {
   outline: none;
-  border-color: color-mix(in oklab, var(--primary) 46%, transparent);
-  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 14%, transparent);
+  border-color: color-mix(in oklab, var(--primary) 52%, transparent);
+  box-shadow: 0 0 0 4px var(--focus-ring);
 }
 
 .rentulo-input-light::placeholder {
@@ -343,11 +374,13 @@ textarea::placeholder {
   height: 2.25rem;
   width: 3.9rem;
   align-items: center;
+  justify-content: center;
   border-radius: 9999px;
   border: 1px solid var(--theme-toggle-border);
   background: var(--theme-toggle-bg);
   color: var(--theme-toggle-icon);
   backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .rentulo-theme-toggle:hover {
@@ -355,17 +388,43 @@ textarea::placeholder {
   background: var(--theme-toggle-hover-bg);
 }
 
+.rentulo-theme-toggle:focus-visible,
+.rentulo-btn-primary:focus-visible,
+.rentulo-btn-secondary:focus-visible,
+.rentulo-items-inline-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+
 .rentulo-theme-toggle-track {
   position: absolute;
   inset: 0.22rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.36rem;
   border-radius: 9999px;
   background: var(--theme-toggle-track);
+}
+
+.rentulo-theme-toggle-icon-slot {
+  position: relative;
+  z-index: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-toggle-icon-muted);
+}
+
+.rentulo-theme-toggle-icon-slot[data-active="true"] {
+  color: var(--theme-toggle-icon);
 }
 
 .rentulo-theme-toggle-thumb {
   position: absolute;
   top: 0.22rem;
   left: 0.22rem;
+  z-index: 1;
   display: flex;
   height: 1.7rem;
   width: 1.7rem;
@@ -375,7 +434,10 @@ textarea::placeholder {
   border: 1px solid var(--theme-toggle-thumb-border);
   background: var(--theme-toggle-thumb);
   box-shadow: var(--theme-toggle-shadow);
-  transition: transform 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
 }
 
 .rentulo-theme-toggle-thumb[data-state="dark"] {
@@ -398,6 +460,13 @@ textarea::placeholder {
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.16);
 }
 
+.rentulo-topbar-mark {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(217, 70, 239, 0.2));
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.25);
+}
+
 :root[data-theme="light"] .rentulo-topbar-brand {
   border-color: rgba(15, 23, 42, 0.1);
   background: rgba(255, 255, 255, 0.82);
@@ -412,6 +481,27 @@ textarea::placeholder {
 :root[data-theme="light"] .rentulo-topbar-brand-text {
   color: #0f172a;
   text-shadow: none;
+}
+
+:root[data-theme="light"] .rentulo-topbar-mark {
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 10px 24px rgba(99, 102, 241, 0.16);
+}
+
+.rentulo-theme-preserve-dark .rentulo-topbar-brand {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
+.rentulo-theme-preserve-dark .rentulo-topbar-brand:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rentulo-theme-preserve-dark .rentulo-topbar-brand-text {
+  color: rgba(255, 255, 255, 0.96);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.16);
 }
 
 .rdp {
@@ -505,27 +595,27 @@ textarea::placeholder {
 }
 
 .rentulo-items-pill {
-  border: 1px solid var(--card-border);
-  background: color-mix(in oklab, var(--surface) 90%, transparent);
-  color: color-mix(in oklab, var(--foreground) 82%, transparent);
+  border: 1px solid var(--pill-border);
+  background: var(--pill-bg);
+  color: var(--pill-text);
 }
 
 .rentulo-items-pill-accent {
-  border: 1px solid color-mix(in oklab, var(--primary) 30%, var(--card-border));
-  background: color-mix(in oklab, var(--primary) 12%, var(--surface));
-  color: color-mix(in oklab, var(--foreground) 58%, var(--primary-dark) 42%);
+  border: 1px solid var(--pill-accent-border);
+  background: var(--pill-accent-bg);
+  color: var(--pill-accent-text);
 }
 
 .rentulo-items-pill-success {
-  border: 1px solid color-mix(in oklab, var(--success) 36%, var(--card-border));
-  background: color-mix(in oklab, var(--success) 13%, var(--surface));
-  color: color-mix(in oklab, var(--foreground) 54%, var(--success) 46%);
+  border: 1px solid var(--pill-success-border);
+  background: var(--pill-success-bg);
+  color: var(--pill-success-text);
 }
 
 .rentulo-items-pill-muted {
-  border: 1px solid var(--card-border);
-  background: color-mix(in oklab, var(--surface-2) 86%, transparent);
-  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  border: 1px solid var(--pill-muted-border);
+  background: var(--pill-muted-bg);
+  color: var(--pill-muted-text);
 }
 
 .rentulo-items-inline-action {

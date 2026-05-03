@@ -53,7 +53,7 @@ type SearchCenter = {
   lng: number;
 };
 
-type StatusTone = "neutral" | "error";
+type StatusTone = "neutral" | "success" | "error";
 
 type LocationFeedback = {
   tone: StatusTone;
@@ -68,6 +68,7 @@ type OutsideRadiusHint = {
 
 const RADIUS_OPTIONS_KM = [5, 10, 15, 20, 50] as const;
 const MAX_RADIUS_OPTION_KM = RADIUS_OPTIONS_KM[RADIUS_OPTIONS_KM.length - 1];
+const APPROXIMATE_LOCATION_DECIMALS = 2;
 
 function formatDistanceLabel(distanceKm: number) {
   if (!Number.isFinite(distanceKm)) {
@@ -110,6 +111,11 @@ function getSuggestedRadiusKm(currentRadiusKm: number, requiredDistanceKm: numbe
   );
 
   return nextRadius ? String(nextRadius) : null;
+}
+
+function roundCoordinateForPrivacy(value: number) {
+  const factor = 10 ** APPROXIMATE_LOCATION_DECIMALS;
+  return Math.round(value * factor) / factor;
 }
 
 function SectionEyebrow({ children }: { children: React.ReactNode }) {
@@ -194,8 +200,9 @@ function ItemsPageInner() {
   );
   const normalizedTextQuery = useMemo(() => textQuery.trim().toLowerCase(), [textQuery]);
   const currentRadiusKm = Number(radiusKm);
-  const hintDistanceReference =
-    selectedLabel.toLowerCase() === "moja poloha" ? "od teba" : "od zvolenej lokality";
+  const isNearbySearch = selectedLabel.toLowerCase() === "moja poloha";
+  const hintDistanceReference = isNearbySearch ? "od teba" : "od zvolenej lokality";
+  const selectedLabelBadge = isNearbySearch ? "tvoje okolie (priblizne)" : selectedLabel;
 
   const filteredItems = useMemo(() => {
     const normalizedText = textQuery.trim().toLowerCase();
@@ -657,16 +664,19 @@ function ItemsPageInner() {
     setIsLocatingUser(true);
     setLocationFeedback({
       tone: "neutral",
-      message: "Pytame si pristup k polohe a potom najdeme ponuky v tvojom okoli.",
+      message: "Pytame si pristup k polohe. Po povoleni pouzijeme iba pribliznu polohu v tvojom okoli.",
     });
     setStatus("");
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+        const lat = roundCoordinateForPrivacy(pos.coords.latitude);
+        const lng = roundCoordinateForPrivacy(pos.coords.longitude);
         setIsLocatingUser(false);
-        setLocationFeedback(null);
+        setLocationFeedback({
+          tone: "success",
+          message: "Pouzivame len pribliznu polohu v okoli teba. Presne GPS suradnice neukladame ani verejne nezobrazujeme.",
+        });
         setLocationQuery("moja poloha");
         setSelectedLabel("moja poloha");
         setSearchCenter({ lat, lng });
@@ -698,7 +708,8 @@ function ItemsPageInner() {
         });
       },
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: false,
+        maximumAge: 300000,
         timeout: 10000,
       }
     );
@@ -980,12 +991,19 @@ function ItemsPageInner() {
             </button>
 
             <button
-              className="rentulo-btn-secondary h-12 px-4 text-sm disabled:opacity-60"
+              className={`rentulo-btn-secondary h-12 px-4 text-sm disabled:opacity-60 ${
+                isNearbySearch ? "rentulo-btn-secondary-active" : ""
+              }`}
               type="button"
               onClick={useMyLocation}
               disabled={isLocatingUser}
+              aria-busy={isLocatingUser}
             >
-              {isLocatingUser ? "Zistujem polohu..." : "V mojej blizkosti"}
+              {isLocatingUser
+                ? "Zistujem pribliznu polohu..."
+                : isNearbySearch
+                  ? "Aktualizovat moje okolie"
+                  : "V mojej blizkosti"}
             </button>
 
             <button
@@ -1002,7 +1020,9 @@ function ItemsPageInner() {
               className={`mt-4 rounded-[1.25rem] border p-3 text-sm ${
                 locationFeedback.tone === "error"
                   ? "rentulo-items-warning-panel"
-                  : "rentulo-card-2 text-text-muted"
+                  : locationFeedback.tone === "success"
+                    ? "rentulo-items-success-panel"
+                    : "rentulo-items-note-panel"
               }`}
             >
               {locationFeedback.message}
@@ -1016,7 +1036,7 @@ function ItemsPageInner() {
 
             {selectedLabel ? (
               <div className="rentulo-items-pill-accent rounded-full px-3 py-1">
-                Lokalita: <strong className="text-foreground">{selectedLabel}</strong>
+                Lokalita: <strong className="text-foreground">{selectedLabelBadge}</strong>
               </div>
             ) : null}
 
@@ -1059,10 +1079,10 @@ function ItemsPageInner() {
 
       {status ? (
         <div
-          className={`rounded-[1.5rem] border p-4 ${
+          className={`rentulo-status rounded-[1.5rem] p-4 ${
             statusTone === "error"
               ? "rentulo-status-error"
-              : "rentulo-card-2 text-foreground/80"
+              : "rentulo-status-info"
           }`}
         >
           {status}
@@ -1072,14 +1092,17 @@ function ItemsPageInner() {
       {outsideRadiusHint && !status ? (
         <div className="rentulo-items-success-panel rounded-[1.75rem] p-5">
           <div className="text-base font-semibold">
-            V okruhu {radiusKm} km teraz nic vhodne nevidime.
+            V okruhu {radiusKm} km teraz nevidime vhodnu ponuku.
           </div>
           <div className="mt-2 text-sm leading-6">
-            Najblizsia vhodna ponuka je asi {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
-            Po rozsireni na {outsideRadiusHint.suggestedRadiusKm} km uvidis{" "}
+            Najblizsia zodpovedajuca ponuka je priblizne {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
+            Ak rozsiris hladanie na {outsideRadiusHint.suggestedRadiusKm} km, uvidis{" "}
             {outsideRadiusHint.matchingCount === 1
               ? "aspon 1 vhodnu ponuku"
               : `aspon ${outsideRadiusHint.matchingCount} vhodne ponuky`}.
+          </div>
+          <div className="mt-2 text-sm leading-6 opacity-90">
+            Nadalej zobrazime iba pribliznu polohu podla verejnej lokality, nie presnu adresu.
           </div>
           <div className="mt-4">
             <button
@@ -1087,7 +1110,7 @@ function ItemsPageInner() {
               className="rentulo-btn-primary px-4 py-2 text-sm"
               onClick={() => setRadiusKm(outsideRadiusHint.suggestedRadiusKm)}
             >
-              Rozsirit na {outsideRadiusHint.suggestedRadiusKm} km
+              Zobrazit do {outsideRadiusHint.suggestedRadiusKm} km
             </button>
           </div>
         </div>
@@ -1095,7 +1118,16 @@ function ItemsPageInner() {
 
       {filteredItems.length === 0 && !status && !outsideRadiusHint ? (
         <div className="rentulo-card rounded-[1.75rem] p-10 text-center text-text-muted">
-          Nenasli sa ziadne ponuky.
+          <div className="text-base text-foreground">
+            {searchCenter
+              ? isNearbySearch
+                ? "V tomto okoli sa zatial nenasli ziadne ponuky."
+                : "V zvolenom okoli sa zatial nenasli ziadne ponuky."
+              : "Nenasli sa ziadne ponuky."}
+          </div>
+          <div className="mt-2 text-sm leading-6">
+            Skus vacsi okruh, inu lokalitu alebo menej prisne filtre.
+          </div>
         </div>
       ) : null}
 

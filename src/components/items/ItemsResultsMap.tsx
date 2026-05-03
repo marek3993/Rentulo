@@ -46,6 +46,7 @@ const DEFAULT_MAP_ZOOM = 7;
 const MIN_MAP_ZOOM = 7;
 const MAX_MAP_ZOOM = 11;
 const SINGLE_LOCALITY_ZOOM = 11;
+const SEARCH_CENTER_ONLY_ZOOM = 8;
 const MAP_HORIZONTAL_PADDING = 120;
 const MAP_VERTICAL_PADDING = 112;
 
@@ -70,6 +71,19 @@ function buildLocalityLabel(city: string, postalCode: string) {
   }
 
   return city || postalCode || "Neznáma lokalita";
+}
+
+function formatDistanceLabel(distanceKm: number | null) {
+  if (distanceKm === null || !Number.isFinite(distanceKm)) {
+    return "";
+  }
+
+  if (distanceKm < 10) {
+    const rounded = Math.round(distanceKm * 10) / 10;
+    return Number.isInteger(rounded) ? `${rounded} km` : `${rounded.toFixed(1)} km`;
+  }
+
+  return `${Math.round(distanceKm)} km`;
 }
 
 function mercatorX(lng: number, zoom: number) {
@@ -118,7 +132,12 @@ function isFiniteCoordinatePair(coords: SearchCenter | null | undefined): coords
   );
 }
 
-function buildViewportFromCoords(coords: SearchCenter[]) {
+function buildViewportFromCoords(
+  coords: SearchCenter[],
+  options?: {
+    singlePointZoom?: number;
+  }
+) {
   if (coords.length === 0) {
     return {
       center: DEFAULT_MAP_CENTER,
@@ -129,7 +148,7 @@ function buildViewportFromCoords(coords: SearchCenter[]) {
   if (coords.length === 1) {
     return {
       center: coords[0],
-      zoom: SINGLE_LOCALITY_ZOOM,
+      zoom: options?.singlePointZoom ?? SINGLE_LOCALITY_ZOOM,
     };
   }
 
@@ -177,6 +196,12 @@ export default function ItemsResultsMap({
   const [approximateCoordsByKey, setApproximateCoordsByKey] = useState<Record<string, SearchCenter | null>>({});
   const [activeLocalityKey, setActiveLocalityKey] = useState<string>("");
   const [loadingApproximateLocations, setLoadingApproximateLocations] = useState(false);
+  const isNearbySearch = selectedLabel.toLowerCase() === "moja poloha";
+  const locationContextLabel = selectedLabel
+    ? isNearbySearch
+      ? "Tvoje okolie"
+      : `Okolie ${selectedLabel}`
+    : "Lokalita podla vysledkov";
 
   const localityGroups = useMemo(() => {
     const grouped = new Map<string, LocalityGroup>();
@@ -330,16 +355,17 @@ export default function ItemsResultsMap({
   );
 
   const mapViewport = useMemo(() => {
-    const viewport = buildViewportFromCoords(approximateVisibleCoords);
-
-    if (approximateVisibleCoords.length === 0 && searchCenter) {
-      return {
-        center: searchCenter,
-        zoom: DEFAULT_MAP_ZOOM,
-      };
+    if (approximateVisibleCoords.length === 0 && isFiniteCoordinatePair(searchCenter)) {
+      return buildViewportFromCoords([searchCenter], {
+        singlePointZoom: SEARCH_CENTER_ONLY_ZOOM,
+      });
     }
 
-    return viewport;
+    const viewportCoords = isFiniteCoordinatePair(searchCenter)
+      ? [searchCenter, ...approximateVisibleCoords]
+      : approximateVisibleCoords;
+
+    return buildViewportFromCoords(viewportCoords);
   }, [approximateVisibleCoords, searchCenter]);
 
   const mapSrc = useMemo(() => {
@@ -395,6 +421,30 @@ export default function ItemsResultsMap({
     return next;
   }, [approximateCoordsByKey, mapViewport.center, mapViewport.zoom, visibleLocalityGroups]);
 
+  const searchCenterProjection = useMemo(() => {
+    if (!isFiniteCoordinatePair(searchCenter)) {
+      return null;
+    }
+
+    const projected = projectPointToMap(
+      searchCenter.lat,
+      searchCenter.lng,
+      mapViewport.center,
+      mapViewport.zoom
+    );
+
+    if (
+      projected.leftPct < 3 ||
+      projected.leftPct > 97 ||
+      projected.topPct < 5 ||
+      projected.topPct > 95
+    ) {
+      return null;
+    }
+
+    return projected;
+  }, [mapViewport.center, mapViewport.zoom, searchCenter]);
+
   const activeLocality =
     projectedLocalities.find((group) => group.key === activeLocalityKey) ??
     visibleLocalityGroups.find((group) => group.key === activeLocalityKey) ??
@@ -422,7 +472,7 @@ export default function ItemsResultsMap({
             {localityGroups.length} lokalít
           </div>
           <div className="rentulo-items-pill-accent rounded-full px-3 py-1">
-            {selectedLabel ? `Okolie ${selectedLabel}` : "Lokalita podľa výsledkov"}
+            {locationContextLabel}
           </div>
         </div>
       </div>
@@ -439,6 +489,18 @@ export default function ItemsResultsMap({
               />
 
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.1),rgba(2,6,23,0.36)_100%)]" />
+
+              {searchCenterProjection ? (
+                <div
+                  className="rentulo-items-map-origin pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{
+                    left: `${searchCenterProjection.leftPct}%`,
+                    top: `${searchCenterProjection.topPct}%`,
+                  }}
+                >
+                  <span className="rentulo-items-map-origin-dot" />
+                </div>
+              ) : null}
 
               {projectedLocalities.map((group) => {
                 const isActive = group.key === activeLocalityKey;
@@ -476,6 +538,12 @@ export default function ItemsResultsMap({
               <div className="absolute bottom-3 left-3 rounded-full border border-white/10 bg-black/65 px-3 py-1 text-xs text-white/75 backdrop-blur-md">
                 Mapa zobrazuje len približné lokality, nie presné adresy.
               </div>
+
+              {searchCenterProjection ? (
+                <div className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/70 px-3 py-1 text-xs text-white/85 backdrop-blur-md">
+                  {isNearbySearch ? "Tvoje okolie (priblizne)" : "Stred hladania"}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="flex aspect-[3/2] items-center justify-center px-6 text-center text-sm leading-6 text-text-muted">
@@ -516,7 +584,7 @@ export default function ItemsResultsMap({
                     <div className="text-sm font-medium text-foreground">{group.label}</div>
                     <div className="mt-1 text-xs text-text-muted">
                       {group.nearestDistanceKm !== null
-                        ? `Najbližšia ponuka približne ${group.nearestDistanceKm} km`
+                        ? `Najblizsia ponuka priblizne ${formatDistanceLabel(group.nearestDistanceKm)}`
                         : "Približná poloha podľa verejnej lokality"}
                     </div>
                   </div>
