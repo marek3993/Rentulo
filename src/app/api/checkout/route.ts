@@ -14,6 +14,8 @@ type ReservationRow = {
   status: string | null;
   payment_status: string | null;
   payment_due_at: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
 };
 
 type CheckoutRequestBody = {
@@ -121,6 +123,10 @@ function getReservationDays(dateFrom: string, dateTo: string) {
   const diff = Math.floor((toUtc - fromUtc) / msPerDay) + 1;
 
   return diff > 0 ? diff : null;
+}
+
+function isValidSnapshotAmount(value: number | null) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function normalizeBaseUrl(value: string) {
@@ -237,7 +243,9 @@ export async function POST(req: NextRequest) {
 
     const { data: reservationData, error: reservationError } = await supabase
       .from("reservations")
-      .select("id,item_id,renter_id,date_from,date_to,status,payment_status,payment_due_at")
+      .select(
+        "id,item_id,renter_id,date_from,date_to,status,payment_status,payment_due_at,rental_amount_snapshot,deposit_amount_snapshot"
+      )
       .eq("id", reservationId)
       .maybeSingle();
 
@@ -319,17 +327,27 @@ export async function POST(req: NextRequest) {
     currentStage = "checkout:item_ok";
     logCheckoutStage(currentStage, reservationIdForLog);
 
-    const reservationDays = getReservationDays(reservation.date_from, reservation.date_to);
-    const pricePerDay = Number(item.price_per_day);
+    const snapshotAmount = isValidSnapshotAmount(reservation.rental_amount_snapshot)
+      ? reservation.rental_amount_snapshot
+      : null;
+    let checkoutAmount = snapshotAmount;
+    let reservationDays: number | null = null;
 
-    if (!reservationDays || !Number.isFinite(pricePerDay) || pricePerDay <= 0) {
-      return NextResponse.json(
-        { error: "Nepodarilo sa urcit cenu rezervacie." },
-        { status: 400 }
-      );
+    if (checkoutAmount === null) {
+      reservationDays = getReservationDays(reservation.date_from, reservation.date_to);
+      const pricePerDay = Number(item.price_per_day);
+
+      if (!reservationDays || !Number.isFinite(pricePerDay) || pricePerDay <= 0) {
+        return NextResponse.json(
+          { error: "Nepodarilo sa urcit cenu rezervacie." },
+          { status: 400 }
+        );
+      }
+
+      checkoutAmount = pricePerDay * reservationDays;
     }
 
-    const unitAmount = Math.round(pricePerDay * reservationDays * 100);
+    const unitAmount = Math.round(checkoutAmount * 100);
 
     if (!Number.isFinite(unitAmount) || unitAmount <= 0) {
       return NextResponse.json(
@@ -391,7 +409,10 @@ export async function POST(req: NextRequest) {
               unit_amount: unitAmount,
               product_data: {
                 name: item.title?.trim() || `Rezervacia #${reservation.id}`,
-                description: `${reservation.date_from} az ${reservation.date_to} (${reservationDays} dni)`,
+                description:
+                  reservationDays && reservationDays > 0
+                    ? `${reservation.date_from} az ${reservation.date_to} (${reservationDays} dni)`
+                    : `${reservation.date_from} az ${reservation.date_to}`,
               },
             },
           },

@@ -15,6 +15,8 @@ type ReservationRow = {
   payment_provider: string | null;
   payment_due_at: string | null;
   status: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
 };
 
 type ItemOwnerRow = {
@@ -41,6 +43,17 @@ function formatDateTime(dateStr: string) {
   }
 
   return date.toLocaleString("sk-SK");
+}
+
+function formatCurrencyAmount(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
 }
 
 function wait(ms: number) {
@@ -72,7 +85,9 @@ function PaymentInner() {
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,payment_status,payment_provider,payment_due_at,status")
+      .select(
+        "id,item_id,date_from,date_to,payment_status,payment_provider,payment_due_at,status,rental_amount_snapshot,deposit_amount_snapshot"
+      )
       .eq("id", reservationId)
       .maybeSingle();
 
@@ -350,6 +365,26 @@ function PaymentInner() {
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
           Platbu treba dokoncit do: {" "}
           <strong className="text-white">{formatDateTime(reservation.payment_due_at)}</strong>
+        </div>
+      ) : null}
+
+      {reservation ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+          <div className="font-semibold text-white">Financny snapshot rezervacie</div>
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+            <div>
+              Prenajom:{" "}
+              <strong className="text-white">
+                {formatCurrencyAmount(reservation.rental_amount_snapshot)}
+              </strong>
+            </div>
+            <div>
+              Depozit:{" "}
+              <strong className="text-white">
+                {formatCurrencyAmount(reservation.deposit_amount_snapshot)}
+              </strong>
+            </div>
+          </div>
         </div>
       ) : null}
 

@@ -18,6 +18,12 @@ type ItemRow = {
   owner_id: string;
 };
 
+type ReservationInsertRow = {
+  id: number;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
+};
+
 function getBearerToken(req: NextRequest) {
   const header = req.headers.get("authorization")?.trim() ?? "";
 
@@ -168,7 +174,7 @@ export async function POST(req: NextRequest) {
         payment_provider: "none",
         payment_status: "unpaid",
       })
-      .select("id")
+      .select("id,rental_amount_snapshot,deposit_amount_snapshot")
       .single();
 
     if (reservationError) {
@@ -182,7 +188,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nepodarilo sa vytvorit rezervaciu." }, { status: 500 });
     }
 
-    return NextResponse.json({ reservation: reservationData });
+    return NextResponse.json({
+      reservation: (reservationData ?? null) as ReservationInsertRow | null,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Nepodarilo sa vytvorit rezervaciu.";

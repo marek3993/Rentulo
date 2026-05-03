@@ -16,6 +16,8 @@ type ReservationRow = {
   date_to: string;
   status: string;
   payment_status: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
 };
 
 type ItemRow = {
@@ -44,6 +46,14 @@ function formatDate(dateStr: string) {
   const value = new Date(dateStr);
   if (Number.isNaN(value.getTime())) return dateStr;
   return value.toLocaleDateString("sk-SK");
+}
+
+function formatCurrencyAmount(value: number | null) {
+  if (value === null) return "-";
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
 }
 
 function parseOptionalAmount(value: string, fieldLabel: string) {
@@ -134,7 +144,9 @@ function NewDisputePageInner() {
 
       const { data: reservationData, error: reservationError } = await supabase
         .from("reservations")
-        .select("id,item_id,renter_id,date_from,date_to,status,payment_status")
+        .select(
+          "id,item_id,renter_id,date_from,date_to,status,payment_status,rental_amount_snapshot,deposit_amount_snapshot"
+        )
         .eq("id", reservationId)
         .maybeSingle();
 
@@ -245,7 +257,7 @@ function NewDisputePageInner() {
         p_description: trimmedDescription,
         p_dispute_requested_outcome: null,
         p_dispute_requested_amount: parsedRequestedAmount,
-        p_deposit_amount_snapshot: null,
+        p_deposit_amount_snapshot: reservation.deposit_amount_snapshot ?? 0,
       });
 
       if (error) throw new Error(error.message);
@@ -339,6 +351,12 @@ function NewDisputePageInner() {
                 {line}
               </div>
             ))}
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/75">
+              <div className="font-medium text-white">Financny snapshot rezervacie</div>
+              <div className="mt-2">Prenajom: {formatCurrencyAmount(reservation.rental_amount_snapshot)}</div>
+              <div className="mt-1">Depozit: {formatCurrencyAmount(reservation.deposit_amount_snapshot ?? 0)}</div>
+            </div>
           </section>
 
           <section className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">

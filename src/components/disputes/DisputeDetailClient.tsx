@@ -43,6 +43,8 @@ type ReservationRow = {
   date_to: string;
   status: string;
   payment_status: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
 };
 
 type ItemRow = {
@@ -170,6 +172,14 @@ function formatCurrencyAmount(value: number | null) {
     style: "currency",
     currency: "EUR",
   }).format(value);
+}
+
+function getRentalSnapshotAmount(dispute: DisputeRow | null, reservation: ReservationRow | null) {
+  return dispute?.rentalAmountSnapshot ?? reservation?.rental_amount_snapshot ?? null;
+}
+
+function getDepositSnapshotAmount(dispute: DisputeRow | null, reservation: ReservationRow | null) {
+  return dispute?.depositAmountSnapshot ?? reservation?.deposit_amount_snapshot ?? 0;
 }
 
 function formatOptionalText(value: string | null) {
@@ -393,7 +403,7 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
         disputeRow.reservationId
           ? supabase
               .from("reservations")
-              .select("id,date_from,date_to,status,payment_status")
+              .select("id,date_from,date_to,status,payment_status,rental_amount_snapshot,deposit_amount_snapshot")
               .eq("id", disputeRow.reservationId)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
@@ -800,11 +810,15 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
                 <div className="mt-4 grid gap-3 text-sm text-white/75 sm:grid-cols-2">
                   <div>
                     <div className="text-white/45">Snapshot prenajmu</div>
-                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.rentalAmountSnapshot)}</div>
+                    <div className="mt-1 text-white">
+                      {formatCurrencyAmount(getRentalSnapshotAmount(dispute, reservation))}
+                    </div>
                   </div>
                   <div>
                     <div className="text-white/45">Snapshot depozitu</div>
-                    <div className="mt-1 text-white">{formatCurrencyAmount(dispute.depositAmountSnapshot)}</div>
+                    <div className="mt-1 text-white">
+                      {formatCurrencyAmount(getDepositSnapshotAmount(dispute, reservation))}
+                    </div>
                   </div>
                   <div>
                     <div className="text-white/45">Pozadovany vysledok</div>
