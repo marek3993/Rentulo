@@ -93,6 +93,40 @@ type ReviewRow = {
 
 type ConditionPhotoRow = Omit<ConditionPhoto, "signed_url">;
 
+type ReservationFilter =
+  | "all"
+  | "active"
+  | "cancelled"
+  | "completed"
+  | "disputed"
+  | "pending";
+
+const reservationFilters: Array<{ key: ReservationFilter; label: string }> = [
+  { key: "all", label: "vsetky" },
+  { key: "active", label: "aktivne" },
+  { key: "cancelled", label: "zrusene" },
+  { key: "completed", label: "uplynute" },
+  { key: "disputed", label: "v spore" },
+  { key: "pending", label: "cakajuce" },
+];
+
+function matchesReservationFilter(
+  reservation: Reservation,
+  filter: ReservationFilter
+) {
+  if (filter === "all") return true;
+  if (filter === "pending") return reservation.status === "pending";
+  if (filter === "cancelled") return reservation.status === "cancelled";
+  if (filter === "completed") return reservation.status === "completed";
+  if (filter === "disputed") return reservation.status === "disputed";
+
+  return (
+    reservation.status === "confirmed" ||
+    reservation.status === "in_rental" ||
+    reservation.status === "return_pending_confirmation"
+  );
+}
+
 function verificationBadgeClass(status: string) {
   if (status === "verified") return "bg-emerald-600/90 text-white";
   if (status === "pending") return "bg-yellow-400 text-black";
@@ -229,6 +263,8 @@ export default function ReservationsPage() {
   const [returnFiles, setReturnFiles] = useState<File[]>([]);
   const [returnNote, setReturnNote] = useState("");
   const [returnUploading, setReturnUploading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<ReservationFilter>("all");
+  const [expandedReservationId, setExpandedReservationId] = useState<number | null>(null);
 
   const load = async () => {
     setStatus("Načítavam...");
@@ -732,29 +768,21 @@ export default function ReservationsPage() {
     }
   };
 
-  const pending = useMemo(() => rows.filter((r) => r.status === "pending"), [rows]);
-  const confirmed = useMemo(() => rows.filter((r) => r.status === "confirmed"), [rows]);
-  const inRental = useMemo(() => rows.filter((r) => r.status === "in_rental"), [rows]);
-  const returnPending = useMemo(
-    () => rows.filter((r) => r.status === "return_pending_confirmation"),
-    [rows]
-  );
-  const completed = useMemo(() => rows.filter((r) => r.status === "completed"), [rows]);
-  const disputed = useMemo(() => rows.filter((r) => r.status === "disputed"), [rows]);
-  const cancelled = useMemo(() => rows.filter((r) => r.status === "cancelled"), [rows]);
+  const filterCounts = useMemo(() => {
+    const counts = {} as Record<ReservationFilter, number>;
 
-  const renderSection = (
-    title: string,
-    subtitle: string,
-    content: React.ReactNode
-  ) => (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-white/60">{subtitle}</p>
-      </div>
-      <div className="mt-4">{content}</div>
-    </section>
+    for (const filter of reservationFilters) {
+      counts[filter.key] = rows.filter((reservation) =>
+        matchesReservationFilter(reservation, filter.key)
+      ).length;
+    }
+
+    return counts;
+  }, [rows]);
+
+  const filteredRows = useMemo(
+    () => rows.filter((reservation) => matchesReservationFilter(reservation, activeFilter)),
+    [activeFilter, rows]
   );
 
   const renderPhotoGrid = (
@@ -1406,14 +1434,207 @@ export default function ReservationsPage() {
     );
   };
 
+  const renderReservationRow = (r: Reservation) => {
+    const itemMeta = itemMetaMap[r.item_id];
+    const ownerProfile = itemMeta ? ownerProfileMap[itemMeta.owner_id] : null;
+    const existingConversationId = conversationMap[r.id];
+
+    const canPay = r.status === "pending" && r.payment_status === "unpaid";
+    const canCancel =
+      r.status !== "cancelled" &&
+      r.status !== "completed" &&
+      r.status !== "in_rental" &&
+      r.status !== "return_pending_confirmation";
+
+    const canOpenDispute =
+      r.status === "confirmed" ||
+      r.status === "in_rental" ||
+      r.status === "return_pending_confirmation";
+
+    const isExpanded = expandedReservationId === r.id;
+
+    return (
+      <li
+        key={r.id}
+        className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-sm"
+      >
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_auto_auto_minmax(0,2fr)]">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Nazov ponuky</div>
+            <div className="mt-1 text-base font-semibold text-white">
+              {itemMeta?.title ?? `Polozka #${r.item_id}`}
+            </div>
+            <div className="mt-1 text-xs text-white/50">Rezervacia #{r.id}</div>
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Prenajimatel</div>
+            {itemMeta ? (
+              <div className="mt-1 space-y-2">
+                <Link
+                  href={`/profile/${itemMeta.owner_id}`}
+                  className="block text-sm font-medium text-white underline underline-offset-2 hover:text-white/80"
+                >
+                  {ownerProfile?.full_name?.trim() || "Pouzivatel"}
+                </Link>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+                  <span
+                    className={`rounded-full px-2.5 py-1 font-medium ${verificationBadgeClass(
+                      ownerProfile?.verification_status || "unverified"
+                    )}`}
+                  >
+                    {verificationLabel(ownerProfile?.verification_status || "unverified")}
+                  </span>
+
+                  {ownerProfile?.city ? <span>{ownerProfile.city}</span> : null}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-1 text-sm text-white/60">Udaje o prenajimatelovi nie su dostupne.</div>
+            )}
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Obdobie</div>
+            <div className="mt-1 text-sm font-medium text-white/90">
+              {formatDate(r.date_from)} - {formatDate(r.date_to)}
+            </div>
+            {r.payment_due_at ? (
+              <div className="mt-1 text-xs text-white/55">
+                Platba do {formatDateTime(r.payment_due_at)}
+              </div>
+            ) : null}
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Stav rezervacie</div>
+            <div className="mt-1">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${reservationBadge(
+                  r.status
+                )}`}
+              >
+                {reservationStatusLabel(r.status)}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Stav platby</div>
+            <div className="mt-1">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${paymentBadge(
+                  r.payment_status
+                )}`}
+              >
+                {paymentStatusLabel(r.payment_status)}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-white/45">Akcie</div>
+            <div className="mt-1 flex flex-wrap gap-2 xl:justify-end">
+              {canPay ? (
+                <Link
+                  className="rounded bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
+                  href={`/payment?reservation_id=${r.id}`}
+                >
+                  Dokoncit platbu
+                </Link>
+              ) : null}
+
+              {canOpenDispute ? (
+                <Link
+                  className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                  href={`/disputes/new?reservation_id=${r.id}`}
+                >
+                  Nahlasit problem
+                </Link>
+              ) : null}
+
+              {r.status === "disputed" ? (
+                <Link
+                  className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                  href="/disputes"
+                >
+                  Otvorit spor
+                </Link>
+              ) : null}
+
+              {canCancel ? (
+                <button
+                  className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                  onClick={() => updateReservationStatus(r.id, "cancelled")}
+                  type="button"
+                >
+                  Zrusit
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
+                onClick={() => openChatForReservation(r)}
+                disabled={chatOpeningForReservation === r.id}
+              >
+                {chatOpeningForReservation === r.id
+                  ? "Otvaram chat..."
+                  : existingConversationId
+                  ? "Otvorit chat"
+                  : "Vytvorit chat"}
+              </button>
+
+              <Link
+                className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                href={`/items/${r.item_id}`}
+              >
+                Detail ponuky
+              </Link>
+
+              <button
+                type="button"
+                className="rounded border border-white/15 px-3 py-2 text-sm hover:bg-white/10"
+                onClick={() => {
+                  if (isExpanded) {
+                    setExpandedReservationId(null);
+
+                    if (openReturnUploadForReservation === r.id) {
+                      setOpenReturnUploadForReservation(null);
+                      setReturnFiles([]);
+                      setReturnNote("");
+                    }
+
+                    if (openReviewKey === `item-${r.id}` || openReviewKey === `owner-${r.id}`) {
+                      setOpenReviewKey(null);
+                    }
+                  } else {
+                    setExpandedReservationId(r.id);
+                  }
+                }}
+              >
+                {isExpanded ? "Skryt detail" : "Zobrazit detail"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {isExpanded ? (
+          <div className="mt-5 border-t border-white/10 pt-5">{renderCard(r)}</div>
+        ) : null}
+      </li>
+    );
+  };
+
   return (
     <main className="space-y-6">
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">Moje rezervácie</h1>
+            <h1 className="text-2xl font-semibold">Moje rezervacie</h1>
             <p className="mt-1 text-white/60">
-              Sleduj rezerváciu, stav platby a dôkazové fotky od prevzatia až po vrátenie.
+              Sleduj rezervaciu, stav platby a dokazove fotky od prevzatia az po vratenie.
             </p>
           </div>
 
@@ -1421,7 +1642,7 @@ export default function ReservationsPage() {
             className="rounded border border-white/15 px-3 py-2 hover:bg-white/10"
             href="/items"
           >
-            Prejsť na ponuky
+            Prejst na ponuky
           </Link>
         </div>
       </div>
@@ -1430,103 +1651,61 @@ export default function ReservationsPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">{status}</div>
       ) : null}
 
-      {renderSection(
-        "Čakajúce rezervácie",
-        "Rezervácie, kde ešte chýba potvrdenie alebo ďalší platobný krok.",
-        pending.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne čakajúce rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {pending.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Prehlad rezervacii</h2>
+            <p className="mt-1 text-sm text-white/60">
+              Rychle filtre hore a kazda rezervacia na samostatnom riadku.
+            </p>
+          </div>
 
-      {renderSection(
-        "Potvrdené rezervácie",
-        "Rezervácie schválené prenajímateľom a pripravené na bezpečné prevzatie.",
-        confirmed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne potvrdené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {confirmed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
+          <div className="flex flex-wrap gap-2">
+            {reservationFilters.map((filter) => {
+              const active = filter.key === activeFilter;
 
-      {renderSection(
-        "Prebieha prenájom",
-        "Vec je u teba. Pred vrátením nahraj dôkazové fotky a potom potvrď vrátenie.",
-        inRental.length === 0 ? (
-          <p className="text-white/60">Momentálne nemáš žiadny aktívny prenájom.</p>
-        ) : (
-          <ul className="space-y-3">
-            {inRental.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  className={`rounded-full border px-3 py-2 text-sm transition ${
+                    active
+                      ? "border-white bg-white text-black"
+                      : "border-white/15 bg-black/20 text-white hover:bg-white/10"
+                  }`}
+                  onClick={() => {
+                    setActiveFilter(filter.key);
+                    setExpandedReservationId(null);
+                  }}
+                >
+                  {filter.label} ({filterCounts[filter.key] ?? 0})
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-      {renderSection(
-        "Čaká na potvrdenie vrátenia",
-        "Fotky sú nahraté a prenajímateľ ešte kontroluje stav po vrátení.",
-        returnPending.length === 0 ? (
-          <p className="text-white/60">Žiadne rezervácie nečakajú na potvrdenie vrátenia.</p>
-        ) : (
-          <ul className="space-y-3">
-            {returnPending.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
+        <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="hidden border-b border-white/10 pb-3 text-[11px] uppercase tracking-wide text-white/40 xl:grid xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_auto_auto_minmax(0,2fr)] xl:gap-4">
+            <div>Nazov ponuky</div>
+            <div>Prenajimatel</div>
+            <div>Obdobie</div>
+            <div>Stav rezervacie</div>
+            <div>Stav platby</div>
+            <div className="text-right">Akcie</div>
+          </div>
 
-      {renderSection(
-        "Dokončené rezervácie",
-        "Prenájmy, ktoré sú riadne ukončené.",
-        completed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne dokončené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {completed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
-
-      {renderSection(
-        "Sporné rezervácie",
-        "Rezervácie, pri ktorých bol nahlásený problém.",
-        disputed.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne sporné rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {disputed.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
-
-      {renderSection(
-        "Zrušené rezervácie",
-        "História zrušených rezervácií.",
-        cancelled.length === 0 ? (
-          <p className="text-white/60">Nemáš žiadne zrušené rezervácie.</p>
-        ) : (
-          <ul className="space-y-3">
-            {cancelled.map((r) => (
-              <li key={r.id}>{renderCard(r)}</li>
-            ))}
-          </ul>
-        )
-      )}
+          {filteredRows.length === 0 ? (
+            <div className="py-10 text-center text-sm text-white/60">
+              Pre zvoleny filter sa nenasli ziadne rezervacie.
+            </div>
+          ) : (
+            <ul className="space-y-3 xl:mt-3">
+              {filteredRows.map((r) => renderReservationRow(r))}
+            </ul>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
