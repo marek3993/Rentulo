@@ -869,7 +869,7 @@ function ItemsPageInner() {
               <div className="mb-2 text-sm text-foreground/75">Čo hľadáš</div>
               <input
                 className="rentulo-input-light h-12 px-3"
-                placeholder="napr. vŕtačka, Kärcher, Trnava"
+                placeholder="napr. vŕtačka, Kärcher, maliarske potreby"
                 value={textQuery}
                 onChange={(e) => setTextQuery(e.target.value)}
               />

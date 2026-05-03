@@ -287,12 +287,12 @@ export default function Home() {
   return (
     <div className="space-y-6 pb-8 lg:space-y-8">
       <section id="pomocnik" className="mx-auto max-w-[86rem] scroll-mt-32">
-        <div className="relative grid gap-6 overflow-hidden px-1 py-2 sm:px-2 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8">
+        <div className="rentulo-theme-preserve-dark rentulo-home-helper-shell relative grid gap-6 overflow-hidden rounded-[2.35rem] px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8 lg:px-8">
           <div className="pointer-events-none absolute left-[-3rem] top-14 h-36 w-36 rounded-full bg-violet-500/6 blur-3xl" />
           <div className="pointer-events-none absolute right-[6%] top-20 h-32 w-32 rounded-full bg-sky-400/6 blur-3xl" />
           <div className="pointer-events-none absolute bottom-[-3rem] right-0 h-48 w-48 rounded-full bg-violet-400/8 blur-3xl" />
 
-          <div className="relative order-2 max-w-[31rem] px-3 py-3 lg:order-1 lg:px-0">
+          <div className="relative order-2 max-w-[31rem] px-2 py-2 lg:order-1 lg:px-0">
             <SectionEyebrow>Pomocník s výberom</SectionEyebrow>
             <h1 className="mt-3 text-[2.45rem] font-semibold leading-[0.96] tracking-tight text-white md:text-[3.35rem] xl:text-[4.2rem]">
               Napíš,
@@ -321,7 +321,7 @@ export default function Home() {
           </div>
 
             <div className="relative order-1 lg:order-2 lg:w-full lg:max-w-[42rem] lg:justify-self-end xl:max-w-[43rem]">
-              <div className="rounded-[1.75rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.04))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.24)] ring-1 ring-white/10 backdrop-blur-sm sm:p-5 md:p-6">
+              <div className="rentulo-home-helper-panel rounded-[1.75rem] p-4 sm:p-5 md:p-6">
                 <div>
                   <SectionEyebrow>AI vyhľadávanie</SectionEyebrow>
                   <h2 className="mt-1.5 text-2xl font-semibold tracking-tight text-white md:text-3xl">
