@@ -287,7 +287,7 @@ export default function Home() {
   return (
     <div className="space-y-6 pb-8 lg:space-y-8">
       <section id="pomocnik" className="mx-auto max-w-[86rem] scroll-mt-32">
-        <div className="rentulo-theme-preserve-dark rentulo-home-helper-shell relative grid gap-6 overflow-hidden rounded-[2.35rem] px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8 lg:px-8">
+        <div className="rentulo-home-helper-shell relative grid gap-6 overflow-hidden rounded-[2.35rem] px-4 py-5 sm:px-6 sm:py-6 lg:grid-cols-[0.78fr_minmax(0,1fr)] lg:items-center lg:gap-8 lg:px-8">
           <div className="pointer-events-none absolute left-[-3rem] top-14 h-36 w-36 rounded-full bg-violet-500/6 blur-3xl" />
           <div className="pointer-events-none absolute right-[6%] top-20 h-32 w-32 rounded-full bg-sky-400/6 blur-3xl" />
           <div className="pointer-events-none absolute bottom-[-3rem] right-0 h-48 w-48 rounded-full bg-violet-400/8 blur-3xl" />

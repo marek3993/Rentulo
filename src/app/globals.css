@@ -989,8 +989,18 @@ textarea::placeholder {
 }
 
 :root[data-theme="light"] .rentulo-home-helper-shell {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(54, 41, 24, 0.12);
+  background:
+    radial-gradient(circle at left top, rgba(139, 92, 246, 0.16), transparent 32%),
+    radial-gradient(circle at 82% 22%, rgba(56, 189, 248, 0.12), transparent 24%),
+    linear-gradient(135deg, rgba(255, 252, 247, 0.96) 0%, rgba(248, 241, 231, 0.98) 48%, rgba(242, 231, 214, 0.98) 100%);
   box-shadow: 0 34px 90px rgba(51, 38, 24, 0.22);
+}
+
+:root[data-theme="light"] .rentulo-home-helper-panel {
+  border-color: rgba(54, 41, 24, 0.12);
+  background: linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(248, 241, 231, 0.92));
+  box-shadow: 0 22px 70px rgba(51, 38, 24, 0.12);
 }
 
 @keyframes rentuloFloat {
