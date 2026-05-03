@@ -380,8 +380,12 @@ export default function ReservationsPage() {
         if (!nextReviewMap[review.reservation_id]) {
           nextReviewMap[review.reservation_id] = { item: false, owner: false };
         }
-        if (review.reviewee_type === "item") nextReviewMap[review.reservation_id].item = true;
-        if (review.reviewee_type === "owner") nextReviewMap[review.reservation_id].owner = true;
+        if (review.reviewee_type === "item" || review.reviewee_type === "item_hidden") {
+          nextReviewMap[review.reservation_id].item = true;
+        }
+        if (review.reviewee_type === "owner" || review.reviewee_type === "owner_hidden") {
+          nextReviewMap[review.reservation_id].owner = true;
+        }
       }
     }
     setReviewMap(nextReviewMap);
