@@ -25,6 +25,7 @@ type ItemRow = {
   id: number;
   title: string | null;
   price_per_day: number | null;
+  owner_id: string;
 };
 
 const STRIPE_SESSION_TIMEOUT_MS = 10_000;
@@ -291,7 +292,7 @@ export async function POST(req: NextRequest) {
 
     const { data: itemData, error: itemError } = await supabase
       .from("items")
-      .select("id,title,price_per_day")
+      .select("id,title,price_per_day,owner_id")
       .eq("id", reservation.item_id)
       .maybeSingle();
 
@@ -307,6 +308,14 @@ export async function POST(req: NextRequest) {
     if (!item) {
       return NextResponse.json({ error: "Polozka rezervacie neexistuje." }, { status: 404 });
     }
+
+    if (item.owner_id === user.id) {
+      return NextResponse.json(
+        { error: "Vlastnu polozku nie je mozne rezervovat ani zaplatit." },
+        { status: 403 }
+      );
+    }
+
     currentStage = "checkout:item_ok";
     logCheckoutStage(currentStage, reservationIdForLog);
 

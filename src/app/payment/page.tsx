@@ -17,6 +17,10 @@ type ReservationRow = {
   status: string | null;
 };
 
+type ItemOwnerRow = {
+  owner_id: string;
+};
+
 type CheckoutResponse = {
   available?: boolean;
   checkoutUrl?: string;
@@ -79,6 +83,26 @@ function PaymentInner() {
     const row = (data ?? null) as ReservationRow | null;
     setReservation(row);
     return row;
+  };
+
+  const loadItemOwnerId = async (itemId: number) => {
+    const { data, error } = await supabase
+      .from("items")
+      .select("owner_id")
+      .eq("id", itemId)
+      .maybeSingle();
+
+    if (error) {
+      return null;
+    }
+
+    return ((data ?? null) as ItemOwnerRow | null)?.owner_id ?? null;
+  };
+
+  const blockOwnItemPayment = (message: string) => {
+    setAvailabilityError(message);
+    setFallbackMessage("");
+    setStatus(message);
   };
 
   const createCheckout = async (loadingStatus: string) => {
@@ -217,6 +241,24 @@ function PaymentInner() {
       if (!row) {
         setStatus("Rezervacia neexistuje.");
         return;
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const currentUserId = session?.user.id ?? null;
+
+      if (currentUserId) {
+        const itemOwnerId = await loadItemOwnerId(row.item_id);
+
+        if (!active) {
+          return;
+        }
+
+        if (itemOwnerId && itemOwnerId === currentUserId) {
+          blockOwnItemPayment("Vlastnu polozku nie je mozne rezervovat ani zaplatit.");
+          return;
+        }
       }
 
       if (success) {

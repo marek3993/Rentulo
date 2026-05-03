@@ -60,6 +60,13 @@ type UnavailableRangeDetails = {
   date_to: string;
 };
 
+type CreateReservationResponse = {
+  reservation?: {
+    id: number;
+  };
+  error?: string;
+};
+
 type RatingRow = {
   rating: number | string | null;
 };
@@ -257,6 +264,7 @@ export default function ItemDetailPage() {
     if (!owner?.avatar_path) return null;
     return supabase.storage.from("avatars").getPublicUrl(owner.avatar_path).data.publicUrl;
   }, [owner?.avatar_path]);
+  const isOwnerViewingOwnItem = Boolean(item && currentUserId && item.owner_id === currentUserId);
 
   useEffect(() => {
     const nextRange = buildInitialRange(itemSearchState.dateFrom, itemSearchState.dateTo);
@@ -557,7 +565,9 @@ if (!imgErr && imgs) {
   };
 
   const reserve = async () => {
-    setStatus("Vytváram rezerváciu...");
+    if (!item) {
+      return;
+    }
 
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -565,6 +575,11 @@ if (!imgErr && imgs) {
 
       if (!userId) {
         router.push("/login");
+        return;
+      }
+
+      if (userId === item.owner_id) {
+        setStatus("Vlastnu polozku si nemozes rezervovat.");
         return;
       }
 
@@ -578,33 +593,31 @@ if (!imgErr && imgs) {
         return;
       }
 
-      await ensureProfileExists(userId);
+      setStatus("Vytvaram rezervaciu...");
+      const headers = await buildItemRequestHeaders();
+      headers.set("content-type", "application/json");
 
-      const { data: reservation, error } = await supabase
-        .from("reservations")
-        .insert({
-          item_id: itemId,
-          renter_id: userId,
-          date_from: dateFrom,
-          date_to: dateTo,
-          status: "pending",
-          payment_provider: "none",
-          payment_status: "unpaid",
-        })
-        .select("id")
-        .single();
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          itemId,
+          dateFrom,
+          dateTo,
+        }),
+      });
 
-      if (error) {
-        const msg = error.message.includes("overlaps")
-          ? "Táto položka je už rezervovaná v zadanom termíne."
-          : error.message;
+      const payload = (await response.json().catch(() => null)) as CreateReservationResponse | null;
+
+      if (!response.ok || !payload?.reservation?.id) {
+        const msg = payload?.error ?? "Nepodarilo sa vytvorit rezervaciu.";
         setStatus("Chyba: " + msg);
         return;
       }
 
-      router.push(`/payment?reservation_id=${reservation.id}`);
+      router.push(`/payment?reservation_id=${payload.reservation.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Neznáma chyba pri rezervácii.";
+      const message = err instanceof Error ? err.message : "Neznama chyba pri rezervacii.";
       setStatus("Chyba: " + message);
     }
   };
@@ -962,6 +975,11 @@ if (!imgErr && imgs) {
                 <div className="mt-1 text-sm text-white/60">
                   Vyber si voľný termín a potom dokončíš rezerváciu.
                 </div>
+                {isOwnerViewingOwnItem ? (
+                  <div className="mt-2 text-sm text-red-200">
+                    Vlastnu polozku si nemozes rezervovat.
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-xl border border-white/10 bg-black/20 p-4">
@@ -1011,7 +1029,7 @@ if (!imgErr && imgs) {
               <button
                 className="rentulo-btn-primary w-full px-4 py-2.5 text-sm disabled:opacity-50"
                 onClick={reserve}
-                disabled={!range?.from || !range?.to}
+                disabled={!range?.from || !range?.to || isOwnerViewingOwnItem}
                 type="button"
               >
                 Rezervovať
