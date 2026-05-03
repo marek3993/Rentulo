@@ -1,0 +1,35 @@
+name: Notification Email Mirror
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    concurrency:
+      group: notification-email-mirror
+      cancel-in-progress: false
+
+    steps:
+      - name: Trigger production notification email mirror
+        env:
+          RENTULO_APP_URL: ${{ secrets.RENTULO_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$RENTULO_APP_URL" ]; then
+            echo "Missing RENTULO_APP_URL secret"
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing CRON_SECRET secret"
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$RENTULO_APP_URL/api/notifications/email-mirror"
