@@ -26,6 +26,8 @@ type Reservation = {
   payment_status: PaymentStatus;
   payment_provider: string;
   payment_due_at?: string | null;
+  rental_amount_snapshot: number | null;
+  deposit_amount_snapshot: number | null;
 };
 
 type ItemMeta = {
@@ -110,6 +112,8 @@ const reservationFilters: Array<{ key: ReservationFilter; label: string }> = [
   { key: "pending", label: "cakajuce" },
 ];
 
+const protectionHelpHref = "/info/ochrana-depozit-spory";
+
 function matchesReservationFilter(
   reservation: Reservation,
   filter: ReservationFilter
@@ -151,6 +155,15 @@ function formatDateTime(dateStr: string) {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleString("sk-SK");
+}
+
+function formatCurrencyAmount(value: number | null | undefined) {
+  if (value === null || value === undefined) return "-";
+
+  return new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+  }).format(value);
 }
 
 function daysUntil(dateStr: string) {
@@ -213,6 +226,70 @@ function paymentEventLabel(eventType: string) {
   if (eventType === "payment_demo_failed") return "Demo platba zlyhala";
   if (eventType === "payment_expired") return "Platba expirovala";
   return eventType;
+}
+
+function getDepositInternalStateLabel(reservation: Reservation) {
+  if (reservation.status === "disputed") {
+    return "Interny spor";
+  }
+
+  if (reservation.status === "cancelled" || reservation.payment_status === "failed") {
+    return "Neaktivny zaznam";
+  }
+
+  if (reservation.payment_status !== "paid") {
+    return "Caka na uhradu";
+  }
+
+  if (reservation.status === "pending") {
+    return "Caka na potvrdenie rezervacie";
+  }
+
+  if (
+    reservation.status === "confirmed" ||
+    reservation.status === "in_rental" ||
+    reservation.status === "return_pending_confirmation"
+  ) {
+    return "Aktivna rezervacia";
+  }
+
+  if (reservation.status === "completed") {
+    return "Rezervacia ukoncena";
+  }
+
+  return "Informacny interny stav";
+}
+
+function getDepositInternalStateHint(reservation: Reservation) {
+  if (reservation.status === "disputed") {
+    return "Stav je informacny a naviazany na spor. Nepotvrdzuje pohyb penazi.";
+  }
+
+  if (reservation.status === "cancelled" || reservation.payment_status === "failed") {
+    return "Rezervacia alebo platba nie je v aktivnom stave.";
+  }
+
+  if (reservation.payment_status !== "paid") {
+    return "Depozitny prehlad sa zobrazuje informacne podla aktualneho stavu rezervacie a platby.";
+  }
+
+  if (reservation.status === "pending") {
+    return "Platba je evidovana, ale rezervacia este caka na dalsi krok v potvrdeni.";
+  }
+
+  if (
+    reservation.status === "confirmed" ||
+    reservation.status === "in_rental" ||
+    reservation.status === "return_pending_confirmation"
+  ) {
+    return "Stav je odvodeny z aktivnej rezervacie. Nie je to potvrdenie automatickeho zadrzania ani vratenia.";
+  }
+
+  if (reservation.status === "completed") {
+    return "Prenajom je ukonceny. Dalsi postup moze zavisiet od vysledku rezervacie alebo sporu.";
+  }
+
+  return "Zatial ide len o informacny interny prehlad bez automatickych tvrdeni o peniazoch.";
 }
 
 function CheckpointCard({
@@ -279,7 +356,9 @@ export default function ReservationsPage() {
 
     const { data, error } = await supabase
       .from("reservations")
-      .select("id,item_id,date_from,date_to,status,payment_status,payment_provider,payment_due_at")
+      .select(
+        "id,item_id,date_from,date_to,status,payment_status,payment_provider,payment_due_at,rental_amount_snapshot,deposit_amount_snapshot"
+      )
       .eq("renter_id", userId)
       .order("id", { ascending: false });
 
@@ -903,6 +982,8 @@ export default function ReservationsPage() {
 
     const reviewItemKey = `item-${r.id}`;
     const reviewOwnerKey = `owner-${r.id}`;
+    const depositInternalStateLabel = getDepositInternalStateLabel(r);
+    const depositInternalStateHint = getDepositInternalStateHint(r);
 
     const startIn = daysUntil(r.date_from);
     const endIn = daysUntil(r.date_to);
@@ -1065,6 +1146,48 @@ export default function ReservationsPage() {
               hint="Nahraté pri vrátení"
               emphasized={renterReturnCount > 0}
             />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold text-white">Ochrana a depozit</div>
+              <div className="mt-1 text-sm text-white/60">
+                Informacny interny prehlad pre tuto rezervaciu.
+              </div>
+            </div>
+
+            <Link
+              className="text-sm text-white underline underline-offset-2 hover:text-white/80"
+              href={protectionHelpHref}
+            >
+              Vysvetlenie ochrany, depozitu a sporu
+            </Link>
+          </div>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <CheckpointCard
+              label="Snapshot prenajmu"
+              value={formatCurrencyAmount(r.rental_amount_snapshot)}
+              hint="Financny snapshot rezervacie"
+            />
+            <CheckpointCard
+              label="Snapshot depozitu"
+              value={formatCurrencyAmount(r.deposit_amount_snapshot)}
+              hint="Zobrazeny ako interny informacny udaj"
+            />
+            <CheckpointCard
+              label="Interny stav depozitu"
+              value={depositInternalStateLabel}
+              hint={depositInternalStateHint}
+              emphasized
+            />
+          </div>
+
+          <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-white/70">
+            Tento blok je iba informacny. Neznamena automaticke uvolnenie, zadrzanie ani vratenie
+            penazi.
           </div>
         </div>
 
