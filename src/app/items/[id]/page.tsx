@@ -737,6 +737,24 @@ if (!imgErr && imgs) {
               </section>
             ) : null}
 
+            <section className="rentulo-card p-6">
+              <div className="text-xl font-semibold">Ochrana a depozit</div>
+              <div className="mt-2 space-y-3 text-sm leading-6 text-white/70">
+                <p>
+                  Ochrana na Rentulo znamená proces pri probléme s prenájmom. Ak sa pri prevzatí,
+                  používaní alebo vrátení veci objaví problém, rieši sa cez spor alebo reklamáciu.
+                </p>
+                <p>
+                  Depozit je interný údaj rezervácie. Presný finančný súhrn uvidíš v ďalšom kroku
+                  rezervácie pred pokračovaním.
+                </p>
+                <p>
+                  Tento detail položky nezakladá automatický pohyb peňazí ani automatické
+                  blokovanie platby. Rezervácia sa dokončuje až v ďalšom kroku.
+                </p>
+              </div>
+            </section>
+
             {imageUrls.length > 0 ? (
               <section className="rentulo-theme-preserve-dark space-y-3">
                 <div className="relative overflow-hidden rounded-2xl border border-white/10">
