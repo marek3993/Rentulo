@@ -425,6 +425,44 @@
           "Current implementation deduplicates payment_events by reservation_id, event_type, and note before inserting."
         ]
       },
+      "stripe_connect_owner_onboarding_contract": {
+        "status": "route_confirmed_minimal_backend_contract",
+        "paths": [
+          "src/app/api/payment/connect/account/route.ts",
+          "src/app/api/payment/connect/onboarding/route.ts",
+          "src/app/api/payment/connect/status/route.ts"
+        ],
+        "inputs": {
+          "auth": "Bearer token for the current signed-in user",
+          "env_requirements": [
+            "STRIPE_SECRET_KEY",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY"
+          ],
+          "recommended_envs": [
+            "NEXT_PUBLIC_APP_URL",
+            "NEXT_PUBLIC_SITE_URL"
+          ]
+        },
+        "outputs": {
+          "stored_profile_truth": [
+            "stripe_connect_account_id",
+            "stripe_connect_onboarding_status",
+            "stripe_payouts_enabled",
+            "stripe_charges_enabled",
+            "stripe_connect_details_submitted"
+          ],
+          "account_route_behavior": "Creates or reuses one Stripe Express connected account for the authenticated user and syncs the stored Connect truth fields.",
+          "onboarding_route_behavior": "Creates a Stripe-hosted account onboarding link for the authenticated user's connected account.",
+          "status_route_behavior": "Reads the stored connected account from Stripe when present and syncs only the stored Connect truth fields."
+        },
+        "notes": [
+          "This contract intentionally covers owner payout onboarding only.",
+          "Payout release or manual bank-account collection are not part of this runtime scope.",
+          "Routes return structured JSON errors when required Stripe or Supabase auth/server env is missing."
+        ]
+      },
       "unknowns": [
         "Deposit/hold amount is not formalized.",
         "Current runtime is immediate-charge checkout, not the future auth-now/capture-later target.",
