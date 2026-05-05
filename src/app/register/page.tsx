@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildAuthCallbackUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -43,6 +43,7 @@ function statusClassName(tone: StatusTone) {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const hasRedirectedRef = useRef(false);
 
   const [authChecked, setAuthChecked] = useState(false);
   const [hasSession, setHasSession] = useState(false);
@@ -84,6 +85,13 @@ export default function RegisterPage() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authChecked || !hasSession || hasRedirectedRef.current) return;
+
+    hasRedirectedRef.current = true;
+    router.replace("/profile");
+  }, [authChecked, hasSession, router]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,7 +220,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="rentulo-status rentulo-status-success text-sm leading-6">
-              Registracny formular sme schovali, pretoze uz mas aktivne prihlasenie.
+              Registracny formular sme schovali a presmerovavame ta do profilu.
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">

@@ -6,7 +6,6 @@ const footerSections = [
     links: [
       { href: "/", label: "Domov" },
       { href: "/items", label: "Ponuky" },
-      { href: "/register", label: "Vytvoriť účet" },
     ],
   },
   {
