@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
 
+const protectionHelpHref = "/info/ochrana-depozit-spory";
+
 type ReservationRow = {
   id: number;
   item_id: number;
@@ -384,6 +386,36 @@ function PaymentInner() {
                 {formatCurrencyAmount(reservation.deposit_amount_snapshot)}
               </strong>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {reservation ? (
+        <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+          <div className="font-semibold text-white">Ochrana a depozit</div>
+          <div className="mt-3 space-y-3">
+            <p>
+              <strong className="text-white">Ochrana:</strong> Rentulo proces pri probleme pocas
+              alebo po prenajme. Pri probleme sa vysledok riesi cez spor a rozhodnutie v systeme.
+            </p>
+            <p>
+              <strong className="text-white">Depozit:</strong> Vidis interny financny udaj
+              rezervacie. Automaticke uvolnenie alebo strhnutie penazi tu zatial netvrdime.
+            </p>
+            <p>
+              <strong className="text-white">Spor:</strong> Ak vznikne problem, dalsi postup je v
+              reklamacii alebo spore.
+            </p>
+            <p className="text-white/75">
+              Tento blok je iba informacny.{" "}
+              <Link
+                className="underline underline-offset-2 hover:text-white"
+                href={protectionHelpHref}
+              >
+                Otvor vysvetlenie ochrany, depozitu a sporu
+              </Link>
+              .
+            </p>
           </div>
         </div>
       ) : null}
