@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { buildAuthCallbackUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -25,6 +25,8 @@ function statusClassName(tone: StatusTone) {
 export default function LoginPage() {
   const router = useRouter();
 
+  const [authChecked, setAuthChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<{ tone: StatusTone; message: string } | null>(null);
@@ -32,6 +34,35 @@ export default function LoginPage() {
   const [oauthSubmitting, setOauthSubmitting] = useState(false);
 
   const disabled = submitting || oauthSubmitting;
+
+  useEffect(() => {
+    let active = true;
+
+    const syncSession = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!active) return;
+
+      setHasSession(Boolean(data.session));
+      setAuthChecked(true);
+    };
+
+    syncSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+
+      setHasSession(Boolean(session));
+      setAuthChecked(true);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +99,60 @@ export default function LoginPage() {
       setOauthSubmitting(false);
     }
   };
+
+  if (!authChecked) {
+    return (
+      <main className="rentulo-auth-shell mx-auto space-y-6">
+        <section className="rentulo-card rentulo-auth-card p-8 lg:p-10">
+          <div className="space-y-4">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-3xl font-semibold sm:text-4xl">Overujem prihlasenie</h1>
+              <p className="rentulo-auth-copy max-w-xl text-sm leading-6 sm:text-[0.95rem]">
+                Chvilu pockaj. Kontrolujem, ci uz mas aktivnu session, aby sa
+                prihlasovaci formular nezobrazil zbytocne.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (hasSession) {
+    return (
+      <main className="rentulo-auth-shell mx-auto space-y-6">
+        <section className="rentulo-card rentulo-auth-card p-8 lg:p-10">
+          <div className="space-y-4">
+            <div className="inline-flex rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-300">
+              Rentulo
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-3xl font-semibold sm:text-4xl">Uz si prihlaseny</h1>
+              <p className="rentulo-auth-copy max-w-xl text-sm leading-6 sm:text-[0.95rem]">
+                Do uctu sa nemusis prihlasovat znova. Tvoja session je aktivna,
+                takze mozes pokracovat priamo do profilu.
+              </p>
+            </div>
+
+            <div className="rentulo-status rentulo-status-success text-sm leading-6">
+              Prihlasovaci formular sme schovali, pretoze uz mas aktivne prihlasenie.
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link href="/profile" className="rentulo-btn-primary px-4 py-3 text-sm">
+                Prejst na profil
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="rentulo-auth-shell mx-auto space-y-6">
