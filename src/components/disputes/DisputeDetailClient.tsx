@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { insertNotification } from "@/lib/notifications";
 import { supabase } from "@/lib/supabaseClient";
 
 type ViewerKind = "renter" | "owner" | "admin";
@@ -71,6 +70,18 @@ type EvidenceRow = {
   storagePath: string;
   caption: string | null;
   uploadedBy: string | null;
+  createdAt: string | null;
+  url: string | null;
+};
+
+type ConditionPhoto = {
+  id: number;
+  reservationId: number;
+  itemId: number;
+  phase: string;
+  actor: string;
+  path: string;
+  note: string | null;
   createdAt: string | null;
   url: string | null;
 };
@@ -221,6 +232,12 @@ function needsReservationStatus(status: string) {
   return status === "resolved" || status === "rejected" || status === "closed";
 }
 
+function getConditionPhotoActorLabel(actor: string) {
+  if (actor === "owner") return "Prenajímateľ";
+  if (actor === "renter") return "Nájomca";
+  return actor.replaceAll("_", " ");
+}
+
 function normalizeDispute(record: RawRecord): DisputeRow {
   return {
     id: readNumber(record, ["id"]) ?? 0,
@@ -271,6 +288,20 @@ function normalizeEvidence(record: RawRecord): EvidenceRow {
   };
 }
 
+function normalizeConditionPhoto(record: RawRecord): ConditionPhoto {
+  return {
+    id: readNumber(record, ["id"]) ?? 0,
+    reservationId: readNumber(record, ["reservation_id"]) ?? 0,
+    itemId: readNumber(record, ["item_id"]) ?? 0,
+    phase: readString(record, ["phase"]) ?? "",
+    actor: readString(record, ["actor"]) ?? "",
+    path: readString(record, ["path"]) ?? "",
+    note: readString(record, ["note"]),
+    createdAt: readString(record, ["created_at", "inserted_at"]),
+    url: null,
+  };
+}
+
 function getBackHref(viewer: ViewerKind) {
   if (viewer === "owner") return "/owner/disputes";
   if (viewer === "admin") return "/admin/disputes";
@@ -281,10 +312,6 @@ function getViewerTitle(viewer: ViewerKind) {
   if (viewer === "owner") return "Detail reklamacie pre prenajimatela";
   if (viewer === "admin") return "Admin detail reklamacie";
   return "Detail reklamacie";
-}
-
-function getDisputeLinkForUser(disputeId: number, userKind: "renter" | "owner") {
-  return userKind === "owner" ? `/owner/disputes/${disputeId}` : `/disputes/${disputeId}`;
 }
 
 export default function DisputeDetailClient({ disputeId, viewer }: Props) {
@@ -301,6 +328,7 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
   const [messageAuthorMap, setMessageAuthorMap] = useState<Record<string, ProfileRow>>({});
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [evidence, setEvidence] = useState<EvidenceRow[]>([]);
+  const [conditionPhotos, setConditionPhotos] = useState<ConditionPhoto[]>([]);
 
   const [replyBody, setReplyBody] = useState("");
   const [replySaving, setReplySaving] = useState(false);
@@ -327,6 +355,16 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
     if (dispute?.status) unique.add(dispute.status);
     return Array.from(unique);
   }, [dispute?.status]);
+
+  const handoverConditionPhotos = useMemo(
+    () => conditionPhotos.filter((photo) => photo.phase === "handover"),
+    [conditionPhotos]
+  );
+
+  const returnConditionPhotos = useMemo(
+    () => conditionPhotos.filter((photo) => photo.phase === "return"),
+    [conditionPhotos]
+  );
 
   const title = dispute?.title || dispute?.reason || `Reklamacia #${dispute?.id ?? disputeId}`;
   const description = dispute?.description || dispute?.details || "";
@@ -398,7 +436,15 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       return;
     }
 
-    const [reservationResult, itemResult, renterResult, ownerResult, messagesResult, evidenceResult] =
+    const [
+      reservationResult,
+      itemResult,
+      renterResult,
+      ownerResult,
+      messagesResult,
+      evidenceResult,
+      conditionPhotosResult,
+    ] =
       await Promise.all([
         disputeRow.reservationId
           ? supabase
@@ -426,6 +472,13 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
           : Promise.resolve({ data: null, error: null }),
         supabase.from("dispute_messages").select("*").eq("dispute_id", disputeId).order("created_at", { ascending: true }),
         supabase.from("dispute_evidence").select("*").eq("dispute_id", disputeId).order("created_at", { ascending: false }),
+        disputeRow.reservationId
+          ? supabase
+              .from("rental_condition_photos")
+              .select("id,reservation_id,item_id,phase,actor,path,note,created_at")
+              .eq("reservation_id", disputeRow.reservationId)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [] as RawRecord[], error: null }),
       ]);
 
     const firstError =
@@ -434,7 +487,8 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       renterResult.error ||
       ownerResult.error ||
       messagesResult.error ||
-      evidenceResult.error;
+      evidenceResult.error ||
+      conditionPhotosResult.error;
 
     if (firstError) {
       setStatusText("Chyba: " + firstError.message);
@@ -443,6 +497,9 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
 
     const messageRows = ((messagesResult.data ?? []) as RawRecord[]).map(normalizeMessage);
     const evidenceRows = ((evidenceResult.data ?? []) as RawRecord[]).map(normalizeEvidence);
+    const conditionPhotoRows = ((conditionPhotosResult.data ?? []) as RawRecord[]).map(
+      normalizeConditionPhoto
+    );
 
     const profileIds = Array.from(
       new Set(
@@ -482,6 +539,24 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       }
     }
 
+    const conditionPhotoPaths = Array.from(
+      new Set(conditionPhotoRows.map((row) => row.path).filter((value): value is string => value.length > 0))
+    );
+
+    const conditionPhotoSignedUrlMap = new Map<string, string | null>();
+
+    if (conditionPhotoPaths.length > 0) {
+      const { data: signedUrls } = await supabase.storage
+        .from("rental-condition-photos")
+        .createSignedUrls(conditionPhotoPaths, 60 * 60);
+
+      for (const row of signedUrls ?? []) {
+        if (row.path) {
+          conditionPhotoSignedUrlMap.set(row.path, row.signedUrl ?? null);
+        }
+      }
+    }
+
     setDispute(disputeRow);
     setReservation((reservationResult.data ?? null) as ReservationRow | null);
     setItem((itemResult.data ?? null) as ItemRow | null);
@@ -493,6 +568,12 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       evidenceRows.map((row) => ({
         ...row,
         url: signedUrlMap.get(row.storagePath) ?? null,
+      }))
+    );
+    setConditionPhotos(
+      conditionPhotoRows.map((row) => ({
+        ...row,
+        url: conditionPhotoSignedUrlMap.get(row.path) ?? null,
       }))
     );
     setNextStatus(disputeRow.status);
@@ -535,21 +616,6 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       setStatusText("Chyba: " + error.message);
       alert(error.message);
       return;
-    }
-
-    const replyRecipientId =
-      currentUserId && currentUserId === dispute?.renterId ? dispute.ownerId : currentUserId === dispute?.ownerId ? dispute.renterId : null;
-    const replyRecipientKind =
-      currentUserId && currentUserId === dispute?.renterId ? "owner" : currentUserId === dispute?.ownerId ? "renter" : null;
-
-    if (replyRecipientId && replyRecipientKind) {
-      await insertNotification({
-        userId: replyRecipientId,
-        type: "dispute",
-        title: `Nova sprava k reklamacii #${disputeId}`,
-        body: "Druha strana pridala vyjadrenie.",
-        link: getDisputeLinkForUser(disputeId, replyRecipientKind),
-      });
     }
 
     setReplyBody("");
@@ -651,33 +717,6 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
       alert(error.message);
       return;
     }
-
-    const notificationTargets = [
-      dispute?.renterId
-        ? {
-            userId: dispute.renterId,
-            link: getDisputeLinkForUser(disputeId, "renter"),
-          }
-        : null,
-      dispute?.ownerId
-        ? {
-            userId: dispute.ownerId,
-            link: getDisputeLinkForUser(disputeId, "owner"),
-          }
-        : null,
-    ].filter((target): target is { userId: string; link: string } => !!target);
-
-    await Promise.all(
-      notificationTargets.map((target) =>
-        insertNotification({
-          userId: target.userId,
-          type: "dispute",
-          title: `Aktualizacia reklamacie #${disputeId}`,
-          body: `Stav reklamacie bol zmeneny na: ${trimmedStatus}`,
-          link: target.link,
-        })
-      )
-    );
 
     setStatusSaving(false);
     await loadDispute();
@@ -1043,6 +1082,92 @@ export default function DisputeDetailClient({ disputeId, viewer }: Props) {
                     {replySaving ? "Ukladam..." : "Pridat odpoved"}
                   </button>
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
+                <div className="text-lg font-semibold">Fotodokumentácia pred/po prenájme</div>
+
+                {conditionPhotos.length === 0 ? (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4 text-white/60">
+                    Zatiaľ bez fotodokumentácie k rezervácii.
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-6">
+                    <div className="space-y-3">
+                      <div className="text-sm font-medium text-white/80">Odovzdanie / pred prenájmom</div>
+                      {handoverConditionPhotos.length === 0 ? (
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/55">
+                          Zatiaľ bez fotiek pre túto fázu.
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {handoverConditionPhotos.map((photo) => (
+                            <div key={photo.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                              {photo.url ? (
+                                <img
+                                  src={photo.url}
+                                  alt="Fotodokumentacia pri odovzdani"
+                                  className="h-48 w-full rounded-xl object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-white/40">
+                                  Bez preview
+                                </div>
+                              )}
+
+                              <div className="mt-3 text-sm text-white/70">
+                                <div className="font-medium text-white">
+                                  {getConditionPhotoActorLabel(photo.actor)}
+                                </div>
+                                <div className="mt-1 text-white/50">{formatDateTime(photo.createdAt)}</div>
+                                <div className="mt-2 whitespace-pre-wrap text-white/65">
+                                  {photo.note || "Bez poznámky"}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm font-medium text-white/80">Vrátenie / po prenájme</div>
+                      {returnConditionPhotos.length === 0 ? (
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-white/55">
+                          Zatiaľ bez fotiek pre túto fázu.
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {returnConditionPhotos.map((photo) => (
+                            <div key={photo.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                              {photo.url ? (
+                                <img
+                                  src={photo.url}
+                                  alt="Fotodokumentacia po vrateni"
+                                  className="h-48 w-full rounded-xl object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-48 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-white/40">
+                                  Bez preview
+                                </div>
+                              )}
+
+                              <div className="mt-3 text-sm text-white/70">
+                                <div className="font-medium text-white">
+                                  {getConditionPhotoActorLabel(photo.actor)}
+                                </div>
+                                <div className="mt-1 text-white/50">{formatDateTime(photo.createdAt)}</div>
+                                <div className="mt-2 whitespace-pre-wrap text-white/65">
+                                  {photo.note || "Bez poznámky"}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
