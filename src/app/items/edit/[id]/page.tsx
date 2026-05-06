@@ -14,7 +14,23 @@ import {
 } from "@/lib/itemDeliveryOptionsContract";
 import { supabase } from "@/lib/supabaseClient";
 
-type Item = ItemDeliveryConfigFields & {
+type ItemCondition =
+  | "new"
+  | "like_new"
+  | "very_good"
+  | "good"
+  | "acceptable"
+  | "damaged";
+
+type ItemListingConditionFields = {
+  condition: ItemCondition | null;
+  included_accessories: string[] | null;
+  excluded_accessories: string[] | null;
+  known_damage: string | null;
+  replacement_value: number | string | null;
+};
+
+type Item = ItemDeliveryConfigFields & ItemListingConditionFields & {
   id: number;
   owner_id: string;
   title: string;
@@ -50,6 +66,72 @@ function formatDate(dateStr: string) {
   return value.toLocaleDateString("sk-SK");
 }
 
+const ITEM_CONDITION_OPTIONS: Array<{ value: ItemCondition; label: string }> = [
+  { value: "new", label: "Nové" },
+  { value: "like_new", label: "Ako nové" },
+  { value: "very_good", label: "Veľmi dobré" },
+  { value: "good", label: "Dobré" },
+  { value: "acceptable", label: "Používané" },
+  { value: "damaged", label: "Poškodené" },
+];
+
+function normalizeItemCondition(value: string | null | undefined): ItemCondition | "" {
+  switch (value) {
+    case "new":
+    case "like_new":
+    case "very_good":
+    case "good":
+    case "acceptable":
+    case "damaged":
+      return value;
+    default:
+      return "";
+  }
+}
+
+function normalizeAccessoriesField(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [] as string[];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((part): part is string => typeof part === "string")
+        .map((part) => part.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function accessoriesToInput(value: unknown) {
+  return normalizeAccessoriesField(value).join(", ");
+}
+
+function normalizeNullableText(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseNullableNonNegativeNumber(value: string) {
+  const trimmed = value.trim().replace(",", ".");
+
+  if (!trimmed) {
+    return { value: null as number | null, error: null as string | null };
+  }
+
+  const parsed = Number(trimmed);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return {
+      value: null as number | null,
+      error: "Informačná hodnota veci musí byť nezáporné číslo.",
+    };
+  }
+
+  return { value: parsed, error: null as string | null };
+}
+
 export default function EditItemPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -64,6 +146,12 @@ export default function EditItemPage() {
   const [description, setDescription] = useState("");
   const [pricePerDay, setPricePerDay] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
+  const [condition, setCondition] = useState<ItemCondition | "">("");
+  const [includedAccessoriesInput, setIncludedAccessoriesInput] = useState("");
+  const [excludedAccessoriesInput, setExcludedAccessoriesInput] = useState("");
+  const [knownDamage, setKnownDamage] = useState("");
+  const [replacementValue, setReplacementValue] = useState("");
+  const [replacementValueError, setReplacementValueError] = useState("");
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [deliveryOptions, setDeliveryOptions] = useState<ItemDeliveryOptionsDraft>(
@@ -116,7 +204,7 @@ export default function EditItemPage() {
       const { data, error } = await supabase
         .from("items")
         .select(
-          "id,owner_id,title,description,price_per_day,category,city,postal_code,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km"
+          "id,owner_id,title,description,price_per_day,category,city,postal_code,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km,condition,included_accessories,excluded_accessories,known_damage,replacement_value"
         )
         .eq("id", itemId)
         .maybeSingle();
@@ -148,10 +236,20 @@ export default function EditItemPage() {
       setDescription(nextItem.description ?? "");
       setPricePerDay(String(nextItem.price_per_day ?? ""));
       setCategory(nextItem.category ?? CATEGORIES[0]);
+      setCondition(normalizeItemCondition(nextItem.condition));
+      setIncludedAccessoriesInput(accessoriesToInput(nextItem.included_accessories));
+      setExcludedAccessoriesInput(accessoriesToInput(nextItem.excluded_accessories));
+      setKnownDamage(nextItem.known_damage ?? "");
+      setReplacementValue(
+        nextItem.replacement_value === null || nextItem.replacement_value === undefined
+          ? ""
+          : String(nextItem.replacement_value)
+      );
       setCity(nextItem.city ?? "");
       setPostalCode(nextItem.postal_code ?? "");
       setDeliveryOptions(itemDeliveryOptionsDraftFromFields(nextItem));
       setDeliveryErrors({});
+      setReplacementValueError("");
       await loadBlockedRanges(nextItem.id);
       setBlockedRangesStatus("");
       setPageState("ready");
@@ -208,7 +306,22 @@ export default function EditItemPage() {
         throw new Error("Skontroluj nastavenie doručenia.");
       }
 
+      const normalizedIncludedAccessories = normalizeAccessoriesField(
+        includedAccessoriesInput.split(",")
+      );
+      const normalizedExcludedAccessories = normalizeAccessoriesField(
+        excludedAccessoriesInput.split(",")
+      );
+      const normalizedKnownDamage = normalizeNullableText(knownDamage);
+      const replacementValueResult = parseNullableNonNegativeNumber(replacementValue);
+
+      if (replacementValueResult.error) {
+        setReplacementValueError(replacementValueResult.error);
+        throw new Error(replacementValueResult.error);
+      }
+
       setDeliveryErrors({});
+      setReplacementValueError("");
       const normalizedDeliveryOptions = normalizeItemDeliveryOptionsDraft(deliveryOptions);
 
       const { data, error } = await supabase
@@ -218,6 +331,11 @@ export default function EditItemPage() {
           description: description.trim() ? description.trim() : null,
           price_per_day: parsedPrice,
           category: category.trim(),
+          condition: condition || null,
+          included_accessories: normalizedIncludedAccessories,
+          excluded_accessories: normalizedExcludedAccessories,
+          known_damage: normalizedKnownDamage,
+          replacement_value: replacementValueResult.value,
           city: city.trim(),
           postal_code: postalCode.trim(),
         })
@@ -424,6 +542,89 @@ export default function EditItemPage() {
               <div className="mt-1 text-sm text-white/60">
                 Zobrazí sa ako <strong>{Number.isFinite(pricePreview) ? pricePreview : 0} € / deň</strong>
               </div>
+            </label>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="font-semibold">Stav veci a príslušenstvo</div>
+            <div className="text-sm text-white/70">
+              Tieto údaje sa zobrazia na detaile ponuky. Informačná hodnota veci je len
+              informačný údaj.
+            </div>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Stav veci</div>
+              <select
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={condition}
+                onChange={(e) => setCondition(e.target.value as ItemCondition | "")}
+                disabled={saving}
+              >
+                <option value="">Nezadané</option>
+                {ITEM_CONDITION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Pribalené príslušenstvo</div>
+              <input
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={includedAccessoriesInput}
+                onChange={(e) => setIncludedAccessoriesInput(e.target.value)}
+                disabled={saving}
+                placeholder="napr. nabíjačka, kufor, batéria"
+              />
+              <div className="mt-1 text-sm text-white/60">Položky oddeľ čiarkou.</div>
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Chýbajúce alebo vylúčené príslušenstvo</div>
+              <input
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={excludedAccessoriesInput}
+                onChange={(e) => setExcludedAccessoriesInput(e.target.value)}
+                disabled={saving}
+                placeholder="napr. originálna krabica, druhá batéria"
+              />
+              <div className="mt-1 text-sm text-white/60">Položky oddeľ čiarkou.</div>
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Známe poškodenie</div>
+              <textarea
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={knownDamage}
+                onChange={(e) => setKnownDamage(e.target.value)}
+                rows={3}
+                disabled={saving}
+                placeholder="napr. škrabanec na kryte, ošúchaná rukoväť"
+              />
+            </label>
+
+            <label className="block">
+              <div className="mb-1 text-white/80">Informačná hodnota veci</div>
+              <input
+                className="w-full rounded border border-white/20 bg-white px-3 py-2 text-black"
+                value={replacementValue}
+                onChange={(e) => {
+                  setReplacementValue(e.target.value);
+                  setReplacementValueError("");
+                }}
+                type="number"
+                min="0"
+                step="0.01"
+                disabled={saving}
+                placeholder="napr. 350"
+              />
+              {replacementValueError ? (
+                <div className="mt-1 text-sm text-red-300">{replacementValueError}</div>
+              ) : (
+                <div className="mt-1 text-sm text-white/60">Nechaj prázdne, ak ju nechceš uvádzať.</div>
+              )}
             </label>
           </div>
 

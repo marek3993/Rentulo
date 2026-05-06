@@ -6,6 +6,14 @@
   import { supabase } from "@/lib/supabaseClient";
   import { useRouter } from "next/navigation";
 
+  type ItemCondition =
+    | "new"
+    | "like_new"
+    | "very_good"
+    | "good"
+    | "acceptable"
+    | "damaged";
+
   type Item = {
     id: number;
     owner_id: string;
@@ -14,6 +22,11 @@
     price_per_day: number;
     city: string | null;
     is_active: boolean;
+    condition: ItemCondition | null;
+    included_accessories: string[] | null;
+    excluded_accessories: string[] | null;
+    known_damage: string | null;
+    replacement_value: number | string | null;
   };
 
   type ItemImageRow = {
@@ -31,6 +44,51 @@
     is_primary: boolean | null;
     position: number | null;
     publicUrl: string;
+  };
+
+  const ITEM_CONDITION_LABELS: Record<ItemCondition, string> = {
+    new: "Nové",
+    like_new: "Ako nové",
+    very_good: "Veľmi dobré",
+    good: "Dobré",
+    acceptable: "Používané",
+    damaged: "Poškodené",
+  };
+
+  const currencyFormatter = new Intl.NumberFormat("sk-SK", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+
+  const normalizeAccessoriesField = (value: unknown) => {
+    if (!Array.isArray(value)) {
+      return [] as string[];
+    }
+
+    return Array.from(
+      new Set(
+        value
+          .filter((part): part is string => typeof part === "string")
+          .map((part) => part.trim())
+          .filter(Boolean)
+      )
+    );
+  };
+
+  const normalizeKnownDamage = (value: string | null | undefined) => {
+    const trimmed = value?.trim() ?? "";
+    return trimmed ? trimmed : null;
+  };
+
+  const normalizeReplacementValue = (value: number | string | null | undefined) => {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   };
 
   const getImagePositionValue = (position: number | null, fallbackIndex: number) => {
@@ -112,7 +170,9 @@
 
       const { data, error } = await supabase
         .from("items")
-        .select("id,owner_id,title,description,price_per_day,city,is_active")
+        .select(
+          "id,owner_id,title,description,price_per_day,city,is_active,condition,included_accessories,excluded_accessories,known_damage,replacement_value"
+        )
         .eq("owner_id", userId)
         .order("id", { ascending: false });
 
@@ -490,6 +550,18 @@
             {filtered.map((item) => {
               const images = imageMap[item.id] ?? [];
               const cover = images.find((x) => x.is_primary) ?? images[0];
+              const conditionLabel = item.condition ? ITEM_CONDITION_LABELS[item.condition] : null;
+              const includedAccessories = normalizeAccessoriesField(item.included_accessories);
+              const excludedAccessories = normalizeAccessoriesField(item.excluded_accessories);
+              const knownDamage = normalizeKnownDamage(item.known_damage);
+              const replacementValue = normalizeReplacementValue(item.replacement_value);
+              const hasItemConditionSummary = Boolean(
+                conditionLabel ||
+                  includedAccessories.length > 0 ||
+                  excludedAccessories.length > 0 ||
+                  knownDamage ||
+                  replacementValue !== null
+              );
 
               return (
                 <li key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -525,6 +597,69 @@
                   ) : (
                     <div className="mt-3 text-white/50">Bez popisu</div>
                   )}
+
+                  {hasItemConditionSummary ? (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm font-medium text-white">Stav veci a príslušenstvo</div>
+
+                      {conditionLabel ? (
+                        <div className="mt-2 text-sm text-white/75">
+                          Stav: <strong className="text-white">{conditionLabel}</strong>
+                        </div>
+                      ) : null}
+
+                      {includedAccessories.length > 0 ? (
+                        <div className="mt-3">
+                          <div className="text-xs uppercase tracking-wide text-white/45">
+                            Pribalené príslušenstvo
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {includedAccessories.map((accessory) => (
+                              <span
+                                key={`owner-included-${item.id}-${accessory}`}
+                                className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-100"
+                              >
+                                {accessory}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {excludedAccessories.length > 0 ? (
+                        <div className="mt-3">
+                          <div className="text-xs uppercase tracking-wide text-white/45">
+                            Chýbajúce alebo vylúčené príslušenstvo
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {excludedAccessories.map((accessory) => (
+                              <span
+                                key={`owner-excluded-${item.id}-${accessory}`}
+                                className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-100"
+                              >
+                                {accessory}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {knownDamage ? (
+                        <div className="mt-3 text-sm text-white/75">
+                          Známe poškodenie: <strong className="text-white">{knownDamage}</strong>
+                        </div>
+                      ) : null}
+
+                      {replacementValue !== null ? (
+                        <div className="mt-3 text-sm text-white/75">
+                          Informačná hodnota veci:{" "}
+                          <strong className="text-white">
+                            {currencyFormatter.format(replacementValue)}
+                          </strong>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                   <div className="mt-4">
                     <div className="mb-2 text-sm text-white/70">Fotky</div>

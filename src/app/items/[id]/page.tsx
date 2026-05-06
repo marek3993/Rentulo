@@ -17,7 +17,23 @@ import {
 import ItemPreviewImage from "@/components/items/ItemPreviewImage";
 import { supabase } from "@/lib/supabaseClient";
 
-type Item = ItemDeliveryConfigFields & {
+type ItemCondition =
+  | "new"
+  | "like_new"
+  | "very_good"
+  | "good"
+  | "acceptable"
+  | "damaged";
+
+type ItemListingConditionFields = {
+  condition: ItemCondition | null;
+  included_accessories: string[] | null;
+  excluded_accessories: string[] | null;
+  known_damage: string | null;
+  replacement_value: number | string | null;
+};
+
+type Item = ItemDeliveryConfigFields & ItemListingConditionFields & {
   id: number;
   title: string;
   description: string | null;
@@ -70,6 +86,76 @@ type CreateReservationResponse = {
 type RatingRow = {
   rating: number | string | null;
 };
+
+const ITEM_CONDITION_LABELS: Record<ItemCondition, string> = {
+  new: "Nové",
+  like_new: "Ako nové",
+  very_good: "Veľmi dobré",
+  good: "Dobré",
+  acceptable: "Používané",
+  damaged: "Poškodené",
+};
+
+const currencyFormatter = new Intl.NumberFormat("sk-SK", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+function normalizeItemCondition(value: string | null | undefined): ItemCondition | null {
+  switch (value) {
+    case "new":
+    case "like_new":
+    case "very_good":
+    case "good":
+    case "acceptable":
+    case "damaged":
+      return value;
+    default:
+      return null;
+  }
+}
+
+function normalizeAccessoriesField(value: unknown) {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .filter((part): part is string => typeof part === "string")
+          .map((part) => part.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  if (typeof value === "string") {
+    return Array.from(
+      new Set(
+        value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  return [] as string[];
+}
+
+function normalizeNullableText(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
+}
+
+function normalizeReplacementValue(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
 
 function verificationBadgeClass(status: string) {
   if (status === "verified") return "bg-emerald-600/90 text-white";
@@ -236,6 +322,36 @@ export default function ItemDetailPage() {
     () => (deliveryOptions ? describeItemDeliveryOptions(deliveryOptions) : null),
     [deliveryOptions]
   );
+  const itemConditionDetails = useMemo(() => {
+    if (!item) {
+      return null;
+    }
+
+    const condition = normalizeItemCondition(item.condition);
+    const includedAccessories = normalizeAccessoriesField(item.included_accessories);
+    const excludedAccessories = normalizeAccessoriesField(item.excluded_accessories);
+    const knownDamage = normalizeNullableText(item.known_damage);
+    const replacementValue = normalizeReplacementValue(item.replacement_value);
+
+    if (
+      !condition &&
+      includedAccessories.length === 0 &&
+      excludedAccessories.length === 0 &&
+      !knownDamage &&
+      replacementValue === null
+    ) {
+      return null;
+    }
+
+    return {
+      conditionLabel: condition ? ITEM_CONDITION_LABELS[condition] : null,
+      includedAccessories,
+      excludedAccessories,
+      knownDamage,
+      replacementValue:
+        replacementValue === null ? null : currencyFormatter.format(replacementValue),
+    };
+  }, [item]);
   const returnToItemsHref = useMemo(
     () =>
       buildItemsHref({
@@ -713,6 +829,73 @@ if (!imgErr && imgs) {
                 <p className="mt-6 text-white/55">Bez popisu.</p>
               )}
             </section>
+
+            {itemConditionDetails ? (
+              <section className="rentulo-card p-6">
+                <div className="text-xl font-semibold">Stav veci a príslušenstvo</div>
+
+                <div className="mt-4 space-y-4">
+                  {itemConditionDetails.conditionLabel ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm text-white/55">Stav</div>
+                      <div className="mt-2 text-lg font-semibold text-white">
+                        {itemConditionDetails.conditionLabel}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {itemConditionDetails.includedAccessories.length > 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm text-white/55">Pribalené príslušenstvo</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {itemConditionDetails.includedAccessories.map((accessory) => (
+                          <span
+                            key={`included-${accessory}`}
+                            className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-100"
+                          >
+                            {accessory}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {itemConditionDetails.excludedAccessories.length > 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm text-white/55">Chýbajúce alebo vylúčené príslušenstvo</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {itemConditionDetails.excludedAccessories.map((accessory) => (
+                          <span
+                            key={`excluded-${accessory}`}
+                            className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-sm text-amber-100"
+                          >
+                            {accessory}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {itemConditionDetails.knownDamage ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm text-white/55">Známe poškodenie</div>
+                      <div className="mt-2 whitespace-pre-wrap leading-6 text-white/80">
+                        {itemConditionDetails.knownDamage}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {itemConditionDetails.replacementValue ? (
+                    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                      <div className="text-sm text-white/55">Informačná hodnota veci</div>
+                      <div className="mt-2 text-lg font-semibold text-white">
+                        {itemConditionDetails.replacementValue}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
 
             {deliveryDescription ? (
               <section className="rentulo-card p-6">

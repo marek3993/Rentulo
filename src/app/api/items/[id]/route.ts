@@ -16,6 +16,11 @@ type ItemDetailRow = {
   city: string | null;
   owner_id: string;
   is_active: boolean;
+  condition: string | null;
+  included_accessories: string[] | null;
+  excluded_accessories: string[] | null;
+  known_damage: string | null;
+  replacement_value: number | null;
   delivery_mode: string | null;
   delivery_rate_per_km: number | null;
   delivery_fee_cap: number | null;
@@ -23,7 +28,7 @@ type ItemDetailRow = {
 };
 
 const ITEM_DETAIL_SELECT =
-  "id,title,description,price_per_day,city,owner_id,is_active,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km";
+  "id,title,description,price_per_day,city,owner_id,is_active,condition,included_accessories,excluded_accessories,known_damage,replacement_value,delivery_mode,delivery_rate_per_km,delivery_fee_cap,delivery_max_radius_km";
 
 function getBearerToken(req: NextRequest) {
   const header = req.headers.get("authorization")?.trim() ?? "";
