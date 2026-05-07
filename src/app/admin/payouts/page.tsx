@@ -14,6 +14,7 @@ import {
   pickIdentifier,
   pickNumber,
   pickString,
+  type PayoutStatus,
   type RouteRecord,
 } from "@/lib/payoutUi";
 
@@ -40,7 +41,7 @@ const PROVIDER_REF_KEYS = ["provider_ref", "external_ref"];
 const CREATED_AT_KEYS = ["created_at", "requested_at", "inserted_at"];
 const UPDATED_AT_KEYS = ["paid_at", "processed_at", "failed_at", "updated_at"];
 
-type PayoutStatusSummary = Record<ReturnType<typeof normalizePayoutStatus>, number>;
+type PayoutStatusSummary = Record<PayoutStatus, number>;
 
 function SummaryCard({
   title,
@@ -71,7 +72,7 @@ export default function AdminPayoutsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const counts = useMemo(() => {
+  const counts = useMemo<PayoutStatusSummary>(() => {
     const initialSummary: PayoutStatusSummary = {
       pending: 0,
       processing: 0,
@@ -81,9 +82,12 @@ export default function AdminPayoutsPage() {
     };
 
     return rows.reduce<PayoutStatusSummary>(
-      (summary, row) => {
-        const nextStatus = normalizePayoutStatus(pickString(row, STATUS_KEYS));
-        summary[nextStatus] += 1;
+      (summary: PayoutStatusSummary, row: RouteRecord) => {
+        const nextStatus: keyof PayoutStatusSummary = normalizePayoutStatus(
+          pickString(row, STATUS_KEYS)
+        );
+        const nextCount: number = summary[nextStatus] + 1;
+        summary[nextStatus] = nextCount;
         return summary;
       },
       initialSummary
