@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+import { getDictionary } from "@/i18n/getDictionary";
+import type { AppDictionary } from "@/i18n/messages";
 import {
   ALL_ITEMS_CATEGORY,
   DEFAULT_ITEM_RADIUS_KM,
@@ -68,39 +71,43 @@ const EMPTY_SEARCH_STATE: ItemSearchState = {
   lng: null,
 };
 
-const BASE_FOOTER_SECTIONS: FooterSection[] = [
-  {
-    title: "Rentulo",
-    links: [
-      { href: "/", label: "Domov" },
-      { href: "/items", label: "Ponuky" },
-    ],
-  },
-  {
-    title: "Pre používateľov",
-    links: [
-      { href: "/items", label: "Ako prenajímať" },
-      { href: "/verification", label: "Overenie profilu" },
-      { href: "/messages", label: "Správy" },
-    ],
-  },
-  {
-    title: "Právne informácie",
-    links: [
-      { href: "/", label: "Podmienky používania" },
-      { href: "/", label: "Ochrana súkromia" },
-      { href: "/disputes", label: "Riešenie sporov" },
-    ],
-  },
-  {
-    title: "Kontakt a dôvera",
-    links: [
-      { href: "/", label: "Kontakt" },
-      { href: "/verification", label: "Overený profil" },
-      { href: "/notifications", label: "Centrum upozornení" },
-    ],
-  },
-];
+function buildBaseFooterSections(dictionary: AppDictionary): FooterSection[] {
+  const { sections } = dictionary.footer;
+
+  return [
+    {
+      title: sections.brand.title,
+      links: [
+        { href: "/", label: sections.brand.links.home },
+        { href: "/items", label: sections.brand.links.offers },
+      ],
+    },
+    {
+      title: sections.users.title,
+      links: [
+        { href: "/items", label: sections.users.links.howItWorks },
+        { href: "/verification", label: sections.users.links.verification },
+        { href: "/messages", label: sections.users.links.messages },
+      ],
+    },
+    {
+      title: sections.legal.title,
+      links: [
+        { href: "/", label: sections.legal.links.terms },
+        { href: "/", label: sections.legal.links.privacy },
+        { href: "/disputes", label: sections.legal.links.disputes },
+      ],
+    },
+    {
+      title: sections.contact.title,
+      links: [
+        { href: "/", label: sections.contact.links.contact },
+        { href: "/verification", label: sections.contact.links.verifiedProfile },
+        { href: "/notifications", label: sections.contact.links.notifications },
+      ],
+    },
+  ];
+}
 
 function normalizeFooterValue(value: string) {
   return value
@@ -246,16 +253,18 @@ const getFooterSeoCollections = unstable_cache(
 );
 
 export default async function AppFooter() {
+  const dictionary = getDictionary(DEFAULT_LOCALE);
   const seoCollections = await getFooterSeoCollections();
+  const baseSections = buildBaseFooterSections(dictionary);
   const footerSections: FooterSection[] = [
-    BASE_FOOTER_SECTIONS[0],
-    BASE_FOOTER_SECTIONS[1],
+    baseSections[0],
+    baseSections[1],
     {
-      title: "Populárne kategórie",
+      title: dictionary.footer.sections.popularCategories.title,
       links: seoCollections.categoryLinks,
     },
-    BASE_FOOTER_SECTIONS[2],
-    BASE_FOOTER_SECTIONS[3],
+    baseSections[2],
+    baseSections[3],
   ];
 
   return (
@@ -280,19 +289,15 @@ export default async function AppFooter() {
 
         <div className="mt-8 border-t pt-8">
           <div className="max-w-4xl">
-            <h2 className="rentulo-footer-heading">Prenájom po Slovensku</h2>
+            <h2 className="rentulo-footer-heading">{dictionary.footer.seo.rentalAcrossSlovakiaTitle}</h2>
             <p className="mt-4 text-sm leading-7 text-[color:var(--footer-link)]">
-              Na Rentulo nájdeš veci na prenájom v rôznych mestách po Slovensku, od bežného
-              náradia až po elektroniku, záhradnú techniku či športové vybavenie. Ak hľadáš
-              konkrétnu kategóriu alebo mesto, rýchle odkazy nižšie ťa zavedú priamo do
-              existujúceho vyhľadávania ponúk. Výsledky si potom vieš ďalej spresniť podľa
-              termínu, kategórie a ďalších filtrov.
+              {dictionary.footer.seo.rentalAcrossSlovakiaBody}
             </p>
           </div>
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
             <div>
-              <h3 className="rentulo-footer-heading">Prenájom podľa mesta</h3>
+              <h3 className="rentulo-footer-heading">{dictionary.footer.seo.rentalByCityTitle}</h3>
               <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
                 {seoCollections.cityLinks.map((link) => (
                   <li key={`city-${link.label}`}>
@@ -305,7 +310,9 @@ export default async function AppFooter() {
             </div>
 
             <div>
-              <h3 className="rentulo-footer-heading">Kombinácie mesto + kategória</h3>
+              <h3 className="rentulo-footer-heading">
+                {dictionary.footer.seo.cityCategoryCombinationsTitle}
+              </h3>
               <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-3">
                 {seoCollections.combinationLinks.map((link) => (
                   <li key={`combo-${link.label}`}>
@@ -320,7 +327,7 @@ export default async function AppFooter() {
         </div>
 
         <div className="rentulo-footer-copy mt-8 border-t pt-5 text-sm">
-          © {new Date().getFullYear()} Rentulo. Všetky práva vyhradené.
+          &copy; {new Date().getFullYear()} Rentulo. {dictionary.footer.copyright}
         </div>
       </div>
     </footer>
