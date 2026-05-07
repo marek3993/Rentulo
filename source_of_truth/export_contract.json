@@ -469,6 +469,48 @@
           "Routes return structured JSON errors when required Stripe or Supabase auth/server env is missing."
         ]
       },
+      "p1_internal_earnings_payout_requests_contract": {
+        "status": "route_confirmed_internal_manual_p1_contract",
+        "paths": [
+          "src/app/api/payment/account-profile/route.ts",
+          "src/app/api/payment/payout-requests/route.ts",
+          "src/app/api/admin/payment/payout-requests/route.ts",
+          "src/app/api/admin/payment/payout-requests/[id]/processing/route.ts",
+          "src/app/api/admin/payment/payout-requests/[id]/paid/route.ts",
+          "src/app/api/admin/payment/payout-requests/[id]/failed/route.ts"
+        ],
+        "inputs": {
+          "auth": "Bearer token for the current signed-in user",
+          "admin_gate_condition": "profiles.role === 'admin'",
+          "payout_request_create_body": {
+            "amount": "required positive number",
+            "note": "string | null",
+            "currency": "string | null"
+          }
+        },
+        "outputs": {
+          "workflow_mode": "internal_manual_p1",
+          "account_profile_route_behavior": "Reads the authenticated user's account_profiles row conservatively, strips sensitive bank fields, keeps Stripe Connect readiness read-only, and updates only fields already visible on the current row.",
+          "payout_request_route_behavior": "Lists the authenticated user's payout_requests and creates a new internal payout request through earnings_create_payout_request_v1(...) only.",
+          "admin_route_behavior": "Lists payout_requests for admins and moves a request to processing, paid, or failed through admin_mark_payout_request_*_v1(...) RPCs only."
+        },
+        "user_facing_naming": [
+          "Zárobky",
+          "Zostatok na vyplatenie",
+          "Výplaty",
+          "História výplat"
+        ],
+        "forbidden_user_facing_naming": [
+          "wallet",
+          "peňaženka"
+        ],
+        "notes": [
+          "P1 payout requests are internal/manual only.",
+          "No Stripe payout or transfer API is called in this contract.",
+          "No SEPA execution is triggered in this contract.",
+          "Unknown account_profiles and payout_requests schema details remain explicit until the DB truth exports are refreshed."
+        ]
+      },
       "unknowns": [
         "Deposit/hold amount is not formalized.",
         "Current runtime is immediate-charge checkout, not the future auth-now/capture-later target.",
