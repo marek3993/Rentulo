@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { buildPaymentSummary } from "@/lib/paymentPricing";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 
 export const runtime = "nodejs";
@@ -94,39 +95,6 @@ function parseReservationId(body: CheckoutRequestBody | null) {
   }
 
   return reservationId;
-}
-
-function parseDateOnly(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(day)
-  ) {
-    return null;
-  }
-
-  const parsed = Date.UTC(year, month - 1, day);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function getReservationDays(dateFrom: string, dateTo: string) {
-  const fromUtc = parseDateOnly(dateFrom);
-  const toUtc = parseDateOnly(dateTo);
-
-  if (fromUtc === null || toUtc === null) {
-    return null;
-  }
-
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const diff = Math.floor((toUtc - fromUtc) / msPerDay) + 1;
-
-  return diff > 0 ? diff : null;
-}
-
-function isValidSnapshotAmount(value: number | null) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function normalizeBaseUrl(value: string) {
@@ -327,24 +295,29 @@ export async function POST(req: NextRequest) {
     currentStage = "checkout:item_ok";
     logCheckoutStage(currentStage, reservationIdForLog);
 
-    const snapshotAmount = isValidSnapshotAmount(reservation.rental_amount_snapshot)
-      ? reservation.rental_amount_snapshot
-      : null;
-    let checkoutAmount = snapshotAmount;
-    let reservationDays: number | null = null;
+    const paymentSummary = buildPaymentSummary({
+      rentalAmountSnapshot: reservation.rental_amount_snapshot,
+      depositAmountSnapshot: reservation.deposit_amount_snapshot,
+      pricePerDay: item.price_per_day,
+      dateFrom: reservation.date_from,
+      dateTo: reservation.date_to,
+    });
+    const checkoutAmount = paymentSummary.chargeAmount;
+    const reservationDays = paymentSummary.reservationDays;
+
+    currentStage = "checkout:amounts_ok";
+    logCheckoutStage(currentStage, reservationIdForLog, {
+      chargeAmount: paymentSummary.chargeAmount,
+      depositAmount: paymentSummary.depositAmount,
+      platformFee: paymentSummary.platformFee,
+      pricingSource: paymentSummary.rentalAmountSource,
+    });
 
     if (checkoutAmount === null) {
-      reservationDays = getReservationDays(reservation.date_from, reservation.date_to);
-      const pricePerDay = Number(item.price_per_day);
-
-      if (!reservationDays || !Number.isFinite(pricePerDay) || pricePerDay <= 0) {
-        return NextResponse.json(
-          { error: "Nepodarilo sa urcit cenu rezervacie." },
-          { status: 400 }
-        );
-      }
-
-      checkoutAmount = pricePerDay * reservationDays;
+      return NextResponse.json(
+        { error: "Nepodarilo sa urcit cenu rezervacie." },
+        { status: 400 }
+      );
     }
 
     const unitAmount = Math.round(checkoutAmount * 100);

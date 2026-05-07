@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { buildPaymentSummary, formatCurrencyAmount } from "@/lib/paymentPricing";
 import { supabase } from "@/lib/supabaseClient";
 
 const protectionHelpHref = "/info/ochrana-depozit-spory";
@@ -21,8 +22,9 @@ type ReservationRow = {
   deposit_amount_snapshot: number | null;
 };
 
-type ItemOwnerRow = {
+type ItemPaymentMetaRow = {
   owner_id: string;
+  price_per_day: number | null;
 };
 
 type CheckoutResponse = {
@@ -47,17 +49,6 @@ function formatDateTime(dateStr: string) {
   return date.toLocaleString("sk-SK");
 }
 
-function formatCurrencyAmount(value: number | null) {
-  if (value === null) {
-    return "-";
-  }
-
-  return new Intl.NumberFormat("sk-SK", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
-}
-
 function wait(ms: number) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -75,6 +66,7 @@ function PaymentInner() {
 
   const [status, setStatus] = useState("Nacitavam platbu...");
   const [reservation, setReservation] = useState<ReservationRow | null>(null);
+  const [itemPaymentMeta, setItemPaymentMeta] = useState<ItemPaymentMetaRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [availabilityError, setAvailabilityError] = useState("");
   const [fallbackMessage, setFallbackMessage] = useState("");
@@ -102,18 +94,21 @@ function PaymentInner() {
     return row;
   };
 
-  const loadItemOwnerId = async (itemId: number) => {
+  const loadItemPaymentMeta = async (itemId: number) => {
     const { data, error } = await supabase
       .from("items")
-      .select("owner_id")
+      .select("owner_id,price_per_day")
       .eq("id", itemId)
       .maybeSingle();
 
     if (error) {
+      setItemPaymentMeta(null);
       return null;
     }
 
-    return ((data ?? null) as ItemOwnerRow | null)?.owner_id ?? null;
+    const row = (data ?? null) as ItemPaymentMetaRow | null;
+    setItemPaymentMeta(row);
+    return row;
   };
 
   const blockOwnItemPayment = (message: string) => {
@@ -238,6 +233,20 @@ function PaymentInner() {
     );
   };
 
+  const paymentSummary = useMemo(() => {
+    if (!reservation) {
+      return null;
+    }
+
+    return buildPaymentSummary({
+      rentalAmountSnapshot: reservation.rental_amount_snapshot,
+      depositAmountSnapshot: reservation.deposit_amount_snapshot,
+      pricePerDay: itemPaymentMeta?.price_per_day,
+      dateFrom: reservation.date_from,
+      dateTo: reservation.date_to,
+    });
+  }, [itemPaymentMeta?.price_per_day, reservation]);
+
   useEffect(() => {
     let active = true;
 
@@ -256,7 +265,14 @@ function PaymentInner() {
       }
 
       if (!row) {
+        setItemPaymentMeta(null);
         setStatus("Rezervacia neexistuje.");
+        return;
+      }
+
+      const itemMeta = await loadItemPaymentMeta(row.item_id);
+
+      if (!active) {
         return;
       }
 
@@ -265,17 +281,9 @@ function PaymentInner() {
       } = await supabase.auth.getSession();
       const currentUserId = session?.user.id ?? null;
 
-      if (currentUserId) {
-        const itemOwnerId = await loadItemOwnerId(row.item_id);
-
-        if (!active) {
-          return;
-        }
-
-        if (itemOwnerId && itemOwnerId === currentUserId) {
-          blockOwnItemPayment("Vlastnu polozku nie je mozne rezervovat ani zaplatit.");
-          return;
-        }
+      if (currentUserId && itemMeta?.owner_id === currentUserId) {
+        blockOwnItemPayment("Vlastnu polozku nie je mozne rezervovat ani zaplatit.");
+        return;
       }
 
       if (success) {
@@ -370,23 +378,42 @@ function PaymentInner() {
         </div>
       ) : null}
 
-      {reservation ? (
+      {reservation && paymentSummary ? (
         <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-          <div className="font-semibold text-white">Financny snapshot rezervacie</div>
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
-            <div>
-              Prenajom:{" "}
-              <strong className="text-white">
-                {formatCurrencyAmount(reservation.rental_amount_snapshot)}
-              </strong>
+          <div className="font-semibold text-white">Prehlad platby</div>
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <span>Najomne</span>
+              <strong className="text-white">{formatCurrencyAmount(paymentSummary.rentalAmount)}</strong>
             </div>
-            <div>
-              Depozit:{" "}
-              <strong className="text-white">
-                {formatCurrencyAmount(reservation.deposit_amount_snapshot)}
-              </strong>
+            <div className="flex items-center justify-between gap-4">
+              <span>Depozit</span>
+              <strong className="text-white">{formatCurrencyAmount(paymentSummary.depositAmount)}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Interny poplatok Rentulo 12 %</span>
+              <strong className="text-white">{formatCurrencyAmount(paymentSummary.platformFee)}</strong>
+            </div>
+            <div className="border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-medium text-white">Suma na uhradu teraz</span>
+                <strong className="text-white">
+                  {formatCurrencyAmount(paymentSummary.chargeAmount)}
+                </strong>
+              </div>
+              <p className="mt-2 text-xs text-white/55">
+                Na Stripe checkout sa aktualne odosiela len najomne. Depozit ani interny
+                poplatok sa neposielaju ako samostatne polozky.
+              </p>
             </div>
           </div>
+
+          {paymentSummary.rentalAmountSource === "fallback" ? (
+            <p className="mt-3 text-xs text-white/55">
+              Najomne je docasne dopocitane z dennej ceny a poctu dni, pretoze snapshot nie je
+              dostupny.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -395,16 +422,17 @@ function PaymentInner() {
           <div className="font-semibold text-white">Ochrana a depozit</div>
           <div className="mt-3 space-y-3">
             <p>
-              <strong className="text-white">Ochrana:</strong> Rentulo proces pri probleme pocas
-              alebo po prenajme. Pri probleme sa vysledok riesi cez spor a rozhodnutie v systeme.
+              <strong className="text-white">Ochrana:</strong> Rentulo riesi problem pocas alebo po
+              prenajme cez spor a rozhodnutie v systeme.
             </p>
             <p>
-              <strong className="text-white">Depozit:</strong> Vidis interny financny udaj
-              rezervacie. Automaticke uvolnenie alebo strhnutie penazi tu zatial netvrdime.
+              <strong className="text-white">Depozit:</strong> Zobrazuje sa ako interny financny
+              udaj rezervacie. V tejto faze tu netvrdime automaticke uvolnenie, strhnutie ani
+              vratenie penazi.
             </p>
             <p>
-              <strong className="text-white">Spor:</strong> Ak vznikne problem, dalsi postup je v
-              reklamacii alebo spore.
+              <strong className="text-white">Aktualne v P0:</strong> Samostatny poplatok za ochranu
+              momentalne nie je aktivny a checkout spusta iba uhradu najomneho.
             </p>
             <p className="text-white/75">
               Tento blok je iba informacny.{" "}

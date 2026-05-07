@@ -358,6 +358,12 @@
         "weekly_pricing_mvp": false,
         "half_day_mvp": false,
         "daily_cap_mvp": false,
+        "p0_financial_foundation": {
+          "platform_fee_rate_internal": 0.12,
+          "deposit_snapshot_current": 0.0,
+          "protection_fee_snapshot": "not_active_or_unknown",
+          "provider_automation": "not_in_p0"
+        },
         "cancellation_policy_target": {
           "renter_cancel_gte_72h": "full_refund",
           "renter_cancel_lt_72h_gte_24h": "50_percent_refund",
