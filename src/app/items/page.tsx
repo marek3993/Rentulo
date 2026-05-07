@@ -84,7 +84,7 @@ function formatDistanceLabel(distanceKm: number) {
 }
 
 function matchesClientSideFilters(item: Item, normalizedText: string, categoryFilter: string) {
-  if (categoryFilter !== "V?etky kateg?rie" && item.category !== categoryFilter) {
+  if (categoryFilter !== "Všetky kategórie" && item.category !== categoryFilter) {
     return false;
   }
 
@@ -202,7 +202,7 @@ function ItemsPageInner() {
   const currentRadiusKm = Number(radiusKm);
   const isNearbySearch = selectedLabel.toLowerCase() === "moja poloha";
   const hintDistanceReference = isNearbySearch ? "od teba" : "od zvolenej lokality";
-  const selectedLabelBadge = isNearbySearch ? "tvoje okolie (priblizne)" : selectedLabel;
+  const selectedLabelBadge = isNearbySearch ? "tvoje okolie (približne)" : selectedLabel;
 
   const filteredItems = useMemo(() => {
     const normalizedText = textQuery.trim().toLowerCase();
@@ -314,7 +314,7 @@ function ItemsPageInner() {
     const requestId = ++itemsRequestIdRef.current;
     setIsItemsLoading(true);
     setStatusTone("neutral");
-    setStatus("Na??tavam...");
+    setStatus("Načítavam...");
     setOutsideRadiusHint(null);
 
     const { data, error } = await supabase
@@ -353,7 +353,7 @@ function ItemsPageInner() {
     const requestId = ++itemsRequestIdRef.current;
     setIsItemsLoading(true);
     setStatusTone("neutral");
-    setStatus("H?ad?m ponuky v okol?...");
+    setStatus("Hľadám ponuky v okolí...");
     setOutsideRadiusHint(null);
 
     const { data, error } = await supabase.rpc("search_items_near", {
@@ -625,7 +625,7 @@ function ItemsPageInner() {
 
     if (lat === null || lng === null) {
       setStatusTone("error");
-      setStatus("Chyba: lokalita nema suradnice.");
+      setStatus("Chyba: lokalita nemá súradnice.");
       return;
     }
 
@@ -655,7 +655,7 @@ function ItemsPageInner() {
     if (!navigator.geolocation) {
       setLocationFeedback({
         tone: "error",
-        message: "Tento prehliadac nepodporuje polohu. Zadaj mesto alebo PSC rucne.",
+        message: "Tento prehliadač nepodporuje polohu. Zadaj mesto alebo PSČ ručne.",
       });
       setStatus("");
       return;
@@ -664,7 +664,7 @@ function ItemsPageInner() {
     setIsLocatingUser(true);
     setLocationFeedback({
       tone: "neutral",
-      message: "Pytame si pristup k polohe. Po povoleni pouzijeme iba pribliznu polohu v tvojom okoli.",
+      message: "Pýtame si prístup k polohe. Po povolení použijeme iba približnú polohu v tvojom okolí.",
     });
     setStatus("");
 
@@ -675,7 +675,7 @@ function ItemsPageInner() {
         setIsLocatingUser(false);
         setLocationFeedback({
           tone: "success",
-          message: "Pouzivame len pribliznu polohu v okoli teba. Presne GPS suradnice neukladame ani verejne nezobrazujeme.",
+          message: "Používame len približnú polohu v okolí teba. Presné GPS súradnice neukladáme ani verejne nezobrazujeme.",
         });
         setLocationQuery("moja poloha");
         setSelectedLabel("moja poloha");
@@ -689,7 +689,7 @@ function ItemsPageInner() {
         if (error.code === error.PERMISSION_DENIED) {
           setLocationFeedback({
             tone: "error",
-            message: "Pristup k polohe je zablokovany. Povol ho v prehliadaci alebo zadaj mesto rucne.",
+            message: "Prístup k polohe je zablokovaný. Povoľ ho v prehliadači alebo zadaj mesto ručne.",
           });
           return;
         }
@@ -697,14 +697,14 @@ function ItemsPageInner() {
         if (error.code === error.TIMEOUT) {
           setLocationFeedback({
             tone: "error",
-            message: "Ziskanie polohy trvalo prilis dlho. Skus to este raz alebo zadaj mesto rucne.",
+            message: "Získanie polohy trvalo príliš dlho. Skús to ešte raz alebo zadaj mesto ručne.",
           });
           return;
         }
 
         setLocationFeedback({
           tone: "error",
-          message: "Polohu sa nepodarilo zistit. Skus to znova alebo zadaj mesto rucne.",
+          message: "Polohu sa nepodarilo zistiť. Skús to znova alebo zadaj mesto ručne.",
         });
       },
       {
@@ -720,7 +720,7 @@ function ItemsPageInner() {
     setLocationQuery("");
     setLocationResults([]);
     setRadiusKm("20");
-    setCategoryFilter("V?etky kateg?rie");
+    setCategoryFilter("Všetky kategórie");
     setDateFrom("");
     setDateTo("");
     setLocationFeedback(null);
@@ -1000,10 +1000,10 @@ function ItemsPageInner() {
               aria-busy={isLocatingUser}
             >
               {isLocatingUser
-                ? "Zistujem pribliznu polohu..."
+                ? "Zisťujem približnú polohu..."
                 : isNearbySearch
-                  ? "Aktualizovat moje okolie"
-                  : "V mojej blizkosti"}
+                  ? "Aktualizovať moje okolie"
+                  : "V mojej blízkosti"}
             </button>
 
             <button
@@ -1092,17 +1092,17 @@ function ItemsPageInner() {
       {outsideRadiusHint && !status ? (
         <div className="rentulo-items-success-panel rounded-[1.75rem] p-5">
           <div className="text-base font-semibold">
-            V okruhu {radiusKm} km teraz nevidime vhodnu ponuku.
+            V okruhu {radiusKm} km teraz nevidíme vhodnú ponuku.
           </div>
           <div className="mt-2 text-sm leading-6">
-            Najblizsia zodpovedajuca ponuka je priblizne {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
-            Ak rozsiris hladanie na {outsideRadiusHint.suggestedRadiusKm} km, uvidis{" "}
+            Najbližšia zodpovedajúca ponuka je približne {formatDistanceLabel(outsideRadiusHint.nearestDistanceKm)} {hintDistanceReference}.{" "}
+            Ak rozšíriš hľadanie na {outsideRadiusHint.suggestedRadiusKm} km, uvidíš{" "}
             {outsideRadiusHint.matchingCount === 1
-              ? "aspon 1 vhodnu ponuku"
-              : `aspon ${outsideRadiusHint.matchingCount} vhodne ponuky`}.
+              ? "aspoň 1 vhodnú ponuku"
+              : `aspoň ${outsideRadiusHint.matchingCount} vhodné ponuky`}.
           </div>
           <div className="mt-2 text-sm leading-6 opacity-90">
-            Nadalej zobrazime iba pribliznu polohu podla verejnej lokality, nie presnu adresu.
+            Naďalej zobrazíme iba približnú polohu podľa verejnej lokality, nie presnú adresu.
           </div>
           <div className="mt-4">
             <button
@@ -1110,7 +1110,7 @@ function ItemsPageInner() {
               className="rentulo-btn-primary px-4 py-2 text-sm"
               onClick={() => setRadiusKm(outsideRadiusHint.suggestedRadiusKm)}
             >
-              Zobrazit do {outsideRadiusHint.suggestedRadiusKm} km
+              Zobraziť do {outsideRadiusHint.suggestedRadiusKm} km
             </button>
           </div>
         </div>
@@ -1121,12 +1121,12 @@ function ItemsPageInner() {
           <div className="text-base text-foreground">
             {searchCenter
               ? isNearbySearch
-                ? "V tomto okoli sa zatial nenasli ziadne ponuky."
-                : "V zvolenom okoli sa zatial nenasli ziadne ponuky."
-              : "Nenasli sa ziadne ponuky."}
+                ? "V tomto okolí sa zatiaľ nenašli žiadne ponuky."
+                : "V zvolenom okolí sa zatiaľ nenašli žiadne ponuky."
+              : "Nenašli sa žiadne ponuky."}
           </div>
           <div className="mt-2 text-sm leading-6">
-            Skus vacsi okruh, inu lokalitu alebo menej prisne filtre.
+            Skús väčší okruh, inú lokalitu alebo menej prísne filtre.
           </div>
         </div>
       ) : null}
