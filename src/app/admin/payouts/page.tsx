@@ -40,6 +40,8 @@ const PROVIDER_REF_KEYS = ["provider_ref", "external_ref"];
 const CREATED_AT_KEYS = ["created_at", "requested_at", "inserted_at"];
 const UPDATED_AT_KEYS = ["paid_at", "processed_at", "failed_at", "updated_at"];
 
+type PayoutStatusSummary = Record<ReturnType<typeof normalizePayoutStatus>, number>;
+
 function SummaryCard({
   title,
   value,
@@ -70,13 +72,21 @@ export default function AdminPayoutsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const counts = useMemo(() => {
-    return rows.reduce(
+    const initialSummary: PayoutStatusSummary = {
+      pending: 0,
+      processing: 0,
+      paid: 0,
+      failed: 0,
+      unknown: 0,
+    };
+
+    return rows.reduce<PayoutStatusSummary>(
       (summary, row) => {
         const nextStatus = normalizePayoutStatus(pickString(row, STATUS_KEYS));
         summary[nextStatus] += 1;
         return summary;
       },
-      { pending: 0, processing: 0, paid: 0, failed: 0, unknown: 0 }
+      initialSummary
     );
   }, [rows]);
 
