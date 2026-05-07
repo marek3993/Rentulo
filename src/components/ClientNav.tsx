@@ -458,6 +458,9 @@ export default function ClientNav() {
                         <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
                           Profil
                         </DropdownLink>
+                        <DropdownLink href="/earnings" onNavigate={() => setOpenMenuPath(null)}>
+                          Zárobky
+                        </DropdownLink>
                         <DropdownLink
                           href="/reservations"
                           onNavigate={() => setOpenMenuPath(null)}

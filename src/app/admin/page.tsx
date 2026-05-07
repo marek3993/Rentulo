@@ -82,7 +82,7 @@ function actionLabel(actionType: string) {
   if (actionType === "review_hidden") return "Hodnotenie skryte";
   if (actionType === "review_restored") return "Hodnotenie obnovene";
   if (actionType === "review_deleted") return "Hodnotenie vymazane";
-  if (actionType === "wallet_release") return "Uvolnenie payoutu";
+  if (actionType === "wallet_release") return "Uvolnenie vyplaty";
   if (actionType === "dispute_status_changed") return "Zmena stavu sporu";
   return actionType;
 }
@@ -248,6 +248,9 @@ export default function AdminDashboardPage() {
             <Link href="/admin/disputes" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
               Spory
             </Link>
+            <Link href="/admin/payouts" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+              Vyplaty
+            </Link>
             <Link href="/admin/actions" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
               Audit
             </Link>
@@ -284,6 +287,9 @@ export default function AdminDashboardPage() {
             </Link>
             <Link href="/admin/reviews" className="rentulo-btn-secondary px-3 py-2 text-sm">
               Reviews
+            </Link>
+            <Link href="/admin/payouts" className="rentulo-btn-secondary px-3 py-2 text-sm">
+              Vyplaty
             </Link>
             <Link href="/admin/actions" className="rentulo-btn-secondary px-3 py-2 text-sm">
               Audit
@@ -432,6 +438,13 @@ export default function AdminDashboardPage() {
           <div className="text-lg font-semibold">Spory</div>
           <div className="mt-2 text-sm leading-6 text-white/70">
             Prechod na admin spory.
+          </div>
+        </Link>
+
+        <Link href="/admin/payouts" className="rentulo-card p-5 transition hover:border-indigo-400/30 hover:bg-white/[0.07]">
+          <div className="text-lg font-semibold">Vyplaty</div>
+          <div className="mt-2 text-sm leading-6 text-white/70">
+            Front ziadosi o vyplatu a zmena ich stavu.
           </div>
         </Link>
 

@@ -338,6 +338,23 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      <div className="rentulo-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="max-w-2xl">
+            <div className="text-sm text-white/60">Zárobky</div>
+            <div className="mt-2 text-xl font-semibold">Prehľad výplat je dostupný na jednom mieste</div>
+            <p className="mt-2 text-sm leading-6 text-white/65">
+              Skontroluj zostatok na vyplatenie, odošli žiadosť o výplatu a pozri si Históriu
+              výplat.
+            </p>
+          </div>
+
+          <Link href="/earnings" className="rentulo-btn-secondary px-4 py-2.5 text-sm">
+            Otvoriť Zárobky
+          </Link>
+        </div>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rentulo-card space-y-4 p-6">
           <div className="font-semibold">Profilová fotka</div>

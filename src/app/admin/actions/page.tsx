@@ -41,7 +41,7 @@ function actionLabel(actionType: string) {
   if (actionType === "review_hidden") return "Hodnotenie skryte";
   if (actionType === "review_restored") return "Hodnotenie obnovene";
   if (actionType === "review_deleted") return "Hodnotenie vymazane";
-  if (actionType === "wallet_release") return "Uvolnenie payoutu";
+  if (actionType === "wallet_release") return "Uvolnenie vyplaty";
   if (actionType === "dispute_status_changed") return "Zmena stavu sporu";
   return actionType;
 }
