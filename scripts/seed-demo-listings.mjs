@@ -625,25 +625,53 @@ function loadLocalEnvFiles() {
   loadEnvFile(".env.local");
 }
 
-function getRequiredEnv(name) {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+function getSupabaseEnvConfig() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  const missing = [];
+
+  if (!supabaseUrl) {
+    missing.push("NEXT_PUBLIC_SUPABASE_URL");
   }
-  return value;
+
+  if (!supabaseAnonKey) {
+    missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
+  if (!supabaseServiceRoleKey) {
+    missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required environment variable${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}`
+    );
+  }
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    supabaseServiceRoleKey,
+  };
 }
 
-function buildSupabaseClient() {
-  return createClient(
-    getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+function buildAdminSupabaseClient(config) {
+  return createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+function buildOwnerSupabaseClient(config) {
+  return createClient(config.supabaseUrl, config.supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 function parseArgs(argv) {
@@ -704,7 +732,11 @@ async function findDemoUser(supabase) {
   );
 }
 
-async function ensureDemoUser(supabase, createIfMissing) {
+function createDemoPassword() {
+  return `Rentulo-demo-owner-${randomUUID()}`;
+}
+
+async function ensureDemoUser(supabase, createIfMissing, password) {
   const existingUser = await findDemoUser(supabase);
   if (existingUser) {
     return { user: existingUser, created: false };
@@ -732,6 +764,45 @@ async function ensureDemoUser(supabase, createIfMissing) {
   }
 
   return { user: data.user, created: true };
+}
+
+async function resetDemoUserPassword(supabase, userId, password) {
+  const { data, error } = await supabase.auth.admin.updateUserById(userId, {
+    password,
+    email_confirm: true,
+  });
+
+  if (error) {
+    throw new Error(`Unable to reset demo auth user password: ${error.message}`);
+  }
+
+  if (!data.user) {
+    throw new Error("Demo auth user password reset returned no user.");
+  }
+
+  return data.user;
+}
+
+async function buildAuthenticatedDemoOwnerClient(config, expectedUserId, password) {
+  const supabase = buildOwnerSupabaseClient(config);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: DEMO_EMAIL,
+    password,
+  });
+
+  if (error) {
+    throw new Error(`Unable to sign in demo auth user: ${error.message}`);
+  }
+
+  if (!data.session || !data.user) {
+    throw new Error("Demo auth user sign-in returned no session.");
+  }
+
+  if (data.user.id !== expectedUserId) {
+    throw new Error("Signed in unexpected demo auth user.");
+  }
+
+  return supabase;
 }
 
 async function upsertDemoProfile(supabase, userId) {
@@ -1487,7 +1558,7 @@ async function uploadGeneratedImages(supabase, ownerId, itemId, listing) {
   return variants.length;
 }
 
-async function seedListings(supabase, ownerId, count) {
+async function seedListings(adminSupabase, ownerSupabase, ownerId, count) {
   let createdItems = 0;
   let uploadedImages = 0;
   let createdBlockedRanges = 0;
@@ -1496,11 +1567,11 @@ async function seedListings(supabase, ownerId, count) {
     const listing = buildListing(index);
     console.log(`[${index + 1}/${count}] Creating ${listing.title} (${listing.city})`);
 
-    const itemId = await createItemWithLocation(supabase, ownerId, listing);
-    await updateListingFields(supabase, itemId, ownerId, listing);
-    await updateDeliveryConfig(supabase, itemId, listing);
-    await createBlockedRanges(supabase, itemId, listing);
-    uploadedImages += await uploadGeneratedImages(supabase, ownerId, itemId, listing);
+    const itemId = await createItemWithLocation(ownerSupabase, ownerId, listing);
+    await updateListingFields(ownerSupabase, itemId, ownerId, listing);
+    await updateDeliveryConfig(ownerSupabase, itemId, listing);
+    await createBlockedRanges(ownerSupabase, itemId, listing);
+    uploadedImages += await uploadGeneratedImages(adminSupabase, ownerId, itemId, listing);
 
     createdItems += 1;
     createdBlockedRanges += listing.blockedRanges.length;
@@ -1525,9 +1596,11 @@ function isDirectRun() {
 async function main() {
   loadLocalEnvFiles();
   const { count, clean } = parseArgs(process.argv.slice(2));
-  const supabase = buildSupabaseClient();
+  const supabaseConfig = getSupabaseEnvConfig();
+  const adminSupabase = buildAdminSupabaseClient(supabaseConfig);
+  const demoPassword = createDemoPassword();
 
-  const { user, created } = await ensureDemoUser(supabase, !clean);
+  const { user, created } = await ensureDemoUser(adminSupabase, !clean, demoPassword);
   if (!user) {
     console.log(`No auth user found for ${DEMO_EMAIL}. Nothing to clean.`);
     return;
@@ -1539,8 +1612,8 @@ async function main() {
     console.log(`Reusing demo auth user ${DEMO_EMAIL}.`);
   }
 
-  await upsertDemoProfile(supabase, user.id);
-  const cleanupSummary = await cleanupDemoOwnerItems(supabase, user.id);
+  await upsertDemoProfile(adminSupabase, user.id);
+  const cleanupSummary = await cleanupDemoOwnerItems(adminSupabase, user.id);
 
   console.log(
     `Cleanup finished: ${cleanupSummary.itemsDeleted} items, ${cleanupSummary.blockedRangesDeleted} blocked ranges, ${cleanupSummary.imageRowsDeleted} image rows, ${cleanupSummary.storageObjectsDeleted} storage objects.`
@@ -1550,7 +1623,18 @@ async function main() {
     return;
   }
 
-  const seedSummary = await seedListings(supabase, user.id, count);
+  if (!created) {
+    await resetDemoUserPassword(adminSupabase, user.id, demoPassword);
+  }
+
+  const ownerSupabase = await buildAuthenticatedDemoOwnerClient(
+    supabaseConfig,
+    user.id,
+    demoPassword
+  );
+  console.log(`Authenticated demo owner session ${DEMO_EMAIL}.`);
+
+  const seedSummary = await seedListings(adminSupabase, ownerSupabase, user.id, count);
   console.log(
     `Seed finished: ${seedSummary.createdItems} items, ${seedSummary.uploadedImages} SVG images, ${seedSummary.createdBlockedRanges} blocked ranges.`
   );
