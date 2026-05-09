@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:demo-listings": "node scripts/seed-demo-listings.mjs",
+    "seed:demo-listings:clean": "node scripts/seed-demo-listings.mjs --clean"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
