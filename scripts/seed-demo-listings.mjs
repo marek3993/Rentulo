@@ -31,6 +31,120 @@ const CATEGORY_PALETTES = {
   "Dom a dielňa": { bgA: "#1c1917", bgB: "#ea580c", accent: "#fed7aa", surface: "#fff7ed" },
 };
 
+const TOOL_PHOTOS = [
+  "https://images.pexels.com/photos/30413424/pexels-photo-30413424.jpeg?cs=srgb&dl=pexels-christina99999-30413424.jpg&fm=jpg",
+  "https://images.pexels.com/photos/30413428/pexels-photo-30413428.jpeg?cs=srgb&dl=pexels-christina99999-30413428.jpg&fm=jpg",
+  "https://images.pexels.com/photos/8811529/pexels-photo-8811529.jpeg?cs=srgb&dl=pexels-theshuttervision-8811529.jpg&fm=jpg",
+];
+
+const GARDEN_TOOL_PHOTOS = [
+  "https://images.pexels.com/photos/7767006/pexels-photo-7767006.jpeg?cs=srgb&dl=pexels-bryce-carithers-11680701-7767006.jpg&fm=jpg",
+  "https://images.pexels.com/photos/3999647/pexels-photo-3999647.jpeg?cs=srgb&dl=pexels-kelly-3999647.jpg&fm=jpg",
+  "https://images.pexels.com/photos/4162009/pexels-photo-4162009.jpeg?cs=srgb&dl=pexels-magda-ehlers-pexels-4162009.jpg&fm=jpg",
+  "https://images.pexels.com/photos/9229815/pexels-photo-9229815.jpeg?cs=srgb&dl=pexels-introspectivedsgn-9229815.jpg&fm=jpg",
+];
+
+const CHAINSAW_PHOTOS = [
+  "https://images.pexels.com/photos/5775144/pexels-photo-5775144.jpeg?cs=srgb&dl=pexels-anastasiya-gepp-654466-5775144.jpg&fm=jpg",
+  "https://images.pexels.com/photos/5952695/pexels-photo-5952695.jpeg?cs=srgb&dl=pexels-matheus-bertelli-5952695.jpg&fm=jpg",
+  "https://images.pexels.com/photos/8985461/pexels-photo-8985461.jpeg?cs=srgb&dl=pexels-rdne-8985461.jpg&fm=jpg",
+  "https://images.pexels.com/photos/10112523/pexels-photo-10112523.jpeg?cs=srgb&dl=pexels-kampus-production-10112523.jpg&fm=jpg",
+];
+
+const ROOFBOX_PHOTOS = [
+  "https://images.pexels.com/photos/19292941/pexels-photo-19292941.jpeg?cs=srgb&dl=pexels-bylukemiller-19292941.jpg&fm=jpg",
+  "https://images.pexels.com/photos/19292925/pexels-photo-19292925.jpeg?cs=srgb&dl=pexels-bylukemiller-19292925.jpg&fm=jpg",
+  "https://images.pexels.com/photos/19292947/pexels-photo-19292947.jpeg?cs=srgb&dl=pexels-bylukemiller-19292947.jpg&fm=jpg",
+];
+
+const PROJECTOR_PHOTOS = [
+  "https://images.pexels.com/photos/31261076/pexels-photo-31261076.jpeg?cs=srgb&dl=pexels-nick-dimitrov-7863715-31261076.jpg&fm=jpg",
+  "https://images.pexels.com/photos/2867980/pexels-photo-2867980.jpeg?cs=srgb&dl=pexels-aleksey-marcov-2867980.jpg&fm=jpg",
+  "https://images.pexels.com/photos/14502577/pexels-photo-14502577.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/34786572/pexels-photo-34786572.jpeg?cs=srgb&dl=pexels-luchik-34786572.jpg&fm=jpg",
+];
+
+const SPEAKER_PHOTOS = [
+  "https://images.pexels.com/photos/5511714/pexels-photo-5511714.jpeg?cs=srgb&dl=pexels-zeleboba-5511714.jpg&fm=jpg",
+  "https://images.pexels.com/photos/11031429/pexels-photo-11031429.png?cs=srgb&dl=pexels-moises-ribeiro-121009898-11031429.jpg&fm=jpg",
+  "https://images.pexels.com/photos/11103381/pexels-photo-11103381.jpeg?cs=srgb&dl=pexels-towfiqu-barbhuiya-3440682-11103381.jpg&fm=jpg",
+  "https://images.pexels.com/photos/13581779/pexels-photo-13581779.jpeg?cs=srgb&dl=pexels-obi-onyeador-1787470-13581779.jpg&fm=jpg",
+];
+
+const ACTION_CAMERA_PHOTOS = [
+  "https://images.pexels.com/photos/8799699/pexels-photo-8799699.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/690806/pexels-photo-690806.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+];
+
+const DRONE_PHOTOS = [
+  "https://images.pexels.com/photos/1087183/pexels-photo-1087183.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+];
+
+const PADDLEBOARD_PHOTOS = [
+  "https://images.pexels.com/photos/34054794/pexels-photo-34054794.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/19197444/pexels-photo-19197444.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/27790714/pexels-photo-27790714.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/36390338/pexels-photo-36390338.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+];
+
+const TENT_PHOTOS = [
+  "https://images.pexels.com/photos/14287/pexels-photo-14287.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/32465443/pexels-photo-32465443.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/32973537/pexels-photo-32973537.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/28885324/pexels-photo-28885324.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+];
+
+const KAYAK_PHOTOS = [
+  "https://images.pexels.com/photos/4067794/pexels-photo-4067794.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/7276706/pexels-photo-7276706.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+  "https://images.pexels.com/photos/13512558/pexels-photo-13512558.jpeg?auto=compress&cs=tinysrgb&fit=crop&w=1600&h=1200",
+];
+
+const CARPET_CLEANER_PHOTOS = [
+  "https://images.pexels.com/photos/4107284/pexels-photo-4107284.jpeg?cs=srgb&dl=pexels-cottonbro-4107284.jpg&fm=jpg",
+  "https://images.pexels.com/photos/38325/vacuum-cleaner-carpet-cleaner-housework-housekeeping-38325.jpeg?cs=srgb&dl=pexels-pixabay-38325.jpg&fm=jpg",
+  "https://images.pexels.com/photos/4107276/pexels-photo-4107276.jpeg?cs=srgb&dl=pexels-cottonbro-4107276.jpg&fm=jpg",
+  "https://images.pexels.com/photos/9462316/pexels-photo-9462316.jpeg?cs=srgb&dl=pexels-liliana-drew-9462316.jpg&fm=jpg",
+];
+
+const LADDER_PHOTOS = [
+  "https://images.pexels.com/photos/5767931/pexels-photo-5767931.jpeg?cs=srgb&dl=pexels-kseniachernaya-5767931.jpg&fm=jpg",
+];
+
+const CATEGORY_PHOTO_POOLS = {
+  [CATEGORIES[0]]: TOOL_PHOTOS,
+  [CATEGORIES[1]]: [...GARDEN_TOOL_PHOTOS, ...CHAINSAW_PHOTOS],
+  [CATEGORIES[2]]: [...TOOL_PHOTOS, ...LADDER_PHOTOS, ...CARPET_CLEANER_PHOTOS],
+  [CATEGORIES[3]]: ROOFBOX_PHOTOS,
+  [CATEGORIES[4]]: [...PROJECTOR_PHOTOS, ...SPEAKER_PHOTOS, ...ACTION_CAMERA_PHOTOS, ...DRONE_PHOTOS],
+  [CATEGORIES[5]]: [...PADDLEBOARD_PHOTOS, ...TENT_PHOTOS, ...KAYAK_PHOTOS],
+  [CATEGORIES[6]]: [...CARPET_CLEANER_PHOTOS, ...LADDER_PHOTOS, ...TOOL_PHOTOS],
+};
+
+const ILLUSTRATION_PHOTO_POOLS = {
+  drill: TOOL_PHOTOS,
+  mower: GARDEN_TOOL_PHOTOS,
+  chainsaw: CHAINSAW_PHOTOS,
+  roofbox: ROOFBOX_PHOTOS,
+  projector: PROJECTOR_PHOTOS,
+  speaker: SPEAKER_PHOTOS,
+  camera: ACTION_CAMERA_PHOTOS,
+  drone: DRONE_PHOTOS,
+  board: PADDLEBOARD_PHOTOS,
+  tent: TENT_PHOTOS,
+  kayak: KAYAK_PHOTOS,
+  extractor: CARPET_CLEANER_PHOTOS,
+  vacuum: CARPET_CLEANER_PHOTOS,
+  ladder: LADDER_PHOTOS,
+};
+
+const IMAGE_CONTENT_TYPES = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
 const CONDITION_LABELS = {
   new: "Nové",
   like_new: "Ako nové",
@@ -872,7 +986,7 @@ async function cleanupDemoOwnerItems(supabase, ownerId) {
   for (const storageChunk of chunk(storagePaths, 100)) {
     const { error } = await supabase.storage.from(ITEM_IMAGE_BUCKET).remove(storageChunk);
     if (error) {
-      throw new Error(`Unable to remove stored SVG images: ${error.message}`);
+      throw new Error(`Unable to remove stored item images: ${error.message}`);
     }
     storageObjectsDeleted += storageChunk.length;
   }
@@ -1068,6 +1182,7 @@ function buildListing(index) {
     delivery,
     blockedRanges: buildBlockedRanges(index),
     illustration: template.illustration,
+    seedIndex: index,
     description: buildDescription({
       template,
       city,
@@ -1438,10 +1553,88 @@ function buildDetailSvg(listing) {
 }
 
 function buildImageVariants(listing) {
+  const pool = Array.from(
+    new Set([
+      ...(ILLUSTRATION_PHOTO_POOLS[listing.illustration] ?? []),
+      ...(CATEGORY_PHOTO_POOLS[listing.category] ?? []),
+    ])
+  );
+  const baseIndex = pool.length > 0 ? (listing.seedIndex * 2) % pool.length : 0;
+
   return [
-    { pathSuffix: "cover", svg: buildHeroSvg(listing) },
-    { pathSuffix: "detail", svg: buildDetailSvg(listing) },
+    {
+      pathSuffix: "cover",
+      remoteUrl: pool.length > 0 ? pool[baseIndex] : null,
+      fallbackSvg: buildHeroSvg(listing),
+    },
+    {
+      pathSuffix: "detail",
+      remoteUrl: pool.length > 0 ? pool[(baseIndex + 1) % pool.length] : null,
+      fallbackSvg: buildDetailSvg(listing),
+    },
   ];
+}
+
+function normalizeRemoteContentType(value) {
+  return String(value || "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+}
+
+function extensionFromRemoteImage(url, contentType) {
+  if (contentType === "image/jpeg") {
+    return "jpg";
+  }
+
+  if (contentType === "image/png") {
+    return "png";
+  }
+
+  if (contentType === "image/webp") {
+    return "webp";
+  }
+
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    if (pathname.endsWith(".png")) {
+      return "png";
+    }
+    if (pathname.endsWith(".webp")) {
+      return "webp";
+    }
+    if (pathname.endsWith(".jpeg") || pathname.endsWith(".jpg")) {
+      return "jpg";
+    }
+  } catch {}
+
+  return "jpg";
+}
+
+async function fetchRemoteImageVariant(url) {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const contentType = normalizeRemoteContentType(response.headers.get("content-type"));
+  if (!contentType.startsWith("image/")) {
+    throw new Error(`Unexpected content-type ${contentType || "unknown"}`);
+  }
+
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length === 0) {
+    throw new Error("Remote image response was empty.");
+  }
+
+  const extension = extensionFromRemoteImage(url, contentType);
+
+  return {
+    bytes,
+    contentType: IMAGE_CONTENT_TYPES[extension] ?? contentType,
+    extension,
+  };
 }
 
 async function createItemWithLocation(supabase, ownerId, listing) {
@@ -1525,21 +1718,49 @@ async function createBlockedRanges(supabase, itemId, listing) {
 
 async function uploadGeneratedImages(supabase, ownerId, itemId, listing) {
   const variants = buildImageVariants(listing);
+  let realPhotosUploaded = 0;
+  let fallbackSvgPhotosUsed = 0;
 
   for (let position = 0; position < variants.length; position += 1) {
     const variant = variants[position];
-    const pathValue = `${ownerId}/${itemId}/${variant.pathSuffix}.svg`;
+    let bytes;
+    let contentType;
+    let extension;
+
+    if (variant.remoteUrl) {
+      try {
+        const remoteImage = await fetchRemoteImageVariant(variant.remoteUrl);
+        bytes = remoteImage.bytes;
+        contentType = remoteImage.contentType;
+        extension = remoteImage.extension;
+        realPhotosUploaded += 1;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[photo-fallback] ${listing.title} (${variant.pathSuffix}) -> ${variant.remoteUrl}: ${reason}`
+        );
+      }
+    }
+
+    if (!bytes || !contentType || !extension) {
+      bytes = Buffer.from(variant.fallbackSvg, "utf8");
+      contentType = "image/svg+xml";
+      extension = "svg";
+      fallbackSvgPhotosUsed += 1;
+    }
+
+    const pathValue = `${ownerId}/${itemId}/${variant.pathSuffix}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from(ITEM_IMAGE_BUCKET)
-      .upload(pathValue, Buffer.from(variant.svg, "utf8"), {
-        contentType: "image/svg+xml",
+      .upload(pathValue, bytes, {
+        contentType,
         cacheControl: "3600",
         upsert: true,
       });
 
     if (uploadError) {
-      throw new Error(`Unable to upload SVG for "${listing.title}": ${uploadError.message}`);
+      throw new Error(`Unable to upload image for "${listing.title}": ${uploadError.message}`);
     }
 
     const { error: imageRowError } = await supabase.from("item_images").insert({
@@ -1555,13 +1776,19 @@ async function uploadGeneratedImages(supabase, ownerId, itemId, listing) {
     }
   }
 
-  return variants.length;
+  return {
+    uploadedImages: variants.length,
+    realPhotosUploaded,
+    fallbackSvgPhotosUsed,
+  };
 }
 
 async function seedListings(adminSupabase, ownerSupabase, ownerId, count) {
   let createdItems = 0;
   let uploadedImages = 0;
   let createdBlockedRanges = 0;
+  let realPhotosUploaded = 0;
+  let fallbackSvgPhotosUsed = 0;
 
   for (let index = 0; index < count; index += 1) {
     const listing = buildListing(index);
@@ -1571,7 +1798,10 @@ async function seedListings(adminSupabase, ownerSupabase, ownerId, count) {
     await updateListingFields(ownerSupabase, itemId, ownerId, listing);
     await updateDeliveryConfig(ownerSupabase, itemId, listing);
     await createBlockedRanges(ownerSupabase, itemId, listing);
-    uploadedImages += await uploadGeneratedImages(adminSupabase, ownerId, itemId, listing);
+    const imageSummary = await uploadGeneratedImages(adminSupabase, ownerId, itemId, listing);
+    uploadedImages += imageSummary.uploadedImages;
+    realPhotosUploaded += imageSummary.realPhotosUploaded;
+    fallbackSvgPhotosUsed += imageSummary.fallbackSvgPhotosUsed;
 
     createdItems += 1;
     createdBlockedRanges += listing.blockedRanges.length;
@@ -1581,6 +1811,8 @@ async function seedListings(adminSupabase, ownerSupabase, ownerId, count) {
     createdItems,
     uploadedImages,
     createdBlockedRanges,
+    realPhotosUploaded,
+    fallbackSvgPhotosUsed,
   };
 }
 
@@ -1636,8 +1868,10 @@ async function main() {
 
   const seedSummary = await seedListings(adminSupabase, ownerSupabase, user.id, count);
   console.log(
-    `Seed finished: ${seedSummary.createdItems} items, ${seedSummary.uploadedImages} SVG images, ${seedSummary.createdBlockedRanges} blocked ranges.`
+    `Seed finished: ${seedSummary.createdItems} items, ${seedSummary.uploadedImages} uploaded images, ${seedSummary.createdBlockedRanges} blocked ranges.`
   );
+  console.log(`Real photos uploaded: ${seedSummary.realPhotosUploaded}`);
+  console.log(`Fallback SVG photos used: ${seedSummary.fallbackSvgPhotosUsed}`);
 }
 
 if (isDirectRun()) {
