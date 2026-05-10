@@ -21,7 +21,18 @@ type CreatePayoutRequestBody = {
   requested_amount?: number | string | null;
   note?: string | null;
   currency?: string | null;
+  provider?: string | null;
+  payoutProvider?: string | null;
+  payout_provider?: string | null;
 };
+
+type PayoutRequestProvider = "manual_sepa" | "stripe_connect";
+
+const DEFAULT_PAYOUT_REQUEST_PROVIDER: PayoutRequestProvider = "manual_sepa";
+const ALLOWED_PAYOUT_REQUEST_PROVIDERS = new Set<PayoutRequestProvider>([
+  "manual_sepa",
+  "stripe_connect",
+]);
 
 function parsePage(value: string | null) {
   const page = Number(value);
@@ -92,108 +103,26 @@ function parseOptionalCurrency(value: unknown) {
   return trimmed;
 }
 
-function withDefinedEntries(entries: Record<string, unknown>) {
-  return Object.fromEntries(Object.entries(entries).filter(([, value]) => value !== undefined));
-}
+function parseOptionalPayoutRequestProvider(value: unknown): PayoutRequestProvider | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
 
-function buildCreatePayoutRequestVariants(
-  userId: string,
-  amount: number,
-  note: string | null,
-  currency: string | null
-) {
-  return [
-    {
-      label: "requested_amount_note_currency",
-      args: withDefinedEntries({
-        p_requested_amount: amount,
-        p_note: note ?? undefined,
-        p_requested_currency: currency ?? undefined,
-      }),
-    },
-    {
-      label: "requested_amount_note",
-      args: withDefinedEntries({
-        p_requested_amount: amount,
-        p_note: note ?? undefined,
-      }),
-    },
-    {
-      label: "amount_note_currency",
-      args: withDefinedEntries({
-        p_amount: amount,
-        p_note: note ?? undefined,
-        p_currency: currency ?? undefined,
-      }),
-    },
-    {
-      label: "amount_note",
-      args: withDefinedEntries({
-        p_amount: amount,
-        p_note: note ?? undefined,
-      }),
-    },
-    {
-      label: "user_requested_amount_note_currency",
-      args: withDefinedEntries({
-        p_user_id: userId,
-        p_requested_amount: amount,
-        p_note: note ?? undefined,
-        p_requested_currency: currency ?? undefined,
-      }),
-    },
-    {
-      label: "user_requested_amount_note",
-      args: withDefinedEntries({
-        p_user_id: userId,
-        p_requested_amount: amount,
-        p_note: note ?? undefined,
-      }),
-    },
-    {
-      label: "user_amount_note_currency",
-      args: withDefinedEntries({
-        p_user_id: userId,
-        p_amount: amount,
-        p_note: note ?? undefined,
-        p_currency: currency ?? undefined,
-      }),
-    },
-    {
-      label: "user_amount_note",
-      args: withDefinedEntries({
-        p_user_id: userId,
-        p_amount: amount,
-        p_note: note ?? undefined,
-      }),
-    },
-    {
-      label: "requested_amount_only",
-      args: {
-        p_requested_amount: amount,
-      },
-    },
-    {
-      label: "amount_only",
-      args: {
-        p_amount: amount,
-      },
-    },
-    {
-      label: "user_requested_amount_only",
-      args: {
-        p_user_id: userId,
-        p_requested_amount: amount,
-      },
-    },
-    {
-      label: "user_amount_only",
-      args: {
-        p_user_id: userId,
-        p_amount: amount,
-      },
-    },
-  ];
+  if (typeof value !== "string") {
+    throw new Error("Invalid payout request provider.");
+  }
+
+  const trimmed = value.trim().toLowerCase();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  if (ALLOWED_PAYOUT_REQUEST_PROVIDERS.has(trimmed as PayoutRequestProvider)) {
+    return trimmed as PayoutRequestProvider;
+  }
+
+  throw new Error("Payout request provider must be manual_sepa or stripe_connect.");
 }
 
 export async function GET(req: NextRequest) {
@@ -251,12 +180,41 @@ export async function POST(req: NextRequest) {
     }
 
     const note = parseOptionalNote(body?.note ?? null);
-    const currency = parseOptionalCurrency(body?.currency ?? null);
+    let currency: string | null;
+    let provider: PayoutRequestProvider;
+
+    try {
+      currency = parseOptionalCurrency(body?.currency ?? null);
+      provider =
+        parseOptionalPayoutRequestProvider(
+          body?.provider ?? body?.payoutProvider ?? body?.payout_provider ?? null
+        ) ?? DEFAULT_PAYOUT_REQUEST_PROVIDER;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Invalid payout request payload.";
+      return NextResponse.json({ ok: false, error: message }, { status: 400 });
+    }
+
+    if (currency && currency !== "EUR") {
+      return NextResponse.json(
+        { ok: false, error: "Only EUR payout requests are supported in this phase." },
+        { status: 400 }
+      );
+    }
+
     const [rpcResult, connectProfile] = await Promise.all([
       callRpcWithVariants(
         context.supabase,
         "earnings_create_payout_request_v1",
-        buildCreatePayoutRequestVariants(context.user.id, amount, note, currency)
+        [
+          {
+            label: "confirmed_db_contract",
+            args: {
+              p_provider: provider,
+              p_amount: amount,
+              p_note: note,
+            },
+          },
+        ]
       ),
       readStripeConnectReadiness(context.supabase, context.user.id),
     ]);

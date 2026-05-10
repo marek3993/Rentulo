@@ -20,6 +20,10 @@ type Params = {
 
 type ProcessingBody = {
   note?: string | null;
+  providerPayoutRef?: string | null;
+  provider_payout_ref?: string | null;
+  providerRef?: string | null;
+  provider_ref?: string | null;
 };
 
 function buildInvalidIdResponse() {
@@ -43,6 +47,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const body = (await req.json().catch(() => null)) as ProcessingBody | null;
     const note = parseOptionalAdminText(body?.note ?? null, "note");
+    const providerPayoutRef = parseOptionalAdminText(
+      body?.providerPayoutRef ??
+        body?.provider_payout_ref ??
+        body?.providerRef ??
+        body?.provider_ref ??
+        null,
+      "providerPayoutRef"
+    );
     const rpcResult = await callRpcWithVariants(
       admin.supabase,
       "admin_mark_payout_request_processing_v1",
@@ -50,6 +62,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         adminUserId: admin.adminUserId,
         payoutRequestId,
         note,
+        providerPayoutRef,
       })
     );
 

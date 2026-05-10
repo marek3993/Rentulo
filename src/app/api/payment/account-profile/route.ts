@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function updateAccountProfile(req: NextRequest) {
   const context = await requireAuthenticatedPaymentUser(req);
 
   if (!context.ok) {
@@ -139,4 +139,12 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "Failed to update account profile.";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
+}
+
+export async function POST(req: NextRequest) {
+  return updateAccountProfile(req);
+}
+
+export async function PATCH(req: NextRequest) {
+  return updateAccountProfile(req);
 }

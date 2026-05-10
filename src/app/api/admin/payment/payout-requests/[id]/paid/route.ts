@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildMarkPayoutRequestPaidVariants,
   parseOptionalAdminText,
-  parseOptionalIsoDateTime,
 } from "@/lib/adminPayoutRequestServer";
 import {
   buildInternalManualPayoutWorkflow,
@@ -21,6 +20,8 @@ type Params = {
 
 type PaidBody = {
   note?: string | null;
+  providerPayoutRef?: string | null;
+  provider_payout_ref?: string | null;
   providerRef?: string | null;
   provider_ref?: string | null;
   paidAt?: string | null;
@@ -48,11 +49,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   try {
     const body = (await req.json().catch(() => null)) as PaidBody | null;
     const note = parseOptionalAdminText(body?.note ?? null, "note");
-    const providerRef = parseOptionalAdminText(
-      body?.providerRef ?? body?.provider_ref ?? null,
-      "providerRef"
+    const providerPayoutRef = parseOptionalAdminText(
+      body?.providerPayoutRef ??
+        body?.provider_payout_ref ??
+        body?.providerRef ??
+        body?.provider_ref ??
+        null,
+      "providerPayoutRef"
     );
-    const paidAt = parseOptionalIsoDateTime(body?.paidAt ?? body?.paid_at ?? null, "paidAt");
     const rpcResult = await callRpcWithVariants(
       admin.supabase,
       "admin_mark_payout_request_paid_v1",
@@ -60,8 +64,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         adminUserId: admin.adminUserId,
         payoutRequestId,
         note,
-        providerRef,
-        paidAt,
+        providerPayoutRef,
       })
     );
 
