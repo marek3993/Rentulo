@@ -6,6 +6,12 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  THEME_CHANGE_EVENT,
+  isRentuloTheme,
+  readStoredTheme,
+  type RentuloTheme,
+} from "@/lib/theme";
 
 type VerificationStatus = "unverified" | "pending" | "verified" | "rejected" | string;
 
@@ -59,6 +65,18 @@ function verificationLabel(status: VerificationStatus) {
   if (status === "pending") return "Čaká na overenie";
   if (status === "rejected") return "Overenie zamietnuté";
   return "Neoverený profil";
+}
+
+function getCurrentTheme(): RentuloTheme {
+  if (typeof document !== "undefined") {
+    const documentTheme = document.documentElement.dataset.theme;
+
+    if (isRentuloTheme(documentTheme)) {
+      return documentTheme;
+    }
+  }
+
+  return readStoredTheme();
 }
 
 function MessagesNavLink() {
@@ -193,6 +211,7 @@ export default function ClientNav() {
     null
   );
   const [signingOut, setSigningOut] = useState(false);
+  const [theme, setThemeState] = useState<RentuloTheme>(getCurrentTheme);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const addOfferRef = useRef<HTMLDivElement | null>(null);
@@ -207,6 +226,7 @@ export default function ClientNav() {
   const isMenuOpen = openMenuPath === pathname;
   const isVerificationPopoverOpen =
     openVerificationPopoverPath === pathname && isLoggedIn && !isVerified;
+  const themeMenuLabel = theme === "dark" ? "Svetlý režim" : "Tmavý režim";
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -305,6 +325,21 @@ export default function ClientNav() {
   }, []);
 
   useEffect(() => {
+    const syncTheme = (event?: Event) => {
+      const eventTheme = event instanceof CustomEvent ? event.detail : null;
+
+      setThemeState(isRentuloTheme(eventTheme) ? eventTheme : getCurrentTheme());
+    };
+
+    syncTheme();
+    window.addEventListener(THEME_CHANGE_EVENT, syncTheme);
+
+    return () => {
+      window.removeEventListener(THEME_CHANGE_EVENT, syncTheme);
+    };
+  }, []);
+
+  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
 
@@ -361,8 +396,6 @@ export default function ClientNav() {
           </Link>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <ThemeToggle />
-
             {isLoggedIn ? (
               <>
                 <div className="relative" ref={addOfferRef}>
@@ -455,6 +488,13 @@ export default function ClientNav() {
                       </div>
 
                       <div className="pt-2">
+                        <div className="rentulo-topbar-menu-link">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{themeMenuLabel}</span>
+                            <ThemeToggle />
+                          </div>
+                        </div>
+
                         <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
                           Profil
                         </DropdownLink>
@@ -498,6 +538,7 @@ export default function ClientNav() {
               </>
             ) : (
               <>
+                <ThemeToggle />
                 <ActionLink href="/login">Prihlásiť</ActionLink>
                 <ActionLink href="/register" variant="contrast">
                   Registrovať
