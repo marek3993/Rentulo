@@ -17,6 +17,7 @@ type VerificationRow = {
   id: number;
   user_id: string;
   status: VerificationStatus;
+  account_type: AccountType | null;
   full_name: string | null;
   company_name: string | null;
   ico: string | null;
@@ -172,10 +173,10 @@ function getAccountTypeContent(accountType: AccountType | null) {
     afterSubmitItems: [
       "žiadosť prejde do stavu Čaká na kontrolu",
       "výsledok uvidíš priamo na tejto stránke aj vo svojom profile",
-      "po výbere typu účtu sa formulár prispôsobí tvojmu reálnemu onboarding scenáru",
+      "po výbere typu účtu sa formulár prispôsobí tomu, ako účet používaš",
     ],
     formIntro:
-      "Ak máš starší účet bez uloženého typu, najprv ho vyber. Existujúci submit a update flow do user_verifications ostáva zachovaný.",
+      "Ak máš starší účet bez uloženého typu, najprv ho vyber. Uložíme ho bez zmeny aktuálneho stavu overenia.",
     fullNameLabel: "Meno a priezvisko",
     fullNamePlaceholder: "napr. Marek Benda",
     showCompanyName: true,
@@ -189,7 +190,7 @@ function getAccountTypeContent(accountType: AccountType | null) {
     noteLabel: "Poznámka",
     notePlaceholder: "Doplňujúce informácie k overeniu.",
     approvedCopy:
-      "Tvoj profil je overený. Typ účtu sa pri starších účtoch zobrazí presnejšie po jeho uložení v onboardingu.",
+      "Tvoj profil je overený. Typ účtu sa pri starších účtoch zobrazí presnejšie po jeho uložení.",
   };
 }
 
@@ -204,6 +205,7 @@ export default function VerificationPage() {
   const [reviewedAt, setReviewedAt] = useState<string | null>(null);
 
   const [accountType, setAccountType] = useState<AccountType | null>(null);
+  const [verificationAccountType, setVerificationAccountType] = useState<AccountType | null>(null);
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [ico, setIco] = useState("");
@@ -213,6 +215,9 @@ export default function VerificationPage() {
     () => verificationStatus === "not_submitted" || verificationStatus === "rejected",
     [verificationStatus]
   );
+  const canSelectAccountType = canEdit || !verificationAccountType;
+  const canSaveAccountType =
+    canSelectAccountType && !!accountType && accountType !== verificationAccountType;
   const content = useMemo(() => getAccountTypeContent(accountType), [accountType]);
 
   useEffect(() => {
@@ -228,7 +233,8 @@ export default function VerificationPage() {
         return;
       }
 
-      setAccountType(getAccountTypeFromUser(user));
+      const metadataAccountType = getAccountTypeFromUser(user);
+      setAccountType(metadataAccountType);
 
       const { data, error } = await supabase
         .from("user_verifications")
@@ -246,6 +252,8 @@ export default function VerificationPage() {
         setVerificationId(row.id);
         setVerificationStatus(row.status);
         setReviewedAt(row.reviewed_at);
+        setVerificationAccountType(row.account_type ?? null);
+        setAccountType(row.account_type ?? metadataAccountType);
         setFullName(row.full_name ?? "");
         setCompanyName(row.company_name ?? "");
         setIco(row.ico ?? "");
@@ -254,6 +262,7 @@ export default function VerificationPage() {
         setVerificationId(null);
         setVerificationStatus("not_submitted");
         setReviewedAt(null);
+        setVerificationAccountType(null);
         setFullName("");
         setCompanyName("");
         setIco("");
@@ -265,6 +274,80 @@ export default function VerificationPage() {
 
     load();
   }, [router]);
+
+  const saveAccountType = async () => {
+    setSaving(true);
+    setStatus("Ukladám typ účtu...");
+
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const user = sess.session?.user ?? null;
+      const userId = user?.id;
+
+      if (!userId) {
+        alert("Musíš byť prihlásený.");
+        router.push("/login");
+        return;
+      }
+
+      if (!accountType) {
+        alert("Vyber typ účtu.");
+        setStatus("Vyber typ účtu.");
+        return;
+      }
+
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          ...(user.user_metadata ?? {}),
+          account_type: accountType,
+        },
+      });
+
+      if (metadataError) {
+        throw new Error(`Typ účtu sa nepodarilo uložiť: ${metadataError.message}`);
+      }
+
+      if (verificationId) {
+        const { error } = await supabase
+          .from("user_verifications")
+          .update({ account_type: accountType })
+          .eq("id", verificationId)
+          .eq("user_id", userId);
+
+        if (error) {
+          throw new Error(error.message);
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("user_verifications")
+          .insert({
+            user_id: userId,
+            status: "not_submitted",
+            account_type: accountType,
+          })
+          .select("id,status,account_type,reviewed_at")
+          .single();
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setVerificationId(data.id);
+        setVerificationStatus(data.status);
+        setReviewedAt(data.reviewed_at ?? null);
+      }
+
+      setVerificationAccountType(accountType);
+      setStatus("Typ účtu bol uložený.");
+      alert("Typ účtu bol uložený.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Neznáma chyba pri ukladaní.";
+      setStatus("Chyba: " + message);
+      alert(message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const saveVerification = async (nextStatus: "not_submitted" | "pending") => {
     setSaving(true);
@@ -319,6 +402,7 @@ export default function VerificationPage() {
       const payload = {
         user_id: userId,
         status: nextStatus,
+        account_type: accountType,
         full_name: fullName.trim() || null,
         company_name: content.showCompanyName ? companyName.trim() || null : null,
         ico: content.showIco ? ico.trim() || null : null,
@@ -329,7 +413,8 @@ export default function VerificationPage() {
         const { error } = await supabase
           .from("user_verifications")
           .update(payload)
-          .eq("id", verificationId);
+          .eq("id", verificationId)
+          .eq("user_id", userId);
 
         if (error) {
           throw new Error(error.message);
@@ -338,7 +423,7 @@ export default function VerificationPage() {
         const { data, error } = await supabase
           .from("user_verifications")
           .insert(payload)
-          .select("id,status,reviewed_at")
+          .select("id,status,account_type,reviewed_at")
           .single();
 
         if (error) {
@@ -351,6 +436,7 @@ export default function VerificationPage() {
       }
 
       setVerificationStatus(nextStatus);
+      setVerificationAccountType(accountType);
       setReviewedAt(null);
       setStatus(nextStatus === "pending" ? "Žiadosť bola odoslaná." : "Uložené.");
       alert(nextStatus === "pending" ? "Žiadosť o overenie bola odoslaná." : "Údaje boli uložené.");
@@ -450,27 +536,25 @@ export default function VerificationPage() {
               const selected = option.value === accountType;
 
               return (
-                <label
+                <button
                   key={option.value}
-                  className={`block rounded-2xl border p-4 transition ${
+                  type="button"
+                  aria-pressed={selected}
+                  className={`block h-full rounded-2xl border p-4 text-left transition ${
                     selected
-                      ? "border-indigo-400/60 bg-indigo-500/10"
+                      ? "border-indigo-300 bg-indigo-500/20 ring-2 ring-indigo-300/50"
                       : "border-white/10 bg-black/20"
-                  } ${canEdit && !saving ? "cursor-pointer hover:border-white/20 hover:bg-white/5" : "opacity-80"}`}
+                  } ${
+                    canSelectAccountType && !saving
+                      ? "cursor-pointer hover:border-white/25 hover:bg-white/5"
+                      : "cursor-not-allowed opacity-70"
+                  }`}
+                  onClick={() => setAccountType(option.value)}
+                  disabled={!canSelectAccountType || saving}
                 >
-                  <input
-                    className="sr-only"
-                    type="radio"
-                    name="verification-account-type"
-                    value={option.value}
-                    checked={selected}
-                    onChange={() => setAccountType(option.value)}
-                    disabled={!canEdit || saving}
-                  />
-
                   <div className="text-sm font-medium text-white">{option.label}</div>
                   <div className="mt-1 text-sm leading-6 text-white/65">{option.description}</div>
-                </label>
+                </button>
               );
             })}
           </div>
@@ -478,7 +562,7 @@ export default function VerificationPage() {
 
         {!accountType ? (
           <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100">
-            Tento účet ešte nemá uložený typ v onboardingu. Vyber ho pred uložením alebo odoslaním žiadosti.
+            Tento účet ešte nemá uložený typ. Vyber ho pred uložením alebo odoslaním žiadosti.
           </div>
         ) : null}
 
@@ -538,6 +622,17 @@ export default function VerificationPage() {
         </label>
 
         <div className="flex flex-wrap gap-2">
+          {canSaveAccountType ? (
+            <button
+              type="button"
+              className="rounded border border-indigo-300/60 bg-indigo-500/15 px-4 py-2 text-white hover:bg-indigo-500/25 disabled:opacity-50"
+              onClick={saveAccountType}
+              disabled={saving}
+            >
+              {saving ? "Ukladám..." : "Uložiť typ účtu"}
+            </button>
+          ) : null}
+
           {canEdit ? (
             <>
               <button
