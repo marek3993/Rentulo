@@ -215,9 +215,8 @@ export default function VerificationPage() {
     () => verificationStatus === "not_submitted" || verificationStatus === "rejected",
     [verificationStatus]
   );
-  const canSelectAccountType = canEdit || !verificationAccountType;
-  const canSaveAccountType =
-    canSelectAccountType && !!accountType && accountType !== verificationAccountType;
+  const canSelectAccountType = !saving;
+  const canSaveAccountType = !!accountType && accountType !== verificationAccountType;
   const content = useMemo(() => getAccountTypeContent(accountType), [accountType]);
 
   useEffect(() => {
@@ -308,15 +307,22 @@ export default function VerificationPage() {
       }
 
       if (verificationId) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("user_verifications")
           .update({ account_type: accountType })
           .eq("id", verificationId)
-          .eq("user_id", userId);
+          .eq("user_id", userId)
+          .select("id,status,account_type,reviewed_at")
+          .single();
 
         if (error) {
           throw new Error(error.message);
         }
+
+        setVerificationId(data.id);
+        setVerificationStatus(data.status);
+        setReviewedAt(data.reviewed_at ?? null);
+        setVerificationAccountType(data.account_type ?? null);
       } else {
         const { data, error } = await supabase
           .from("user_verifications")
@@ -335,9 +341,9 @@ export default function VerificationPage() {
         setVerificationId(data.id);
         setVerificationStatus(data.status);
         setReviewedAt(data.reviewed_at ?? null);
+        setVerificationAccountType(data.account_type ?? null);
       }
 
-      setVerificationAccountType(accountType);
       setStatus("Typ účtu bol uložený.");
       alert("Typ účtu bol uložený.");
     } catch (err) {
@@ -542,15 +548,15 @@ export default function VerificationPage() {
                   aria-pressed={selected}
                   className={`block h-full rounded-2xl border p-4 text-left transition ${
                     selected
-                      ? "border-indigo-300 bg-indigo-500/20 ring-2 ring-indigo-300/50"
+                      ? "border-indigo-200 bg-indigo-500/25 shadow-lg shadow-indigo-950/30 ring-2 ring-indigo-200/70"
                       : "border-white/10 bg-black/20"
                   } ${
-                    canSelectAccountType && !saving
+                    canSelectAccountType
                       ? "cursor-pointer hover:border-white/25 hover:bg-white/5"
                       : "cursor-not-allowed opacity-70"
                   }`}
                   onClick={() => setAccountType(option.value)}
-                  disabled={!canSelectAccountType || saving}
+                  disabled={!canSelectAccountType}
                 >
                   <div className="text-sm font-medium text-white">{option.label}</div>
                   <div className="mt-1 text-sm leading-6 text-white/65">{option.description}</div>
