@@ -488,13 +488,6 @@ export default function ClientNav() {
                       </div>
 
                       <div className="pt-2">
-                        <div className="rentulo-topbar-menu-link">
-                          <div className="flex items-center justify-between gap-3">
-                            <span>{themeMenuLabel}</span>
-                            <ThemeToggle />
-                          </div>
-                        </div>
-
                         <DropdownLink href="/profile" onNavigate={() => setOpenMenuPath(null)}>
                           Profil
                         </DropdownLink>
@@ -522,6 +515,13 @@ export default function ClientNav() {
                             Administrácia
                           </DropdownLink>
                         ) : null}
+
+                        <div className="rentulo-topbar-menu-link">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{themeMenuLabel}</span>
+                            <ThemeToggle />
+                          </div>
+                        </div>
 
                         <button
                           type="button"
